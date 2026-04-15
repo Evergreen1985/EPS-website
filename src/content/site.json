@@ -1,0 +1,64 @@
+{
+  "name": "Evergreen Preschool & Daycare",
+  "tagline": "Nurturing Young Minds",
+  "description": "Quality early childhood education in Electronic City, Bengaluru. Playgroup, Nursery, Jr. KG, Sr. KG and daycare for children aged 2–12 years.",
+  "phone": "7411574504",
+  "email": "info@evergreenpreschool.com",
+  "address": "1427, 13th Cross Rd, Ananth Nagar Phase 2, Shree Ananth Nagar Layout, Kammasandra, Electronic City, Bengaluru, Karnataka 560100",
+  "addressShort": "1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru – 560100",
+  "mapUrl": "https://maps.google.com/maps?q=1427+13th+Cross+Rd+Ananth+Nagar+Phase+2+Electronic+City+Bengaluru+Karnataka+560100&output=embed",
+  "googleReviewsUrl": "https://www.google.com/search?q=Evergreen+Preschool+and+Daycare+Anantha+Nagar+Reviews",
+  "hours": {
+    "weekdays": "7:00 AM – 7:00 PM",
+    "saturday": "8:00 AM – 1:00 PM",
+    "sunday": "Closed"
+  },
+  "social": {
+    "facebook": "https://facebook.com/evergreenpreschoolbangalore",
+    "instagram": "https://instagram.com/evergreenpreschoolbangalore",
+    "youtube": ""
+  },
+  "rating": { "score": "4.8", "count": "123" },
+  "hero": {
+    "heading": "Where Every Child Blossoms",
+    "subheading": "Quality early childhood education in the heart of Electronic City. Play-based learning, caring teachers, and a safe environment your family can trust.",
+    "ctaPrimary": "Enroll Now",
+    "ctaSecondary": "Explore Programs",
+    "stats": [
+      { "value": "123+", "label": "Happy Families" },
+      { "value": "4.8★", "label": "Google Rating" },
+      { "value": "1:4", "label": "Best Ratio" },
+      { "value": "7 AM", "label": "Opens Daily" }
+    ]
+  },
+  "about": {
+    "heading": "Our Story",
+    "story": "Evergreen Preschool and Daycare was founded with a vision to provide a nurturing and stimulating environment where children can learn, grow, and thrive. Located in Ananthnagar, Electronic City, we have been proudly serving families in Bengaluru with high-quality early childhood education.",
+    "mission": "To provide a safe, caring, and stimulating environment that promotes each child's social, emotional, physical, and cognitive development while supporting their natural curiosity and love for learning.",
+    "vision": "To be recognised as a leading preschool and daycare centre that prepares children to become confident, creative, and compassionate individuals ready to embrace future challenges.",
+    "values": [
+      { "icon": "child", "title": "Child-Centred", "description": "We place children at the heart of everything we do, respecting their individuality and unique developmental journey." },
+      { "icon": "book", "title": "Excellence in Education", "description": "High-quality educational experiences through innovative teaching methods and comprehensive curriculum." },
+      { "icon": "hands", "title": "Partnership with Parents", "description": "Working closely with families to ensure consistent support for children both at home and at school." },
+      { "icon": "globe", "title": "Diversity & Inclusion", "description": "We celebrate diversity and create an inclusive environment where every child and family feels valued." }
+    ],
+    "team": [
+      { "name": "Mrs. Sharma", "role": "Principal", "bio": "Over 15 years of experience in early childhood education leading our team with passion and expertise.", "initials": "MS" },
+      { "name": "Mr. Patel", "role": "Programme Coordinator", "bio": "Oversees curriculum development ensuring our programmes meet the highest educational standards.", "initials": "MP" },
+      { "name": "Ms. Reddy", "role": "Daycare Head", "bio": "Manages our daycare services with a focus on creating a warm, home-like environment for children.", "initials": "MR" }
+    ],
+    "facilities": [
+      { "title": "Modern Classrooms", "description": "Spacious, well-lit classrooms equipped with age-appropriate learning materials." },
+      { "title": "Outdoor Playground", "description": "Safe and engaging play area designed to promote physical development and exploration." },
+      { "title": "Activity Room", "description": "Dedicated space for arts, crafts, music and creative expression." },
+      { "title": "Rest Area", "description": "Comfortable, quiet space for children to rest and recharge during the day." }
+    ]
+  },
+  "faq": [
+    { "q": "What are your admission requirements?", "a": "Complete an application form, submit required documents (birth certificate, immunisation records), and schedule a visit. We accept children based on availability in the appropriate age group." },
+    { "q": "Do you provide meals and snacks?", "a": "Yes, nutritious meals and snacks for full-day programmes. Fresh fruits, vegetables and balanced meals daily. Special dietary requirements accommodated with advance notice." },
+    { "q": "What is your teacher-to-child ratio?", "a": "1:4 for Playgroup (2–3 yrs), 1:6 for Nursery (3–4 yrs), 1:8 for Jr. KG (4–5 yrs), and 1:10 for Sr. KG (5–6 yrs)." },
+    { "q": "What security measures do you have?", "a": "Controlled building access, CCTV surveillance, secure pickup procedures, regular safety drills, and staff trained in first aid and emergency procedures." },
+    { "q": "Do you offer transportation?", "a": "Yes, transportation for our after-school programme from selected nearby schools. Transport for regular programmes can be arranged based on location and availability." }
+  ]
+}

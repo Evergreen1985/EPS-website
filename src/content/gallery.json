@@ -1,0 +1,14 @@
+[
+  { "id": 1, "alt": "Children doing art and craft activities", "category": "Art & Creativity", "caption": "Creative expression every day" },
+  { "id": 2, "alt": "Kids playing on the outdoor playground", "category": "Outdoor Play", "caption": "Outdoor time in our safe playground" },
+  { "id": 3, "alt": "Story time in the reading corner", "category": "Learning", "caption": "Building a love of reading" },
+  { "id": 4, "alt": "Science exploration activity", "category": "STEM", "caption": "Young scientists at work" },
+  { "id": 5, "alt": "Children playing together", "category": "Outdoor Play", "caption": "Friendships that last a lifetime" },
+  { "id": 6, "alt": "Music and movement session", "category": "Arts", "caption": "Music, dance and joyful movement" },
+  { "id": 7, "alt": "Circle time with teachers", "category": "Learning", "caption": "Circle time builds our community" },
+  { "id": 8, "alt": "Painting and craft activity", "category": "Art & Creativity", "caption": "Every child is an artist" },
+  { "id": 9, "alt": "Block building and play", "category": "STEM", "caption": "Engineering starts with blocks" },
+  { "id": 10, "alt": "Festive celebration at school", "category": "Events", "caption": "Celebrating every festival together" },
+  { "id": 11, "alt": "Children during lunch time", "category": "Daily Life", "caption": "Nutritious meals every day" },
+  { "id": 12, "alt": "Sports day activities", "category": "Outdoor Play", "caption": "Active, healthy, happy kids" }
+]

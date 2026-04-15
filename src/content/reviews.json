@@ -1,0 +1,56 @@
+[
+  {
+    "id": 1,
+    "name": "Priya S.",
+    "avatar": "PS",
+    "rating": 5,
+    "timeAgo": "2 months ago",
+    "program": "Parent of a Jr. KG student",
+    "text": "Evergreen has been a second home for my child. The teachers are caring and the programmes are excellent. My child has shown tremendous growth in both academic and social skills."
+  },
+  {
+    "id": 2,
+    "name": "Rahul M.",
+    "avatar": "RM",
+    "rating": 5,
+    "timeAgo": "1 month ago",
+    "program": "Parent of a Nursery student",
+    "text": "The daycare programme has been a lifesaver for our family. My child loves going there every day! The staff is professional and the facilities are excellent."
+  },
+  {
+    "id": 3,
+    "name": "Anjali K.",
+    "avatar": "AK",
+    "rating": 5,
+    "timeAgo": "3 months ago",
+    "program": "Parent of a Sr. KG student",
+    "text": "We've seen tremendous growth in our child's social and academic skills since joining Evergreen. The curriculum is well-structured and the teachers are very supportive."
+  },
+  {
+    "id": 4,
+    "name": "Deepak R.",
+    "avatar": "DR",
+    "rating": 4,
+    "timeAgo": "2 weeks ago",
+    "program": "Parent of a Playgroup student",
+    "text": "The staff at Evergreen are incredibly attentive and caring. My daughter has flourished in their nurturing environment. Highly recommended for working parents."
+  },
+  {
+    "id": 5,
+    "name": "Meera J.",
+    "avatar": "MJ",
+    "rating": 5,
+    "timeAgo": "1 month ago",
+    "program": "Parent of a Sr. KG student",
+    "text": "Excellent curriculum and dedicated teachers! My son has developed amazing social skills and loves learning here. The facilities are clean and well-maintained."
+  },
+  {
+    "id": 6,
+    "name": "Suresh V.",
+    "avatar": "SV",
+    "rating": 5,
+    "timeAgo": "2 months ago",
+    "program": "Parent of a Nursery student",
+    "text": "We moved to this area recently and Evergreen has made the transition so smooth for our child. The teachers are patient and understanding. Great communication with parents too!"
+  }
+]

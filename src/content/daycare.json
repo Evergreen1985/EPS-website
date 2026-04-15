@@ -1,0 +1,82 @@
+[
+  {
+    "id": "fullday",
+    "title": "Full-Day Daycare",
+    "ageRange": "Ages 2–6",
+    "icon": "☀️",
+    "color": "blue",
+    "hours": "7:00 AM – 7:00 PM",
+    "description": "Our comprehensive daycare programme provides all-day care for preschool-aged children, combining educational activities with play, rest, and meals in a structured daily routine.",
+    "features": [
+      "Structured daily routine with educational activities",
+      "Nutritious meals and healthy snacks provided",
+      "Qualified and caring staff maintaining ideal ratios",
+      "Safe, stimulating indoor and outdoor environments",
+      "Regular updates to parents on child's activities",
+      "Age-appropriate learning and developmental activities"
+    ],
+    "sampleSchedule": [
+      { "time": "7:00 AM", "activity": "Arrival and free play" },
+      { "time": "8:30 AM", "activity": "Morning circle and learning activities" },
+      { "time": "10:00 AM", "activity": "Snack time" },
+      { "time": "10:30 AM", "activity": "Outdoor play and physical activities" },
+      { "time": "12:00 PM", "activity": "Lunch" },
+      { "time": "1:00 PM", "activity": "Rest and quiet activities" },
+      { "time": "3:00 PM", "activity": "Afternoon snack" },
+      { "time": "3:30 PM", "activity": "Creative arts and crafts" },
+      { "time": "5:00 PM", "activity": "Stories and songs" },
+      { "time": "7:00 PM", "activity": "Pick-up" }
+    ]
+  },
+  {
+    "id": "afterschool",
+    "title": "After-School Programme",
+    "ageRange": "Ages 5–12",
+    "icon": "🎒",
+    "color": "teal",
+    "hours": "3:30 PM – 7:00 PM",
+    "description": "Our after-school programme provides a supportive environment for school-aged children to complete homework, engage in enrichment activities, and enjoy supervised recreation after regular school hours.",
+    "features": [
+      "Supervised homework help and study support",
+      "Enrichment activities — arts, crafts, music, and more",
+      "Indoor and outdoor games and recreation",
+      "Special interest clubs and activities",
+      "Nutritious afternoon snacks provided",
+      "Safe and secure environment until parents arrive"
+    ],
+    "sampleSchedule": [
+      { "time": "3:30 PM", "activity": "Arrival and snack" },
+      { "time": "4:00 PM", "activity": "Homework and study time" },
+      { "time": "5:00 PM", "activity": "Enrichment activities" },
+      { "time": "6:00 PM", "activity": "Outdoor play and recreation" },
+      { "time": "7:00 PM", "activity": "Pick-up" }
+    ]
+  },
+  {
+    "id": "holiday",
+    "title": "Holiday Camps",
+    "ageRange": "Ages 3–12",
+    "icon": "🏕️",
+    "color": "coral",
+    "hours": "8:00 AM – 5:30 PM",
+    "description": "During school holidays and breaks, we offer special camp programmes filled with fun activities, field trips, and themed projects to keep children engaged and entertained.",
+    "features": [
+      "Full-day programme from 8:00 AM to 5:30 PM",
+      "Weekly themes and special projects",
+      "Arts, crafts, and creative activities",
+      "Sports and outdoor adventures",
+      "Special field trips and excursions",
+      "Age-appropriate games and competitions"
+    ],
+    "sampleSchedule": [
+      { "time": "8:00 AM", "activity": "Arrival and morning activities" },
+      { "time": "9:00 AM", "activity": "Themed activity sessions" },
+      { "time": "11:00 AM", "activity": "Outdoor adventures" },
+      { "time": "12:30 PM", "activity": "Lunch" },
+      { "time": "1:30 PM", "activity": "Afternoon camp activities" },
+      { "time": "3:30 PM", "activity": "Snack break" },
+      { "time": "4:00 PM", "activity": "Group games and competitions" },
+      { "time": "5:30 PM", "activity": "Pick-up" }
+    ]
+  }
+]
