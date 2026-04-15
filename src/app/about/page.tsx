@@ -1,128 +1,131 @@
-import type { Metadata } from "next";
+import { Heart, Sun, Leaf, Palette } from "lucide-react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import site from "@/content/site.json";
 
-export const metadata: Metadata = {
-  title: "About Us",
-  description: "Learn about Evergreen Preschool & Daycare — our story, mission, values, team and facilities in Electronic City, Bengaluru.",
-};
+const values = [
+  { icon: Heart,   title: "Love First",          desc: "Every child is treated with warmth, respect, and unconditional care." },
+  { icon: Sun,     title: "Joyful Learning",      desc: "We believe learning happens best when children are having fun." },
+  { icon: Leaf,    title: "Growth Mindset",       desc: "Encouraging curiosity, resilience, and a love for discovery." },
+  { icon: Palette, title: "Creative Expression",  desc: "Celebrating every child's unique imagination and creativity." },
+];
+
+const team = [
+  { name: "Mrs. Sharma", role: "Principal",             bio: "With over 15 years in early childhood education, Mrs. Sharma leads our team with passion and a big heart.", img: "https://images.unsplash.com/photo-1544717302-de2939b7ef71?q=80&w=400&auto=format&fit=crop", fact: "Loves teaching through storytelling!" },
+  { name: "Mr. Patel",   role: "Programme Coordinator", bio: "Mr. Patel brings science to life through hands-on experiments and nature walks with the children.",          img: "https://images.unsplash.com/photo-1506803682981-6e718a9dd3ee?q=80&w=400&auto=format&fit=crop", fact: "Passionate about STEM education." },
+  { name: "Ms. Reddy",   role: "Daycare Head",          bio: "Ms. Reddy's patience and warm approach make our daycare a safe, home-like space every child loves.",        img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop", fact: "Speaks 3 languages!" },
+];
 
 export default function AboutPage() {
   return (
-    <>
-      {/* Header */}
-      <div
-        className="pt-36 pb-20 text-center"
-        style={{ background: "linear-gradient(135deg, #0D2E1A 0%, #1A4D2E 100%)" }}
-      >
-        <div className="max-w-3xl mx-auto px-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: "#74C69D" }}>About Us</p>
-          <h1 className="text-4xl md:text-5xl font-normal text-white mb-5 leading-tight" style={{ fontFamily: "var(--font-display)" }}>
+    <div className="pb-24" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+
+      {/* Hero */}
+      <div className="relative py-20 lg:py-32 overflow-hidden" style={{ background: "#178F78" }}>
+        <div className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
+        <div className="max-w-5xl mx-auto px-4 text-center relative z-10">
+          <h1 className="text-5xl lg:text-6xl font-bold text-white mb-6" style={{ fontFamily: "'Fredoka', sans-serif" }}>
             Our Story
           </h1>
-          <p className="text-white/65 text-lg leading-relaxed">
+          <p className="text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
             {site.about.story}
           </p>
         </div>
       </div>
 
-      {/* Mission & Vision */}
-      <section className="py-20 bg-white">
+      {/* Mission / Philosophy */}
+      <section className="py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-10">
-            <div className="rounded-3xl p-8 border border-stone-100" style={{ background: "var(--leaf)" }}>
-              <div className="text-2xl mb-4">🎯</div>
-              <h2 className="text-2xl font-normal mb-4" style={{ fontFamily: "var(--font-display)" }}>Our Mission</h2>
-              <p className="text-stone-600 leading-relaxed text-base italic border-l-4 pl-4" style={{ borderColor: "var(--forest)" }}>
-                &ldquo;{site.about.mission}&rdquo;
-              </p>
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div className="relative rounded-3xl overflow-hidden shadow-xl aspect-[4/3]">
+              <Image
+                src="https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=800&auto=format&fit=crop"
+                alt="Kids learning together"
+                fill className="object-cover"
+              />
             </div>
-            <div className="rounded-3xl p-8 border border-stone-100" style={{ background: "var(--amber2)" }}>
-              <div className="text-2xl mb-4">🌟</div>
-              <h2 className="text-2xl font-normal mb-4" style={{ fontFamily: "var(--font-display)" }}>Our Vision</h2>
-              <p className="text-stone-600 leading-relaxed text-base italic border-l-4 pl-4" style={{ borderColor: "var(--amber)" }}>
-                &ldquo;{site.about.vision}&rdquo;
+            <div>
+              <p className="font-bold tracking-wider uppercase text-sm mb-2" style={{ color: "#E8694A" }}>Our Philosophy</p>
+              <h2 className="text-4xl font-bold mb-6 leading-tight" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>
+                Play is the Highest Form of Research
+              </h2>
+              <p className="text-lg text-stone-500 mb-5 leading-relaxed">
+                At EVERGREEN, we follow a play-based curriculum inspired by Reggio Emilia and Montessori philosophies. We believe that children are naturally curious and capable learners.
+              </p>
+              <p className="text-lg text-stone-500 leading-relaxed">
+                Our classrooms are designed as &ldquo;the third teacher&rdquo; — carefully arranged to provoke wonder, creativity, and collaboration. Through hands-on activities, art, music, and outdoor exploration, we nurture the whole child.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Core Values */}
-      <section className="py-20" style={{ background: "var(--warm50)" }}>
+      {/* Values */}
+      <section className="py-20" style={{ background: "#FAF0E8" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="section-title mb-2">Our Core Values</h2>
-            <div className="w-10 h-0.5 rounded-full mx-auto mt-4" style={{ background: "var(--amber)" }} />
+          <div className="text-center mb-14">
+            <h2 className="text-4xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>
+              Our Core Values
+            </h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: "🧒", title: "Child-Centred", desc: "We place children at the heart of everything, respecting their individuality and unique journey." },
-              { icon: "📖", title: "Excellence", desc: "High-quality educational experiences through innovative teaching and comprehensive curriculum." },
-              { icon: "🤝", title: "Family Partnership", desc: "Working closely with families to ensure consistent support at home and at school." },
-              { icon: "🌍", title: "Inclusion", desc: "Celebrating diversity and creating an inclusive environment where every child feels valued." },
-            ].map((v) => (
-              <div key={v.title} className="card text-center">
-                <div className="text-3xl mb-4">{v.icon}</div>
-                <h3 className="text-sm font-semibold text-stone-900 mb-2">{v.title}</h3>
-                <p className="text-sm text-stone-500 leading-relaxed">{v.desc}</p>
+            {values.map((v, i) => (
+              <div key={i} className="bg-white p-7 rounded-3xl shadow-sm border border-stone-100 text-center hover:-translate-y-2 transition-transform">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+                  style={{ background: "rgba(232,105,74,0.1)" }}>
+                  <v.icon className="w-8 h-8" style={{ color: "#E8694A" }} />
+                </div>
+                <h3 className="text-xl font-bold text-stone-800 mb-3" style={{ fontFamily: "'Fredoka', sans-serif" }}>{v.title}</h3>
+                <p className="text-stone-500 text-sm leading-relaxed">{v.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Mission & Vision */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="rounded-3xl p-8 border-l-4" style={{ background: "rgba(23,143,120,0.06)", borderColor: "#178F78" }}>
+              <div className="text-3xl mb-4">🎯</div>
+              <h3 className="text-2xl font-bold mb-4" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>Our Mission</h3>
+              <p className="text-stone-500 leading-relaxed italic">&ldquo;{site.about.mission}&rdquo;</p>
+            </div>
+            <div className="rounded-3xl p-8 border-l-4" style={{ background: "rgba(245,184,41,0.08)", borderColor: "#F5B829" }}>
+              <div className="text-3xl mb-4">🌟</div>
+              <h3 className="text-2xl font-bold mb-4" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>Our Vision</h3>
+              <p className="text-stone-500 leading-relaxed italic">&ldquo;{site.about.vision}&rdquo;</p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Team */}
-      <section className="py-20 bg-white">
+      <section className="py-20" style={{ background: "#FAF0E8" }}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="section-title mb-2">Meet Our Team</h2>
-            <div className="w-10 h-0.5 rounded-full mx-auto mt-4" style={{ background: "var(--amber)" }} />
-            <p className="section-sub text-center mt-4 mx-auto">
-              Dedicated, qualified educators passionate about early childhood education.
+          <div className="text-center mb-14">
+            <p className="font-bold tracking-wider uppercase text-sm mb-2" style={{ color: "#F5B829" }}>Meet The Educators</p>
+            <h2 className="text-4xl font-bold mb-4" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>Our Loving Staff</h2>
+            <p className="text-stone-500 max-w-2xl mx-auto">
+              Every teacher at EVERGREEN is trained, background-checked, and passionate about early childhood education.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {site.about.team.map((member) => (
-              <div key={member.name} className="card text-center">
-                <div
-                  className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl font-semibold text-white"
-                  style={{ background: "var(--forest)" }}
-                >
-                  {member.initials}
+          <div className="grid md:grid-cols-3 gap-8">
+            {team.map((m, i) => (
+              <div key={i} className="group">
+                <div className="relative rounded-3xl overflow-hidden mb-5 aspect-[4/5] shadow-lg">
+                  <Image src={m.img} alt={m.name} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-5"
+                    style={{ background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent)" }}>
+                    <p className="font-bold text-sm mb-1" style={{ color: "#F5B829" }}>Fun Fact:</p>
+                    <p className="text-white text-sm">{m.fact}</p>
+                  </div>
                 </div>
-                <h3 className="text-lg font-normal mb-1" style={{ fontFamily: "var(--font-display)" }}>
-                  {member.name}
-                </h3>
-                <p className="text-sm font-semibold mb-3" style={{ color: "var(--forest2)" }}>
-                  {member.role}
-                </p>
-                <p className="text-sm text-stone-500">{member.bio}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Facilities */}
-      <section className="py-20" style={{ background: "var(--leaf)" }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="section-title mb-2">Our Facilities</h2>
-            <div className="w-10 h-0.5 rounded-full mx-auto mt-4" style={{ background: "var(--amber)" }} />
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: "🏫", title: "Modern Classrooms", desc: "Spacious, well-lit classrooms with age-appropriate learning materials and resources." },
-              { icon: "⛹️", title: "Outdoor Playground", desc: "Safe and engaging play area designed to promote physical development and exploration." },
-              { icon: "🎨", title: "Activity Room", desc: "Dedicated space for arts, crafts, music and creative expression." },
-              { icon: "🛏️", title: "Rest Area", desc: "Comfortable, quiet space for children to rest and recharge during the day." },
-            ].map((f) => (
-              <div key={f.title} className="card bg-white">
-                <div className="text-3xl mb-3">{f.icon}</div>
-                <h3 className="text-sm font-semibold text-stone-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-stone-500 leading-relaxed">{f.desc}</p>
+                <h4 className="text-2xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>{m.name}</h4>
+                <p className="font-bold text-xs uppercase tracking-wider mb-2" style={{ color: "#E8694A" }}>{m.role}</p>
+                <p className="text-stone-500 text-sm leading-relaxed">{m.bio}</p>
               </div>
             ))}
           </div>
@@ -130,17 +133,19 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 text-center" style={{ background: "var(--forest)" }}>
+      <section className="py-16 text-center" style={{ background: "#178F78" }}>
         <div className="max-w-2xl mx-auto px-4">
-          <h2 className="text-3xl font-normal text-white mb-4" style={{ fontFamily: "var(--font-display)" }}>
+          <h2 className="text-3xl font-bold text-white mb-4" style={{ fontFamily: "'Fredoka', sans-serif" }}>
             Experience the Evergreen Difference
           </h2>
-          <p className="text-white/65 mb-8">Schedule a visit to our campus and see our facilities firsthand.</p>
-          <Link href="/contact" className="btn-amber">
-            Contact Us Today <ArrowRight className="w-4 h-4" />
+          <p className="text-white/70 mb-7">Schedule a visit to our campus and see our facilities firsthand.</p>
+          <Link href="/contact"
+            className="inline-flex items-center gap-2 font-bold px-8 py-4 rounded-full text-stone-900 transition-all hover:-translate-y-0.5"
+            style={{ background: "#F5B829", boxShadow: "0 8px 24px rgba(245,184,41,0.35)" }}>
+            Contact Us Today →
           </Link>
         </div>
       </section>
-    </>
+    </div>
   );
 }
