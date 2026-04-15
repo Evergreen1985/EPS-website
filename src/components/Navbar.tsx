@@ -11,6 +11,7 @@ const links = [
   { label: "About Us", href: "/about" },
   { label: "Daycare", href: "/daycare" },
   { label: "Gallery", href: "/gallery" },
+  { label: "AI Tools ✨", href: "/ai-tools" },
   { label: "Contact", href: "/contact" },
 ];
 
