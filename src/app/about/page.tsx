@@ -13,7 +13,7 @@ const values = [
 const team = [
   { name: "Ms. Praveena", role: "Principal",             bio: "With over 7 years in early childhood education, Ms Praveena leads our team with passion and a big heart.", img: "https://images.unsplash.com/photo-1544717302-de2939b7ef71?q=80&w=400&auto=format&fit=crop", fact: "Loves teaching through storytelling!" },
   { name: "Ms. Bhagaylakshmi",   role: "Programme Coordinator", bio: "Mr. Patel brings science to life through hands-on experiments and nature walks with the children.",          img: "https://images.unsplash.com/photo-1544717302-de2939b7ef71?q=80&w=400&auto=format&fit=crop", fact: "Speaks 5 languages! " },
-  { name: "Ms. Vaishnavi",   role: "Senior Techer",          bio: "Ms. Vaishnavi's patience and warm approach make our school a safe, home-like space every child loves.",        img: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop", fact: "Passionate about STEM education." },
+  { name: "Ms. Vaishnavi",   role: "Senior Techer",          bio: "Ms. Vaishnavi's patience and warm approach make our school a safe, home-like space every child loves.",        img: "https://images.unsplash.com/photo-1544717302-de2939b7ef71?q=80&w=400&auto=format&fit=crop", fact: "Passionate about STEM education." },
 ];
 
 export default function AboutPage() {
