@@ -1,21 +1,19 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap");
 
 :root {
   --P: #E8694A;
   --S: #178F78;
   --A: #F5B829;
-  --bg: #FEFCF8;
 }
 
-*, *::before, *::after { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-
 body {
-  font-family: 'Quicksand', system-ui, sans-serif;
-  background-color: var(--bg);
+  font-family: 'Quicksand', sans-serif;
+  background-color: #FEFCF8;
   color: #1A2F4A;
-  -webkit-font-smoothing: antialiased;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -27,6 +25,7 @@ h1, h2, h3, h4, h5, h6 {
   34%       { border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%; }
   67%       { border-radius: 100% 60% 60% 100% / 100% 100% 60% 60%; }
 }
+
 .blob-shape {
   border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
   animation: morph 8s ease-in-out infinite;
@@ -36,6 +35,7 @@ h1, h2, h3, h4, h5, h6 {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-8px); }
 }
+
 .float-badge   { animation: float-up 3s ease-in-out infinite; }
 .float-badge-2 { animation: float-up 4s ease-in-out 1s infinite; }
 
