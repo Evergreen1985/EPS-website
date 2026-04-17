@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookOpen, Brain, Calendar, FileText, Sparkles, Loader2, RefreshCw } from "lucide-react";
 
 type Tool = "story" | "milestone" | "activity" | "report";
@@ -65,6 +65,12 @@ export default function AIToolsPage() {
   const [loading, setLoading]       = useState(false);
   const [result, setResult]         = useState("");
 
+  // Lock body scroll — this page is full-screen
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const [storyTheme,    setStoryTheme]    = useState(storyThemes[0]);
   const [storyName,     setStoryName]     = useState("");
   const [storyAge,      setStoryAge]      = useState(ageGroups[2]);
@@ -105,241 +111,231 @@ export default function AIToolsPage() {
   });
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: "#FEFCF8", fontFamily: "'Quicksand', sans-serif" }}>
+    <div style={{ background: "#FEFCF8", fontFamily: "'Quicksand', sans-serif", height:"calc(100vh - 76px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-      {/* Header */}
-      <div className="py-16 text-center relative overflow-hidden" style={{ background: "linear-gradient(135deg, #178F78 0%, #0f6b5a 100%)" }}>
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-        <div className="relative z-10 max-w-3xl mx-auto px-4">
-          <div className="inline-flex items-center gap-2 bg-white/20 border border-white/30 rounded-full px-4 py-2 mb-5">
-            <Sparkles className="w-4 h-4 text-yellow-300" />
-            <span className="text-white text-sm font-semibold">Smart Learning Tools</span>
-          </div>
-          <h1 className="text-5xl font-bold text-white mb-4" style={{ fontFamily: "'Fredoka', sans-serif" }}>
-            AI Learning Tools
-          </h1>
-          <p className="text-white/80 text-lg leading-relaxed max-w-2xl mx-auto">
-            Smart tools for parents and teachers — helping make early childhood education more joyful and personalised.
-          </p>
+      {/* Compact header band */}
+      <div className="flex-shrink-0 flex items-center gap-4 px-6 py-3" style={{ background:"#178F78" }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background:"rgba(255,255,255,0.15)" }}>🤖</div>
+        <div className="flex-1">
+          <div className="font-bold text-white text-base leading-tight" style={{ fontFamily:"'Fredoka',sans-serif" }}>AI Learning Tools</div>
+          <div className="text-xs" style={{ color:"rgba(255,255,255,0.65)" }}>Smart tools for parents and teachers — 100% free</div>
         </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-4 py-12">
-
-        {/* Tool tabs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10">
+        {/* Tool tabs inline */}
+        <div className="hidden md:flex gap-2">
           {tools.map((tool) => {
             const Icon = tool.icon;
             const isActive = activeTool === tool.id;
             return (
               <button key={tool.id} onClick={() => { setActiveTool(tool.id); setResult(""); }}
-                className="flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
                 style={{
-                  borderColor: isActive ? tool.color : "#EDE8DF",
-                  background:  isActive ? tool.bg : "white",
-                  transform:   isActive ? "translateY(-2px)" : "none",
-                  boxShadow:   isActive ? `0 8px 24px ${tool.color}25` : "0 2px 8px rgba(0,0,0,0.04)",
+                  background: isActive ? "white" : "rgba(255,255,255,0.15)",
+                  color: isActive ? tool.color : "rgba(255,255,255,0.9)",
                 }}>
-                <Icon className="w-6 h-6" style={{ color: tool.color }} />
-                <span className="text-xs font-bold text-center leading-tight" style={{ color: isActive ? tool.color : "#6B7A99" }}>
-                  {tool.label}
-                </span>
+                <Icon className="w-3.5 h-3.5" />
+                {tool.label}
               </button>
             );
           })}
         </div>
+      </div>
 
-        {/* Panel */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-100" style={{ background: currentTool.bg }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: currentTool.color }}>
-                <currentTool.icon className="w-5 h-5 text-white" />
+      {/* Main content — two columns */}
+      <div className="flex-1 overflow-hidden flex gap-0">
+
+        {/* Left: inputs */}
+        <div className="w-1/2 border-r overflow-y-auto p-5" style={{ borderColor:"#EDE8DF", scrollbarWidth:"none" as const }}>
+          {/* Mobile tool tabs */}
+          <div className="flex gap-2 mb-4 md:hidden">
+            {tools.map((tool) => {
+              const Icon = tool.icon;
+              const isActive = activeTool === tool.id;
+              return (
+                <button key={tool.id} onClick={() => { setActiveTool(tool.id); setResult(""); }}
+                  className="flex-1 flex flex-col items-center gap-1 p-2 rounded-xl border text-xs font-bold transition-all"
+                  style={{ borderColor: isActive ? tool.color : "#EDE8DF", background: isActive ? tool.bg : "white", color: isActive ? tool.color : "#6B7A99" }}>
+                  <Icon className="w-4 h-4" />
+                  {tool.label.split(" ")[0]}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active tool header */}
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b" style={{ borderColor:"#EDE8DF" }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:currentTool.color }}>
+              <currentTool.icon className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="font-bold text-base" style={{ fontFamily:"'Fredoka',sans-serif", color:currentTool.color }}>{currentTool.label}</div>
+              <div className="text-xs" style={{ color:"#6B7A99" }}>
+                {activeTool === "story"     && "Create a personalised story for your little one."}
+                {activeTool === "milestone" && "Get developmental guidance for your child's age."}
+                {activeTool === "activity"  && "Generate fun, educational activities instantly."}
+                {activeTool === "report"    && "Create a warm progress report in seconds."}
+              </div>
+            </div>
+          </div>
+
+          {/* STORY inputs */}
+          {activeTool === "story" && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Story Theme</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {storyThemes.map(t => (
+                    <button key={t} onClick={() => setStoryTheme(t)}
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
+                      style={chipCls(storyTheme===t, "#E8694A")}>{t}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Child&apos;s Name</label>
+                  <input className={inputCls} placeholder="e.g. Arjun" value={storyName} onChange={e=>setStoryName(e.target.value)} />
+                </div>
+                <div>
+                  <label className={labelCls}>Age Group</label>
+                  <select className={inputCls} value={storyAge} onChange={e=>setStoryAge(e.target.value)}>
+                    {ageGroups.map(a=><option key={a}>{a}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ fontFamily: "'Fredoka', sans-serif", color: currentTool.color }}>
-                  {currentTool.label}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {activeTool === "story"     && "Create a personalised story for your little one in seconds."}
-                  {activeTool === "milestone" && "Get developmental milestone guidance for your child's age."}
-                  {activeTool === "activity"  && "Generate fun, educational activities tailored to your child."}
-                  {activeTool === "report"    && "Create a warm, professional progress report in seconds."}
-                </p>
+                <label className={labelCls}>Lesson to Teach</label>
+                <input className={inputCls} placeholder="e.g. kindness, sharing, bravery" value={storyLesson} onChange={e=>setStoryLesson(e.target.value)} />
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="p-8">
-
-            {/* STORY */}
-            {activeTool === "story" && (
-              <div className="space-y-5">
-                <div>
-                  <label className={labelCls}>Story Theme</label>
-                  <div className="flex flex-wrap gap-2">
-                    {storyThemes.map(t => (
-                      <button key={t} onClick={() => setStoryTheme(t)}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                        style={chipCls(storyTheme===t, "#E8694A")}>{t}</button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls}>Child&apos;s Name (optional)</label>
-                    <input className={inputCls} placeholder="e.g. Arjun" value={storyName} onChange={e=>setStoryName(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Age Group</label>
-                    <select className={inputCls} value={storyAge} onChange={e=>setStoryAge(e.target.value)}>
-                      {ageGroups.map(a=><option key={a}>{a}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Lesson to Teach</label>
-                  <input className={inputCls} placeholder="e.g. kindness, sharing, bravery, honesty"
-                    value={storyLesson} onChange={e=>setStoryLesson(e.target.value)} />
+          {/* MILESTONE inputs */}
+          {activeTool === "milestone" && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelCls}>Child&apos;s Age Group</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ageGroups.map(a => (
+                    <button key={a} onClick={() => setMsAge(a)}
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
+                      style={chipCls(msAge===a, "#178F78")}>{a}</button>
+                  ))}
                 </div>
               </div>
-            )}
+              <div>
+                <label className={labelCls}>Specific Concern (optional)</label>
+                <textarea className={inputCls} rows={4}
+                  placeholder="e.g. My child is not yet speaking many words..."
+                  value={msConcern} onChange={e=>setMsConcern(e.target.value)} />
+              </div>
+            </div>
+          )}
 
-            {/* MILESTONE */}
-            {activeTool === "milestone" && (
-              <div className="space-y-5">
+          {/* ACTIVITY inputs */}
+          {activeTool === "activity" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={labelCls}>Child&apos;s Age Group</label>
-                  <div className="flex flex-wrap gap-2">
-                    {ageGroups.map(a => (
-                      <button key={a} onClick={() => setMsAge(a)}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                        style={chipCls(msAge===a, "#178F78")}>{a}</button>
-                    ))}
-                  </div>
+                  <label className={labelCls}>Age Group</label>
+                  <select className={inputCls} value={actAge} onChange={e=>setActAge(e.target.value)}>
+                    {ageGroups.map(a=><option key={a}>{a}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className={labelCls}>Specific Concern (optional)</label>
-                  <textarea className={inputCls} rows={3}
-                    placeholder="e.g. My child is not yet speaking many words..."
-                    value={msConcern} onChange={e=>setMsConcern(e.target.value)} />
+                  <label className={labelCls}>Duration</label>
+                  <select className={inputCls} value={actDuration} onChange={e=>setActDuration(e.target.value)}>
+                    {durations.map(d=><option key={d}>{d}</option>)}
+                  </select>
                 </div>
               </div>
-            )}
-
-            {/* ACTIVITY */}
-            {activeTool === "activity" && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls}>Age Group</label>
-                    <select className={inputCls} value={actAge} onChange={e=>setActAge(e.target.value)}>
-                      {ageGroups.map(a=><option key={a}>{a}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Duration</label>
-                    <select className={inputCls} value={actDuration} onChange={e=>setActDuration(e.target.value)}>
-                      {durations.map(d=><option key={d}>{d}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Skill to Develop</label>
-                  <div className="flex flex-wrap gap-2">
-                    {skills.map(s => (
-                      <button key={s} onClick={() => setActSkill(s)}
-                        className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
-                        style={chipCls(actSkill===s, "#F5B829")}>{s}</button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls}>Available Materials (optional)</label>
-                  <input className={inputCls} placeholder="e.g. paper, crayons, blocks, playdough..."
-                    value={actMaterials} onChange={e=>setActMaterials(e.target.value)} />
+              <div>
+                <label className={labelCls}>Skill to Develop</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {skills.map(s => (
+                    <button key={s} onClick={() => setActSkill(s)}
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
+                      style={chipCls(actSkill===s, "#F5B829")}>{s}</button>
+                  ))}
                 </div>
               </div>
-            )}
+              <div>
+                <label className={labelCls}>Available Materials (optional)</label>
+                <input className={inputCls} placeholder="e.g. paper, crayons, blocks, playdough..." value={actMaterials} onChange={e=>setActMaterials(e.target.value)} />
+              </div>
+            </div>
+          )}
 
-            {/* REPORT */}
-            {activeTool === "report" && (
-              <div className="space-y-5">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls}>Child&apos;s Name</label>
-                    <input className={inputCls} placeholder="e.g. Priya" value={repName} onChange={e=>setRepName(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Age Group</label>
-                    <select className={inputCls} value={repAge} onChange={e=>setRepAge(e.target.value)}>
-                      {ageGroups.map(a=><option key={a}>{a}</option>)}
-                    </select>
-                  </div>
+          {/* REPORT inputs */}
+          {activeTool === "report" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Child&apos;s Name</label>
+                  <input className={inputCls} placeholder="e.g. Priya" value={repName} onChange={e=>setRepName(e.target.value)} />
                 </div>
                 <div>
-                  <label className={labelCls}>Strengths Observed</label>
-                  <textarea className={inputCls} rows={2}
-                    placeholder="e.g. loves art, very social, great with numbers, kind to friends..."
-                    value={repStrengths} onChange={e=>setRepStrengths(e.target.value)} />
-                </div>
-                <div>
-                  <label className={labelCls}>Areas for Growth</label>
-                  <textarea className={inputCls} rows={2}
-                    placeholder="e.g. working on sharing, developing pencil grip, building confidence..."
-                    value={repImprove} onChange={e=>setRepImprove(e.target.value)} />
+                  <label className={labelCls}>Age Group</label>
+                  <select className={inputCls} value={repAge} onChange={e=>setRepAge(e.target.value)}>
+                    {ageGroups.map(a=><option key={a}>{a}</option>)}
+                  </select>
                 </div>
               </div>
-            )}
-
-            {/* Generate button */}
-            <button onClick={handleGenerate} disabled={loading}
-              className="mt-6 w-full flex items-center justify-center gap-2 py-3.5 rounded-full text-white font-bold text-sm transition-all"
-              style={{
-                background:  loading ? "#ccc" : currentTool.color,
-                boxShadow:   loading ? "none" : `0 8px 24px ${currentTool.color}40`,
-                cursor:      loading ? "not-allowed" : "pointer",
-              }}>
-              {loading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-                : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
-            </button>
-
-            {/* Result */}
-            {result && (
-              <div className="mt-6 rounded-2xl border-2 overflow-hidden" style={{ borderColor: currentTool.color + "40" }}>
-                <div className="px-5 py-3 flex items-center justify-between" style={{ background: currentTool.bg }}>
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" style={{ color: currentTool.color }} />
-                    <span className="text-sm font-bold" style={{ color: currentTool.color }}>Result</span>
-                  </div>
-                  <button onClick={handleGenerate}
-                    className="flex items-center gap-1.5 text-xs font-semibold hover:opacity-70 transition-opacity"
-                    style={{ color: currentTool.color }}>
-                    <RefreshCw className="w-3.5 h-3.5" /> Regenerate
-                  </button>
-                </div>
-                <div className="p-5 bg-white">
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{result}</p>
-                </div>
+              <div>
+                <label className={labelCls}>Strengths Observed</label>
+                <textarea className={inputCls} rows={2} placeholder="e.g. loves art, very social, great with numbers..." value={repStrengths} onChange={e=>setRepStrengths(e.target.value)} />
               </div>
-            )}
-          </div>
+              <div>
+                <label className={labelCls}>Areas for Growth</label>
+                <textarea className={inputCls} rows={2} placeholder="e.g. working on sharing, building confidence..." value={repImprove} onChange={e=>setRepImprove(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {/* Generate button */}
+          <button onClick={handleGenerate} disabled={loading}
+            className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-full text-white font-bold text-sm transition-all"
+            style={{ background: loading ? "#ccc" : currentTool.color, boxShadow: loading ? "none" : `0 6px 20px ${currentTool.color}40`, cursor: loading ? "not-allowed" : "pointer", fontFamily:"'Quicksand',sans-serif" }}>
+            {loading
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+              : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+          </button>
         </div>
 
-        {/* Info cards */}
-        <div className="grid md:grid-cols-3 gap-5 mt-10">
-          {[
-            { icon: "🔒", title: "Safe & Private",    desc: "No child data is stored. All content is generated fresh each time and never saved." },
-            { icon: "🎯", title: "Age-Appropriate",   desc: "Every tool is calibrated for early childhood development stages from 9 months to 8 years." },
-            { icon: "⚡", title: "Instant Results",   desc: "Get personalised content in seconds — stories, plans, reports and milestone guidance." },
-          ].map(c => (
-            <div key={c.title} className="bg-white rounded-2xl border border-gray-100 p-5 text-center shadow-sm">
-              <div className="text-3xl mb-3">{c.icon}</div>
-              <div className="font-bold text-gray-800 mb-2" style={{ fontFamily: "'Fredoka', sans-serif" }}>{c.title}</div>
-              <div className="text-xs text-gray-500 leading-relaxed">{c.desc}</div>
+        {/* Right: result */}
+        <div className="w-1/2 overflow-y-auto p-5" style={{ scrollbarWidth:"none" as const, background:"#FAF0E8" }}>
+          {result ? (
+            <div className="bg-white rounded-2xl border overflow-hidden h-full flex flex-col" style={{ borderColor:"#EDE8DF" }}>
+              <div className="px-4 py-3 flex items-center justify-between border-b flex-shrink-0" style={{ background:currentTool.bg, borderColor:"#EDE8DF" }}>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" style={{ color:currentTool.color }} />
+                  <span className="text-sm font-bold" style={{ color:currentTool.color }}>Result</span>
+                </div>
+                <button onClick={handleGenerate}
+                  className="flex items-center gap-1 text-xs font-semibold hover:opacity-70"
+                  style={{ color:currentTool.color }}>
+                  <RefreshCw className="w-3 h-3" /> Regenerate
+                </button>
+              </div>
+              <div className="p-5 flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" as const }}>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color:"#374151" }}>{result}</p>
+              </div>
             </div>
-          ))}
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+              <div className="text-4xl">✨</div>
+              <div className="font-bold text-lg" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Your result appears here</div>
+              <p className="text-sm" style={{ color:"#6B7A99" }}>Fill in the details on the left and click Generate to get your personalised result.</p>
+              <div className="grid grid-cols-2 gap-3 mt-4 w-full max-w-sm">
+                {[["🔒","Safe & Private","No data stored"],["🎯","Age-Appropriate","Tailored content"],["⚡","Instant","Results in seconds"],["💯","100% Free","No payment needed"]].map(([icon,t,d])=>(
+                  <div key={t} className="bg-white rounded-xl p-3 text-center border" style={{ borderColor:"#EDE8DF" }}>
+                    <div className="text-xl mb-1">{icon}</div>
+                    <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{t}</div>
+                    <div className="text-xs" style={{ color:"#6B7A99" }}>{d}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
