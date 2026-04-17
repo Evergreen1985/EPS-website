@@ -258,7 +258,7 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
       ══════════════════════════════════════════════ */}
       <div ref={el => { sectionRefs.current[1] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
-        {secBand("📚","Programs","Swipe through each programme",
+        {secBand("📚","Programs","Tap arrows to explore each programme",
           <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.8)" }}>{progSlide + 1} / {progList.length}</span>
         )}
         <div className="flex-1 overflow-hidden relative">
@@ -268,51 +268,51 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
               const c = progColors[prog.id] ?? progColors.srkg;
               return (
                 <Slide key={prog.id}>
-                  <div className="max-w-2xl mx-auto px-6 py-4">
+                  <div className="max-w-xl mx-auto px-10 py-3">
                     <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
-                      <div className="h-1.5" style={{ background:c.strip }} />
-                      <div className="p-5">
+                      <div className="h-1" style={{ background:c.strip }} />
+                      <div className="p-4">
                         {/* Header */}
-                        <div className="flex items-center gap-4 mb-3">
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ background:`${c.check}18` }}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0" style={{ background:`${c.check}18` }}>
                             {programs.find(p=>p.id===prog.id)?.icon ?? "📚"}
                           </div>
                           <div className="flex-1">
-                            <div className="font-bold text-xl" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{prog.title}</div>
-                            <span className="inline-block text-xs font-semibold px-3 py-0.5 rounded-full" style={{ background:"#FAF0E8", color:"#6B7A99" }}>{prog.ageRange}</span>
+                            <div className="font-bold text-lg leading-tight" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{prog.title}</div>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:"#FAF0E8", color:"#6B7A99" }}>{prog.ageRange}</span>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right flex-shrink-0">
                             <div className="font-bold text-sm" style={{ fontFamily:"'Fredoka',sans-serif", color:c.btn }}>Ratio {prog.ratio}</div>
-                            <div className="text-xs" style={{ color:"#6B7A99" }}>per teacher</div>
                           </div>
                         </div>
                         {/* Description */}
-                        <p className="text-sm leading-relaxed mb-3" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>{prog.description}</p>
-                        {/* Highlights */}
-                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color:"#1A2F4A" }}>Programme Highlights</div>
-                        <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
-                          {prog.highlights.map((h: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2 text-xs" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>
-                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ background:c.check }} />
-                              {h}
-                            </li>
-                          ))}
-                        </ul>
-                        {/* Timing + Enroll in one row */}
-                        <div className="flex items-center gap-3 pt-3 border-t" style={{ borderColor:"#EDE8DF" }}>
-                          <div className="flex items-center gap-2 flex-1 rounded-xl px-4 py-2.5" style={{ background:`${c.check}0d` }}>
-                            <span className="text-base">🕐</span>
-                            <div>
-                              <div className="text-xs font-semibold" style={{ color:"#6B7A99" }}>{(prog as any).timingLabel}</div>
-                              <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{(prog as any).timing}</div>
+                        <p className="text-xs leading-relaxed mb-2" style={{ color:"#6B7A99" }}>{prog.description}</p>
+                        {/* Highlights — 2 columns */}
+                        <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color:"#1A2F4A" }}>Highlights</div>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 mb-3">
+                          {prog.highlights.slice(0,6).map((h: string, i: number) => (
+                            <div key={i} className="flex items-start gap-1.5 text-xs" style={{ color:"#6B7A99" }}>
+                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ background:c.check }} />{h}
                             </div>
-                          </div>
-                          <button onClick={() => jumpTo(7)}
-                            className="flex-shrink-0 py-2.5 px-6 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
-                            style={{ background:c.btn, boxShadow:`0 4px 14px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
-                            Enroll Now →
-                          </button>
+                          ))}
                         </div>
+                        {/* Schedule boxes */}
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          {prog.halfDay && <div className="rounded-lg p-2 text-center" style={{ background:`${c.check}0d` }}>
+                            <div className="text-xs" style={{ color:"#6B7A99" }}>Half Day</div>
+                            <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{prog.halfDay}</div>
+                          </div>}
+                          {prog.fullDay && <div className="rounded-lg p-2 text-center" style={{ background:`${c.check}0d` }}>
+                            <div className="text-xs" style={{ color:"#6B7A99" }}>Full Day</div>
+                            <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{prog.fullDay}</div>
+                          </div>}
+                        </div>
+                        {/* Enroll button — always visible */}
+                        <button onClick={() => jumpTo(7)}
+                          className="w-full py-2.5 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
+                          style={{ background:c.btn, boxShadow:`0 4px 12px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
+                          Enroll in {prog.title} →
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -323,7 +323,6 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
         </div>
         <SlideDots total={progList.length} cur={progSlide} onDot={setProgSlide} />
       </div>
-
       {/* ══════════════════════════════════════════════
           2. ABOUT US
       ══════════════════════════════════════════════ */}
