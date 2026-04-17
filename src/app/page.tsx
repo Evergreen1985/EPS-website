@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, Shield, ChevronLeft, ChevronRight, Star, ExternalLink, Phone, Mail, MapPin, Clock, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Heart, Shield, Star, ExternalLink, Phone, Mail, MapPin, Clock } from "lucide-react";
 import HeroPill from "@/components/HeroPill";
 import GoogleReviews from "@/components/GoogleReviews";
 import site from "@/content/site.json";
@@ -46,19 +46,19 @@ const Slide = ({ children, className = "", style = {} }: { children: React.React
 );
 
 const SlideNav = ({
-  name, cur, total, onPrev, onNext
-}: { name: string; cur: number; total: number; onPrev: () => void; onNext: () => void }) => (
-  <div className="flex items-center gap-3">
+  cur, total, onPrev, onNext
+}: { cur: number; total: number; onPrev: () => void; onNext: () => void }) => (
+  <div className="flex items-center gap-2">
     <button onClick={onPrev} disabled={cur === 0}
-      className="flex items-center gap-1 text-xs font-semibold border rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
-      style={{ borderColor:"rgba(255,255,255,0.4)", color:"rgba(255,255,255,0.9)" }}>
-      <ChevronLeft className="w-3 h-3" /> Prev
+      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-all disabled:opacity-30"
+      style={{ background:"rgba(255,255,255,0.25)", color:"white", border:"1.5px solid rgba(255,255,255,0.5)" }}>
+      ← Prev
     </button>
-    <span className="text-xs" style={{ color:"rgba(255,255,255,0.6)" }}>{cur + 1} / {total}</span>
+    <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.9)", minWidth:"36px", textAlign:"center" }}>{cur + 1} / {total}</span>
     <button onClick={onNext} disabled={cur === total - 1}
-      className="flex items-center gap-1 text-xs font-semibold border rounded-full px-3 py-1.5 transition-all disabled:opacity-30"
-      style={{ borderColor:"rgba(255,255,255,0.4)", color:"rgba(255,255,255,0.9)" }}>
-      Next <ChevronRight className="w-3 h-3" />
+      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-all disabled:opacity-30"
+      style={{ background:"white", color:"#178F78", border:"1.5px solid white" }}>
+      Next →
     </button>
   </div>
 );
@@ -86,6 +86,29 @@ export default function HomePage() {
   const [galFilter, setGalFilter] = useState("All");
   const [formStatus, setFormStatus] = useState<FormStatus>("idle");
   const [form, setForm] = useState({ parent:"", phone:"", child:"", dob:"", program:"", msg:"" });
+
+  // ── auto-advance slides ──────────────────────────────
+  const progTotal  = progList.length;
+  const aboutTotal = 3;
+  const dayTotal   = 3;
+
+  useEffect(() => {
+    if (active !== 1) return; // only run when Programs section is visible
+    const t = setInterval(() => setProgSlide(p => (p + 1) % progTotal), 5000);
+    return () => clearInterval(t);
+  }, [active, progTotal]);
+
+  useEffect(() => {
+    if (active !== 2) return;
+    const t = setInterval(() => setAboutSlide(p => (p + 1) % aboutTotal), 5000);
+    return () => clearInterval(t);
+  }, [active]);
+
+  useEffect(() => {
+    if (active !== 3) return;
+    const t = setInterval(() => setDaySlide(p => (p + 1) % dayTotal), 5000);
+    return () => clearInterval(t);
+  }, [active]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -233,7 +256,7 @@ export default function HomePage() {
       <div ref={el => { sectionRefs.current[1] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("📚","Programs","Swipe through each programme",
-          <SlideNav name="prog" cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0, p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1, p+1))} />
+          <SlideNav cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0, p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1, p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
           <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)` }}>
@@ -304,7 +327,7 @@ export default function HomePage() {
       <div ref={el => { sectionRefs.current[2] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("🌿","About Us","Our story, values and team",
-          <SlideNav name="about" cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
+          <SlideNav cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
           <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)` }}>
@@ -390,7 +413,7 @@ export default function HomePage() {
       <div ref={el => { sectionRefs.current[3] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("🏡","Daycare & Extended Care","Flexible childcare for working parents",
-          <SlideNav name="day" cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
+          <SlideNav cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
           <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)` }}>
