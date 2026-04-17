@@ -11,8 +11,8 @@ const tabs = [
   { label:"About Us",      idx:2,  href:null },
   { label:"Daycare",       idx:3,  href:null },
   { label:"Gallery",       idx:4,  href:null },
-  { label:"AI Tools ✨",   idx:5,  href:"/ai-tools" },
-  { label:"Parent Portal", idx:6,  href:"/parent-portal" },
+  { label:"AI Tools ✨",   idx:5,  href:null },
+  { label:"Parent Portal", idx:6,  href:null },
   { label:"Contact",       idx:7,  href:null },
 ];
 
