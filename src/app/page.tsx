@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import GoogleReviews from "@/components/GoogleReviews";
 import { ArrowRight, Star, Heart, Shield, BookOpen, Users, GraduationCap, CheckCircle2, Clock } from "lucide-react";
 import site from "@/content/site.json";
 import programs from "@/content/programs.json";
@@ -172,44 +173,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── GOOGLE REVIEWS ── */}
+      {/* ── LIVE GOOGLE REVIEWS ── */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <p className="text-accent font-bold tracking-wider uppercase text-sm mb-2">Parent Reviews</p>
           <h2 className="text-4xl font-display font-bold text-secondary mb-4">Loved by Families</h2>
-          <div className="flex items-center justify-center gap-2">
-            {[1,2,3,4,5].map(i => <Star key={i} className="w-5 h-5 fill-accent text-accent" />)}
-            <span className="font-bold text-secondary ml-2">{site.rating.score}</span>
-            <span className="text-muted-foreground">· {site.rating.count} Google reviews</span>
-          </div>
+          <p className="text-muted-foreground text-sm">Real reviews from Google — updated automatically</p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.slice(0, 6).map((t) => (
-            <div key={t.id} className="bg-card border border-border p-6 rounded-3xl shadow-sm hover:shadow-md hover:-translate-y-1 transition-all">
-              <div className="flex gap-1 mb-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className={`w-4 h-4 ${i < t.rating ? "fill-accent text-accent" : "text-border"}`} />
-                ))}
-              </div>
-              <p className="text-foreground italic mb-6 text-sm leading-relaxed">&ldquo;{t.text}&rdquo;</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center font-bold text-primary text-sm">
-                  {t.avatar}
-                </div>
-                <div>
-                  <p className="font-bold text-secondary text-sm">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.program} · {t.timeAgo}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-8 text-center">
-          <a href={site.googleReviewsUrl} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 border-2 border-secondary text-secondary font-bold px-8 py-3 rounded-full hover:bg-secondary hover:text-white transition-all">
-            See All Reviews on Google <ArrowRight className="w-4 h-4" />
-          </a>
-        </div>
+        <GoogleReviews />
       </section>
 
       {/* ── UPCOMING EVENTS BAND ── */}
