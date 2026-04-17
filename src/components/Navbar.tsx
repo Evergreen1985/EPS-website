@@ -79,9 +79,9 @@ export default function Navbar() {
         <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between">
           {/* Logo */}
           <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-xs group-hover:scale-110 transition-transform"
-              style={{ background:"#E8694A", fontFamily:"'Fredoka',sans-serif" }}>EP</div>
-            <span className="font-bold text-xl" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>EVERGREEN</span>
+            <img src="/logo.png" alt="Evergreen Preschool Logo"
+              className="group-hover:scale-105 transition-transform"
+              style={{ height:"44px", width:"auto", objectFit:"contain" }} />
           </button>
 
           {/* Desktop tabs */}
