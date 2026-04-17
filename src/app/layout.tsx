@@ -2,27 +2,36 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import site from "@/content/site.json";
 
 export const metadata: Metadata = {
-  title: { default: site.name, template: `%s | ${site.name}` },
-  description: site.description,
-  keywords: ["preschool", "daycare", "Bengaluru", "Electronic City", "Playgroup", "Nursery", "KG", "early childhood"],
+  title: `${site.name} | Preschool & Daycare in Electronic City, Bengaluru`,
+  description: `${site.name} is a leading preschool and daycare centre in Electronic City, Bengaluru. We offer Infant Care, Playgroup, Nursery, Junior KG, Senior KG, Full-Day Daycare and After-School programs. Rated ${site.rating.score}★ on Google.`,
+  keywords: "preschool bengaluru, daycare electronic city, nursery bangalore, infant care bangalore, junior kg, senior kg, evergreen preschool",
   openGraph: {
     title: site.name,
-    description: site.description,
+    description: "Nurturing young minds through play-based learning in Electronic City, Bengaluru.",
+    url: "https://evergreenprepschools.com",
+    siteName: site.name,
+    locale: "en_IN",
     type: "website",
   },
-  metadataBase: new URL("https://evergreenpreschool.com"),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body>
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main>{children}</main>
         <Footer />
+        <WhatsAppButton />
       </body>
     </html>
   );
