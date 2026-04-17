@@ -41,7 +41,7 @@ const sectionIds = ["home","programs","about","daycare","gallery","ai-tools","po
 // ─── helpers ─────────────────────────────────────────────
 const Slide = ({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
   <div className={`min-w-full overflow-y-auto flex-shrink-0 ${className}`}
-    style={{ height:"calc(100vh - 168px)", scrollbarWidth:"none" as const, ...style }}>
+    style={{ height:"calc(100vh - 184px)", scrollbarWidth:"none" as const, ...style }}>
     {children}
   </div>
 );
@@ -172,8 +172,8 @@ export default function HomePage() {
 // Section height = 100vh - topbar(28px) - navbar(48px)
 // Band height = 56px, Dots height = 36px
 // Slide area = SH - 56 - 36 = 100vh - 168px
-const SH  = "calc(100vh - 76px)";
-const SSH = "calc(100vh - 168px)"; // slide scroll area height
+const SH  = "calc(100vh - 92px)";
+const SSH = "calc(100vh - 184px)"; // slide scroll area height
 
   return (
     <div ref={scrollRef}
@@ -263,7 +263,7 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
         )}
         <div className="flex-1 overflow-hidden relative">
           <SlideArrows cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0,p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1,p+1))} />
-          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:"calc(100vh - 184px)" }}>
             {progList.map((prog) => {
               const c = progColors[prog.id] ?? progColors.srkg;
               return (
@@ -333,7 +333,7 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
         )}
         <div className="flex-1 overflow-hidden relative">
           <SlideArrows cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
-          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)`, height:"calc(100vh - 184px)" }}>
             {/* Slide A: Story + Values */}
             <Slide className="p-5" style={{ background:"#FAF0E8" }}>
               <div className="max-w-4xl mx-auto">
@@ -420,7 +420,7 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
         )}
         <div className="flex-1 overflow-hidden relative">
           <SlideArrows cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
-          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)`, height:"calc(100vh - 168px)" }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)`, height:"calc(100vh - 184px)" }}>
             {/* Full-Day Daycare */}
             <Slide className="p-5">
               <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-5">
