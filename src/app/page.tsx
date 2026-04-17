@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import GoogleReviews from "@/components/GoogleReviews";
+import HeroPill from "@/components/HeroPill";
 import { ArrowRight, Star, Heart, Shield, BookOpen, Users, GraduationCap, CheckCircle2, Clock } from "lucide-react";
 import site from "@/content/site.json";
 import programs from "@/content/programs.json";
@@ -37,10 +38,7 @@ export default function HomePage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left */}
             <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/20 text-secondary font-bold text-sm mb-6 border border-accent/30">
-                <Star className="w-4 h-4 text-accent fill-accent" />
-                <span>Now Enrolling — {site.rating.score}★ on Google ({site.rating.count} reviews)</span>
-              </div>
+              <HeroPill />
               <h1 className="text-5xl lg:text-7xl font-display font-bold text-secondary leading-tight mb-6">
                 Where Little Minds{" "}
                 <span className="text-primary relative inline-block">
