@@ -81,7 +81,7 @@ export default function Navbar() {
           <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-2.5 group">
             <img src="/logo.png" alt="Evergreen Preschool Logo"
               className="group-hover:scale-105 transition-transform"
-              style={{ height:"44px", width:"auto", objectFit:"contain" }} />
+              style={{ height:"52px", width:"auto", objectFit:"contain" }} />
           </button>
 
           {/* Desktop tabs */}
