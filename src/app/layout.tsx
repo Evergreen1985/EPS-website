@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import FooterWrapper from "@/components/FooterWrapper";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import site from "@/content/site.json";
 
 export const metadata: Metadata = {
   title: `${site.name} | Preschool & Daycare in Electronic City, Bengaluru`,
-  description: `${site.name} is a leading preschool and daycare centre in Electronic City, Bengaluru. We offer Infant Care, Playgroup, Nursery, Junior KG, Senior KG, Full-Day Daycare and After-School programs. Rated ${site.rating.score}★ on Google.`,
+  description: `${site.name} is a leading preschool and daycare centre in Electronic City, Bengaluru. Rated ${site.rating.score}★ on Google.`,
   keywords: "preschool bengaluru, daycare electronic city, nursery bangalore, infant care bangalore, junior kg, senior kg, evergreen preschool",
   openGraph: {
     title: site.name,
@@ -27,10 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body>
+      <body style={{ margin:0, padding:0 }}>
         <Navbar />
         <main>{children}</main>
-        <Footer />
+        <FooterWrapper />
         <WhatsAppButton />
       </body>
     </html>
