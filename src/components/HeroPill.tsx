@@ -1,10 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Star } from "lucide-react";
 
 export default function HeroPill() {
-  const [rating, setRating] = useState<string>("4.9");
-  const [count, setCount]   = useState<string>("123");
+  const [rating, setRating] = useState("4.9");
+  const [count, setCount]   = useState("160");
 
   useEffect(() => {
     fetch("/api/reviews")
@@ -13,13 +12,17 @@ export default function HeroPill() {
         if (d.rating)       setRating(d.rating.toFixed(1));
         if (d.totalReviews) setCount(d.totalReviews.toString());
       })
-      .catch(() => {}); // keep defaults on error
+      .catch(() => {});
   }, []);
 
   return (
-    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/20 text-secondary font-bold text-sm mb-6 border border-accent/30">
-      <Star className="w-4 h-4 text-accent fill-accent" />
-      <span>Now Enrolling — {rating}★ on Google ({count}+ reviews)</span>
+    <div style={{
+      display:"inline-flex", alignItems:"center", gap:"6px",
+      background:"rgba(245,184,41,0.2)", border:"1px solid rgba(245,184,41,0.4)",
+      borderRadius:"20px", padding:"4px 14px", marginBottom:"10px",
+      fontFamily:"'Quicksand',sans-serif", fontSize:"12px", fontWeight:700, color:"#178F78"
+    }}>
+      ⭐ Now Enrolling — {rating}★ on Google ({count}+ reviews)
     </div>
   );
 }
