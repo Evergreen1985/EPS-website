@@ -63,7 +63,7 @@ function generateReport(childName: string, age: string, strengths: string, impro
 
 export default function AIToolsPage() {
   return (
-    <Suspense fallback={<div style={{height:"calc(100vh - 76px)",background:"#FEFCF8"}}/>}>
+    <Suspense fallback={<div style={{height:"calc(100vh - 92px)",background:"#FEFCF8"}}/>}>
       <AIToolsInner />
     </Suspense>
   );
@@ -130,7 +130,7 @@ function AIToolsInner() {
   });
 
   return (
-    <div style={{ background: "#FEFCF8", fontFamily: "'Quicksand', sans-serif", height:"calc(100vh - 76px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ background: "#FEFCF8", fontFamily: "'Quicksand', sans-serif", height:"calc(100vh - 92px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
       {/* Compact header band */}
       <div className="flex-shrink-0 flex items-center gap-4 px-6 py-3" style={{ background:"#178F78" }}>
