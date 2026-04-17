@@ -51,13 +51,13 @@ const SlideArrows = ({
 }: { cur: number; total: number; onPrev: () => void; onNext: () => void }) => (
   <>
     <button onClick={onPrev} disabled={cur === 0}
-      className="absolute left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-9 h-9 rounded-full font-bold text-base shadow-lg transition-all disabled:opacity-20 hover:scale-110"
-      style={{ background:"white", color:"#178F78", border:"2px solid #EDE8DF", boxShadow:"0 4px 12px rgba(0,0,0,0.12)" }}>
+      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg shadow-lg transition-all disabled:opacity-20 hover:scale-110"
+      style={{ background: cur === 0 ? "#EDE8DF" : "#178F78", color: cur === 0 ? "#6B7A99" : "white", border:"none", boxShadow:"0 4px 14px rgba(0,0,0,0.15)" }}>
       ‹
     </button>
     <button onClick={onNext} disabled={cur === total - 1}
-      className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-9 h-9 rounded-full font-bold text-base shadow-lg transition-all disabled:opacity-20 hover:scale-110"
-      style={{ background:"#178F78", color:"white", border:"2px solid #178F78", boxShadow:"0 4px 12px rgba(23,143,120,0.3)" }}>
+      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-10 h-10 rounded-full font-bold text-lg shadow-lg transition-all disabled:opacity-20 hover:scale-110"
+      style={{ background: cur === total - 1 ? "#EDE8DF" : "#178F78", color: cur === total - 1 ? "#6B7A99" : "white", border:"none", boxShadow:"0 4px 14px rgba(23,143,120,0.35)" }}>
       ›
     </button>
   </>
@@ -268,48 +268,48 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
               const c = progColors[prog.id] ?? progColors.srkg;
               return (
                 <Slide key={prog.id}>
-                  <div className="max-w-xl mx-auto px-10 py-3">
+                  <div className="max-w-2xl mx-auto px-14 py-4">
                     <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
-                      <div className="h-1" style={{ background:c.strip }} />
-                      <div className="p-4">
+                      <div className="h-1.5" style={{ background:c.strip }} />
+                      <div className="p-6">
                         {/* Header */}
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl flex-shrink-0" style={{ background:`${c.check}18` }}>
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ background:`${c.check}18` }}>
                             {programs.find(p=>p.id===prog.id)?.icon ?? "📚"}
                           </div>
                           <div className="flex-1">
-                            <div className="font-bold text-lg leading-tight" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{prog.title}</div>
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:"#FAF0E8", color:"#6B7A99" }}>{prog.ageRange}</span>
+                            <div className="font-bold text-2xl leading-tight" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{prog.title}</div>
+                            <span className="text-sm font-semibold px-3 py-0.5 rounded-full" style={{ background:"#FAF0E8", color:"#6B7A99" }}>{prog.ageRange}</span>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className="font-bold text-sm" style={{ fontFamily:"'Fredoka',sans-serif", color:c.btn }}>Ratio {prog.ratio}</div>
+                            <div className="font-bold text-base" style={{ fontFamily:"'Fredoka',sans-serif", color:c.btn }}>Ratio {prog.ratio}</div>
                           </div>
                         </div>
                         {/* Description */}
-                        <p className="text-xs leading-relaxed mb-2" style={{ color:"#6B7A99" }}>{prog.description}</p>
+                        <p className="text-sm leading-relaxed mb-3" style={{ color:"#6B7A99" }}>{prog.description}</p>
                         {/* Highlights — 2 columns */}
-                        <div className="text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color:"#1A2F4A" }}>Highlights</div>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 mb-3">
+                        <div className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color:"#1A2F4A" }}>Highlights</div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
                           {prog.highlights.slice(0,6).map((h: string, i: number) => (
-                            <div key={i} className="flex items-start gap-1.5 text-xs" style={{ color:"#6B7A99" }}>
-                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ background:c.check }} />{h}
+                            <div key={i} className="flex items-start gap-2 text-sm" style={{ color:"#6B7A99" }}>
+                              <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background:c.check }} />{h}
                             </div>
                           ))}
                         </div>
                         {/* Schedule boxes */}
-                        <div className="grid grid-cols-2 gap-2 mb-3">
-                          {prog.halfDay && <div className="rounded-lg p-2 text-center" style={{ background:`${c.check}0d` }}>
-                            <div className="text-xs" style={{ color:"#6B7A99" }}>Half Day</div>
-                            <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{prog.halfDay}</div>
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                          {prog.halfDay && <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
+                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>Half Day</div>
+                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.halfDay}</div>
                           </div>}
-                          {prog.fullDay && <div className="rounded-lg p-2 text-center" style={{ background:`${c.check}0d` }}>
-                            <div className="text-xs" style={{ color:"#6B7A99" }}>Full Day</div>
-                            <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{prog.fullDay}</div>
+                          {prog.fullDay && <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
+                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>Full Day</div>
+                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.fullDay}</div>
                           </div>}
                         </div>
-                        {/* Enroll button — always visible */}
+                        {/* Enroll button */}
                         <button onClick={() => jumpTo(7)}
-                          className="w-full py-2.5 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
+                          className="w-full py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
                           style={{ background:c.btn, boxShadow:`0 4px 12px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
                           Enroll in {prog.title} →
                         </button>
@@ -563,17 +563,17 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
           <div className="max-w-4xl mx-auto">
             <div className="grid md:grid-cols-2 gap-3 mb-3">
               {[
-                { icon:"📖", title:"Story Generator",  color:"#E8694A", bg:"rgba(232,105,74,0.1)",   desc:"Personalised bedtime stories with your child's name, theme and moral lesson." },
-                { icon:"🧠", title:"Milestone Advisor", color:"#178F78", bg:"rgba(23,143,120,0.1)",   desc:"Developmental milestone guidance tailored to your child's specific age." },
-                { icon:"📅", title:"Activity Planner",  color:"#B08000", bg:"rgba(245,184,41,0.12)",  desc:"A full week of fun, age-appropriate learning activities generated instantly." },
-                { icon:"📋", title:"Progress Report",   color:"#8957E5", bg:"rgba(137,87,229,0.1)",   desc:"Warm, professional progress reports for parents generated in seconds." },
+                { icon:"📖", title:"Story Generator",  color:"#E8694A", bg:"rgba(232,105,74,0.1)",   tool:"story",     desc:"Personalised bedtime stories with your child's name, theme and moral lesson." },
+                { icon:"🧠", title:"Milestone Advisor", color:"#178F78", bg:"rgba(23,143,120,0.1)",   tool:"milestone", desc:"Developmental milestone guidance tailored to your child's specific age." },
+                { icon:"📅", title:"Activity Planner",  color:"#B08000", bg:"rgba(245,184,41,0.12)",  tool:"activity",  desc:"A full week of fun, age-appropriate learning activities generated instantly." },
+                { icon:"📋", title:"Progress Report",   color:"#8957E5", bg:"rgba(137,87,229,0.1)",   tool:"report",    desc:"Warm, professional progress reports for parents generated in seconds." },
               ].map(t => (
                 <div key={t.title} className="bg-white rounded-2xl border p-4 flex items-start gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all" style={{ borderColor:`${t.color}44` }}>
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background:t.bg }}>{t.icon}</div>
                   <div className="flex-1">
                     <div className="font-bold text-sm mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:t.color }}>{t.title}</div>
                     <div className="text-xs mb-2 leading-relaxed" style={{ color:"#6B7A99" }}>{t.desc}</div>
-                    <Link href="/ai-tools" className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
+                    <Link href={`/ai-tools?tool=${t.tool}`} className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
                   </div>
                 </div>
               ))}
