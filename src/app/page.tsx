@@ -40,7 +40,8 @@ const sectionIds = ["home","programs","about","daycare","gallery","ai-tools","po
 
 // ─── helpers ─────────────────────────────────────────────
 const Slide = ({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
-  <div className={`min-w-full h-full overflow-y-auto ${className}`} style={{ scrollbarWidth:"none" as const, ...style }}>
+  <div className={`min-w-full overflow-y-auto flex-shrink-0 ${className}`}
+    style={{ height:"calc(100vh - 168px)", scrollbarWidth:"none" as const, ...style }}>
     {children}
   </div>
 );
@@ -169,8 +170,11 @@ export default function HomePage() {
     setFormStatus("success");
   };
 
-  // section height = 100vh - topbar(28px) - navbar(48px) = 100vh - 76px
-  const SH = "calc(100vh - 76px)";
+// Section height = 100vh - topbar(28px) - navbar(48px)
+// Band height = 56px, Dots height = 36px
+// Slide area = SH - 56 - 36 = 100vh - 168px
+const SH  = "calc(100vh - 76px)";
+const SSH = "calc(100vh - 168px)"; // slide scroll area height
 
   return (
     <div ref={scrollRef}
@@ -259,15 +263,15 @@ export default function HomePage() {
           <SlideNav cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0, p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1, p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
-          <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)` }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {progList.map((prog) => {
               const c = progColors[prog.id] ?? progColors.srkg;
               return (
                 <Slide key={prog.id}>
-                  <div className="max-w-2xl mx-auto p-5 h-full">
-                    <div className="bg-white rounded-2xl border overflow-hidden h-full flex flex-col" style={{ borderColor:"#EDE8DF" }}>
+                  <div className="max-w-2xl mx-auto p-4">
+                    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
                       <div className="h-1.5" style={{ background:c.strip }} />
-                      <div className="p-5 flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" }}>
+                      <div className="p-5">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0" style={{ background:`${c.check}18` }}>
                             {programs.find(p=>p.id===prog.id)?.icon ?? "📚"}
@@ -330,7 +334,7 @@ export default function HomePage() {
           <SlideNav cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
-          <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)` }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {/* Slide A: Story + Values */}
             <Slide className="p-5" style={{ background:"#FAF0E8" }}>
               <div className="max-w-4xl mx-auto">
@@ -416,7 +420,7 @@ export default function HomePage() {
           <SlideNav cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
         )}
         <div className="flex-1 overflow-hidden">
-          <div className="flex h-full transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)` }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {/* Full-Day Daycare */}
             <Slide className="p-5">
               <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-5">
@@ -555,30 +559,34 @@ export default function HomePage() {
       <div ref={el => { sectionRefs.current[5] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("🤖","AI Learning Tools","Smart tools for parents and teachers — 100% free")}
-        <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth:"none" }}>
+        <div className="flex-1 overflow-y-auto p-4" style={{ scrollbarWidth:"none" as const }}>
           <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-4 mb-5">
+            <div className="grid md:grid-cols-2 gap-3 mb-3">
               {[
-                { icon:"📖", title:"Story Generator",   color:"#E8694A", bg:"rgba(232,105,74,0.1)", desc:"Create personalised bedtime stories with your child's name, theme and moral lesson." },
-                { icon:"🧠", title:"Milestone Advisor",  color:"#178F78", bg:"rgba(23,143,120,0.1)", desc:"Get developmental milestone guidance tailored to your child's specific age group." },
-                { icon:"📅", title:"Activity Planner",   color:"#B08000", bg:"rgba(245,184,41,0.12)", desc:"Generate a full week of fun, age-appropriate learning activities instantly." },
-                { icon:"📋", title:"Progress Report",    color:"#8957E5", bg:"rgba(137,87,229,0.1)", desc:"Generate warm, professional progress reports for parents in seconds." },
+                { icon:"📖", title:"Story Generator",  color:"#E8694A", bg:"rgba(232,105,74,0.1)",   desc:"Personalised bedtime stories with your child's name, theme and moral lesson." },
+                { icon:"🧠", title:"Milestone Advisor", color:"#178F78", bg:"rgba(23,143,120,0.1)",   desc:"Developmental milestone guidance tailored to your child's specific age." },
+                { icon:"📅", title:"Activity Planner",  color:"#B08000", bg:"rgba(245,184,41,0.12)",  desc:"A full week of fun, age-appropriate learning activities generated instantly." },
+                { icon:"📋", title:"Progress Report",   color:"#8957E5", bg:"rgba(137,87,229,0.1)",   desc:"Warm, professional progress reports for parents generated in seconds." },
               ].map(t => (
-                <div key={t.title} className="bg-white rounded-2xl border p-5 cursor-pointer hover:-translate-y-1 hover:shadow-md transition-all" style={{ borderColor:`${t.color}44` }}>
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl mb-3" style={{ background:t.bg }}>{t.icon}</div>
-                  <div className="font-bold text-base mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:t.color }}>{t.title}</div>
-                  <div className="text-sm mb-3 leading-relaxed" style={{ color:"#6B7A99" }}>{t.desc}</div>
-                  <Link href="/ai-tools" className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
+                <div key={t.title} className="bg-white rounded-2xl border p-4 flex items-start gap-3 hover:-translate-y-0.5 hover:shadow-md transition-all" style={{ borderColor:`${t.color}44` }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background:t.bg }}>{t.icon}</div>
+                  <div className="flex-1">
+                    <div className="font-bold text-sm mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:t.color }}>{t.title}</div>
+                    <div className="text-xs mb-2 leading-relaxed" style={{ color:"#6B7A99" }}>{t.desc}</div>
+                    <Link href="/ai-tools" className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="rounded-2xl p-5 text-center border" style={{ background:"linear-gradient(135deg,rgba(23,143,120,0.06),rgba(232,105,74,0.06))", borderColor:"#EDE8DF" }}>
-              <div className="text-2xl mb-2">✨</div>
-              <div className="font-bold text-lg mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>100% Free — No API Key or Payment Needed</div>
-              <div className="text-sm mb-4" style={{ color:"#6B7A99" }}>All tools work instantly — just fill in the details and get your result in seconds.</div>
-              <Link href="/ai-tools" className="inline-flex items-center gap-2 font-bold px-7 py-3 rounded-full text-white transition-all hover:-translate-y-0.5"
+            <div className="rounded-2xl p-4 text-center border flex flex-col sm:flex-row items-center gap-4" style={{ background:"linear-gradient(135deg,rgba(23,143,120,0.06),rgba(232,105,74,0.06))", borderColor:"#EDE8DF" }}>
+              <div className="text-2xl">✨</div>
+              <div className="flex-1 text-left">
+                <div className="font-bold text-base mb-0.5" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>100% Free — No API Key or Payment Needed</div>
+                <div className="text-xs" style={{ color:"#6B7A99" }}>All tools work instantly — just fill in the details and get your result in seconds.</div>
+              </div>
+              <Link href="/ai-tools" className="flex-shrink-0 inline-flex items-center gap-2 font-bold px-6 py-2.5 rounded-full text-white transition-all hover:-translate-y-0.5"
                 style={{ background:"#178F78", boxShadow:"0 5px 16px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
-                Open AI Tools Page <ArrowRight className="w-4 h-4" />
+                Open AI Tools <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
