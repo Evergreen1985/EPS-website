@@ -65,7 +65,7 @@ export default function HomePage() {
               {/* Stats */}
               <div className="mt-12 grid grid-cols-3 gap-6 border-t border-border pt-8">
                 <div>
-                  <h4 className="font-display font-bold text-3xl text-secondary">123+</h4>
+                  <h4 className="font-display font-bold text-3xl text-secondary">1000+</h4>
                   <p className="text-sm text-muted-foreground font-medium">Happy Families</p>
                 </div>
                 <div>
@@ -73,7 +73,7 @@ export default function HomePage() {
                   <p className="text-sm text-muted-foreground font-medium">Best Ratio</p>
                 </div>
                 <div>
-                  <h4 className="font-display font-bold text-3xl text-secondary">4.8★</h4>
+                  <h4 className="font-display font-bold text-3xl text-secondary">4.9★</h4>
                   <p className="text-sm text-muted-foreground font-medium">Google Rating</p>
                 </div>
               </div>
