@@ -8,7 +8,7 @@ interface Review {
 }
 interface Data {
   name: string; rating: number; totalReviews: number;
-  placeId: string; reviews: Review[];
+  placeId: string; googleUrl: string; reviews: Review[];
 }
 
 export default function GoogleReviews() {
@@ -36,7 +36,7 @@ export default function GoogleReviews() {
 
   if (!data || !data.reviews) return null;
 
-const googleUrl = `https://www.google.com/search?q=Evergreen+Preschool+and+Daycare+Anantha+Nagar+Electronic+City+Bengaluru+reviews`;
+  const googleUrl = data.googleUrl || `https://www.google.com/search?q=Evergreen+Preschool+Anantha+Nagar+Bengaluru+reviews`;
 
   return (
     <div>
