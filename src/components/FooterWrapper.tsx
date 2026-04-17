@@ -2,9 +2,11 @@
 import { usePathname } from "next/navigation";
 import Footer from "@/components/Footer";
 
+// These pages are full-screen — no footer or body scroll
+const FULLSCREEN_PAGES = ["/", "/ai-tools"];
+
 export default function FooterWrapper() {
   const pathname = usePathname();
-  // Homepage uses full-screen scroll snap — no footer needed
-  if (pathname === "/") return null;
+  if (FULLSCREEN_PAGES.includes(pathname)) return null;
   return <Footer />;
 }
