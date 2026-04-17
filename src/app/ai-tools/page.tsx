@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, Brain, Calendar, FileText, Sparkles, Loader2, RefreshCw } from "lucide-react";
 
 type Tool = "story" | "milestone" | "activity" | "report";
@@ -64,12 +65,22 @@ export default function AIToolsPage() {
   const [activeTool, setActiveTool] = useState<Tool>("story");
   const [loading, setLoading]       = useState(false);
   const [result, setResult]         = useState("");
+  const searchParams                = useSearchParams();
 
   // Lock body scroll — this page is full-screen
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
+
+  // Read ?tool= param from URL and set active tool
+  useEffect(() => {
+    const toolParam = searchParams.get("tool") as Tool | null;
+    if (toolParam && ["story","milestone","activity","report"].includes(toolParam)) {
+      setActiveTool(toolParam);
+      setResult("");
+    }
+  }, [searchParams]);
 
   const [storyTheme,    setStoryTheme]    = useState(storyThemes[0]);
   const [storyName,     setStoryName]     = useState("");
