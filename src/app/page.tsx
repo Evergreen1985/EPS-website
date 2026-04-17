@@ -46,22 +46,21 @@ const Slide = ({ children, className = "", style = {} }: { children: React.React
   </div>
 );
 
-const SlideNav = ({
+const SlideArrows = ({
   cur, total, onPrev, onNext
 }: { cur: number; total: number; onPrev: () => void; onNext: () => void }) => (
-  <div className="flex items-center gap-2">
+  <>
     <button onClick={onPrev} disabled={cur === 0}
-      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-all disabled:opacity-30"
-      style={{ background:"rgba(255,255,255,0.25)", color:"white", border:"1.5px solid rgba(255,255,255,0.5)" }}>
-      ← Prev
+      className="absolute left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-9 h-9 rounded-full font-bold text-base shadow-lg transition-all disabled:opacity-20 hover:scale-110"
+      style={{ background:"white", color:"#178F78", border:"2px solid #EDE8DF", boxShadow:"0 4px 12px rgba(0,0,0,0.12)" }}>
+      ‹
     </button>
-    <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.9)", minWidth:"36px", textAlign:"center" }}>{cur + 1} / {total}</span>
     <button onClick={onNext} disabled={cur === total - 1}
-      className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full transition-all disabled:opacity-30"
-      style={{ background:"white", color:"#178F78", border:"1.5px solid white" }}>
-      Next →
+      className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-9 h-9 rounded-full font-bold text-base shadow-lg transition-all disabled:opacity-20 hover:scale-110"
+      style={{ background:"#178F78", color:"white", border:"2px solid #178F78", boxShadow:"0 4px 12px rgba(23,143,120,0.3)" }}>
+      ›
     </button>
-  </div>
+  </>
 );
 
 const SlideDots = ({ total, cur, onDot }: { total: number; cur: number; onDot: (i: number) => void }) => (
@@ -260,20 +259,22 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
       <div ref={el => { sectionRefs.current[1] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("📚","Programs","Swipe through each programme",
-          <SlideNav cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0, p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1, p+1))} />
+          <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.8)" }}>{progSlide + 1} / {progList.length}</span>
         )}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
+          <SlideArrows cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0,p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1,p+1))} />
           <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {progList.map((prog) => {
               const c = progColors[prog.id] ?? progColors.srkg;
               return (
                 <Slide key={prog.id}>
-                  <div className="max-w-2xl mx-auto p-4">
+                  <div className="max-w-2xl mx-auto px-6 py-4">
                     <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
                       <div className="h-1.5" style={{ background:c.strip }} />
                       <div className="p-5">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-14 h-14 rounded-full flex items-center justify-center text-3xl flex-shrink-0" style={{ background:`${c.check}18` }}>
+                        {/* Header */}
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ background:`${c.check}18` }}>
                             {programs.find(p=>p.id===prog.id)?.icon ?? "📚"}
                           </div>
                           <div className="flex-1">
@@ -285,35 +286,33 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
                             <div className="text-xs" style={{ color:"#6B7A99" }}>per teacher</div>
                           </div>
                         </div>
-                        <p className="text-sm leading-relaxed mb-4" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>{prog.description}</p>
-                        <div className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color:"#1A2F4A" }}>Programme Highlights</div>
-                        <ul className="space-y-2 mb-5">
+                        {/* Description */}
+                        <p className="text-sm leading-relaxed mb-3" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>{prog.description}</p>
+                        {/* Highlights */}
+                        <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color:"#1A2F4A" }}>Programme Highlights</div>
+                        <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
                           {prog.highlights.map((h: string, i: number) => (
-                            <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>
-                              <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background:c.check }} />
+                            <li key={i} className="flex items-start gap-2 text-xs" style={{ color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>
+                              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1" style={{ background:c.check }} />
                               {h}
                             </li>
                           ))}
                         </ul>
-                        <div className="grid grid-cols-2 gap-3 mb-5">
-                          {prog.halfDay && (
-                            <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
-                              <div className="text-xs mb-1" style={{ color:"#6B7A99" }}>Half Day</div>
-                              <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.halfDay}</div>
+                        {/* Timing + Enroll in one row */}
+                        <div className="flex items-center gap-3 pt-3 border-t" style={{ borderColor:"#EDE8DF" }}>
+                          <div className="flex items-center gap-2 flex-1 rounded-xl px-4 py-2.5" style={{ background:`${c.check}0d` }}>
+                            <span className="text-base">🕐</span>
+                            <div>
+                              <div className="text-xs font-semibold" style={{ color:"#6B7A99" }}>{(prog as any).timingLabel}</div>
+                              <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{(prog as any).timing}</div>
                             </div>
-                          )}
-                          {prog.fullDay && (
-                            <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
-                              <div className="text-xs mb-1" style={{ color:"#6B7A99" }}>Full Day</div>
-                              <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.fullDay}</div>
-                            </div>
-                          )}
+                          </div>
+                          <button onClick={() => jumpTo(7)}
+                            className="flex-shrink-0 py-2.5 px-6 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
+                            style={{ background:c.btn, boxShadow:`0 4px 14px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
+                            Enroll Now →
+                          </button>
                         </div>
-                        <button onClick={() => jumpTo(7)}
-                          className="w-full py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
-                          style={{ background:c.btn, boxShadow:`0 6px 18px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
-                          Enroll in {prog.title} →
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -331,9 +330,10 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
       <div ref={el => { sectionRefs.current[2] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("🌿","About Us","Our story, values and team",
-          <SlideNav cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
+          <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.8)" }}>{aboutSlide + 1} / 3</span>
         )}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
+          <SlideArrows cur={aboutSlide} total={3} onPrev={() => setAboutSlide(p => Math.max(0,p-1))} onNext={() => setAboutSlide(p => Math.min(2,p+1))} />
           <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${aboutSlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {/* Slide A: Story + Values */}
             <Slide className="p-5" style={{ background:"#FAF0E8" }}>
@@ -417,9 +417,10 @@ const SSH = "calc(100vh - 168px)"; // slide scroll area height
       <div ref={el => { sectionRefs.current[3] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("🏡","Daycare & Extended Care","Flexible childcare for working parents",
-          <SlideNav cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
+          <span className="text-xs font-semibold" style={{ color:"rgba(255,255,255,0.8)" }}>{daySlide + 1} / 3</span>
         )}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
+          <SlideArrows cur={daySlide} total={3} onPrev={() => setDaySlide(p => Math.max(0,p-1))} onNext={() => setDaySlide(p => Math.min(2,p+1))} />
           <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${daySlide * 100}%)`, height:"calc(100vh - 168px)" }}>
             {/* Full-Day Daycare */}
             <Slide className="p-5">
