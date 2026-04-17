@@ -58,30 +58,32 @@ export default function Navbar() {
 
   return (
     <div className="sticky top-0 z-50">
-      {/* Top info bar */}
-      <div className="hidden sm:flex items-center justify-between px-5 py-1.5 text-xs"
-        style={{ background:"#178F78", color:"rgba(255,255,255,0.8)", fontFamily:"'Quicksand',sans-serif" }}>
-        <div className="flex items-center gap-5">
-          <a href={`tel:${site.phone}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+      {/* Top info bar — phone/email centred, address on right */}
+      <div className="hidden sm:flex items-center px-6 py-1.5 text-xs"
+        style={{ background:"#178F78", color:"rgba(255,255,255,0.85)", fontFamily:"'Quicksand',sans-serif" }}>
+        {/* Left spacer matches logo width so contact info sits in the middle */}
+        <div style={{ width:"120px" }} />
+        <div className="flex items-center gap-6 flex-1 justify-center">
+          <a href={`tel:${site.phone}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
             <Phone className="w-3 h-3"/>{site.phone}
           </a>
-          <a href={`mailto:${site.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors">
+          <a href={`mailto:${site.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
             <Mail className="w-3 h-3"/>{site.email}
           </a>
         </div>
-        <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3"/>{site.addressShort}</span>
+        <span className="flex items-center gap-1.5 text-right" style={{ color:"rgba(255,255,255,0.7)" }}>
+          <MapPin className="w-3 h-3 flex-shrink-0"/>{site.addressShort}
+        </span>
       </div>
 
-      {/* Main nav */}
-      <header className={`transition-all duration-300 ${
-        scrolled ? "shadow-md py-1.5" : "py-2"
-      }`} style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
-        <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between">
+      {/* Main nav — fixed height to contain logo */}
+      <header style={{ background:"white", borderBottom:"1px solid #EDE8DF", height:"64px", display:"flex", alignItems:"center", boxShadow: scrolled ? "0 2px 12px rgba(0,0,0,0.08)" : "none" }}>
+        <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between w-full">
           {/* Logo */}
-          <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-2.5 group">
+          <button onClick={() => handleTab(tabs[0])} className="flex items-center group flex-shrink-0">
             <img src="/logo.png" alt="Evergreen Preschool Logo"
               className="group-hover:scale-105 transition-transform"
-              style={{ height:"52px", width:"auto", objectFit:"contain" }} />
+              style={{ height:"58px", width:"auto", objectFit:"contain" }} />
           </button>
 
           {/* Desktop tabs */}
