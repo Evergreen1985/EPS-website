@@ -36,7 +36,7 @@ export default function GoogleReviews() {
 
   if (!data || !data.reviews) return null;
 
-  const googleUrl = `https://www.google.com/maps/place/?q=place_id:${data.placeId}`;
+const googleUrl = `https://www.google.com/search?q=Evergreen+Preschool+and+Daycare+Anantha+Nagar+Electronic+City+Bengaluru+reviews`;
 
   return (
     <div>
