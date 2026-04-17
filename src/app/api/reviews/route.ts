@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   try {
-    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,user_ratings_total,reviews&reviews_sort=newest&key=${apiKey}`;
+    const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,rating,user_ratings_total,reviews,url&reviews_sort=newest&key=${apiKey}`;
     const res  = await fetch(url, { cache: "no-store" });
     const data = await res.json();
 
@@ -23,6 +23,7 @@ export async function GET() {
       rating:       result.rating,
       totalReviews: result.user_ratings_total,
       placeId:      placeId,
+      googleUrl:    result.url,
       reviews:      (result.reviews || []).map((r: {
         author_name: string; rating: number; text: string;
         relative_time_description: string; profile_photo_url: string;
