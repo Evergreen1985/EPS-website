@@ -57,7 +57,7 @@ export default function Navbar() {
   }, [isHome, router]);
 
   return (
-    <>
+    <div className="sticky top-0 z-50">
       {/* Top info bar */}
       <div className="hidden sm:flex items-center justify-between px-5 py-1.5 text-xs"
         style={{ background:"#178F78", color:"rgba(255,255,255,0.8)", fontFamily:"'Quicksand',sans-serif" }}>
@@ -73,7 +73,7 @@ export default function Navbar() {
       </div>
 
       {/* Main nav */}
-      <header className={`sticky top-0 z-50 transition-all duration-300 ${
+      <header className={`transition-all duration-300 ${
         scrolled ? "shadow-md py-1.5" : "py-2"
       }`} style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
         <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between">
@@ -138,6 +138,6 @@ export default function Navbar() {
           </div>
         )}
       </header>
-    </>
+    </div>
   );
 }
