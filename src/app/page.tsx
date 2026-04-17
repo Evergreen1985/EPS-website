@@ -4,7 +4,6 @@ import GoogleReviews from "@/components/GoogleReviews";
 import { ArrowRight, Star, Heart, Shield, BookOpen, Users, GraduationCap, CheckCircle2, Clock } from "lucide-react";
 import site from "@/content/site.json";
 import programs from "@/content/programs.json";
-import testimonials from "@/content/testimonials.json";
 
 const programIcons: Record<string, string> = {
   playgroup: "🎈", nursery: "🌸", jrkg: "📚", srkg: "🎓",
