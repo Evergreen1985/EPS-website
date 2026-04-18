@@ -184,16 +184,31 @@ export default function ParentDashboardPage() {
 
                 {/* This month from DB */}
                 <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"12px" }}>
-                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78", marginBottom:"10px" }}>🗓️ {monthName} {year}</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+                    <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78" }}>🗓️ {monthName} {year}</div>
+                    <span style={{ fontSize:"10px", color:"#6B7A99", background:"#FAF0E8", borderRadius:"20px", padding:"3px 10px" }}>{calendarEvents.length} events</span>
+                  </div>
+
                   {calendarEvents.length === 0 ? (
-                    <div style={{ fontSize:"12px", color:"#6B7A99", textAlign:"center", padding:"8px" }}>No special events this month</div>
+                    <div style={{ fontSize:"12px", color:"#6B7A99", textAlign:"center", padding:"12px 0" }}>
+                      No events this month. Admin can add events from the admin panel.
+                    </div>
                   ) : (
-                    <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", marginBottom:"10px" }}>
+                    <div style={{ display:"flex", flexDirection:"column", gap:"7px" }}>
                       {calendarEvents.map(ev => (
-                        <div key={ev.id} style={{ display:"flex", alignItems:"center", gap:"5px", background:`${ev.color}15`, border:`1px solid ${ev.color}30`, borderRadius:"20px", padding:"4px 10px" }}>
-                          <span style={{ fontSize:"14px" }}>{ev.icon}</span>
-                          <span style={{ fontSize:"10px", fontWeight:600, color:ev.color }}>{ev.title}</span>
-                          {ev.is_holiday && <span style={{ fontSize:"9px", background:`${ev.color}25`, borderRadius:"10px", padding:"1px 5px", color:ev.color }}>HOLIDAY</span>}
+                        <div key={ev.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"8px 12px", borderRadius:"12px", background:ev.is_holiday ? `${ev.color}0d` : "#FAF0E8", border:`1px solid ${ev.color}25` }}>
+                          <span style={{ fontSize:"18px", flexShrink:0 }}>{ev.icon}</span>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{ev.title}</div>
+                            <div style={{ fontSize:"10px", color:"#6B7A99" }}>
+                              {new Date(ev.event_date).toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" })}
+                              {ev.description && ` · ${ev.description}`}
+                            </div>
+                          </div>
+                          {ev.is_holiday
+                            ? <span style={{ fontSize:"9px", fontWeight:700, color:"#E8694A", background:"rgba(232,105,74,0.12)", borderRadius:"20px", padding:"2px 8px", whiteSpace:"nowrap" }}>HOLIDAY</span>
+                            : <span style={{ fontSize:"9px", fontWeight:700, color:ev.color, background:`${ev.color}15`, borderRadius:"20px", padding:"2px 8px", whiteSpace:"nowrap", textTransform:"uppercase" }}>{ev.event_type}</span>
+                          }
                         </div>
                       ))}
                     </div>
