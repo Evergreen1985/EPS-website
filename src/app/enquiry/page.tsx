@@ -55,6 +55,14 @@ type Status = "idle" | "sending" | "success";
 export default function EnquiryPage() {
   const [lang, setLang]               = useState("en-IN");
   const [showLang, setShowLang]       = useState(false);
+
+  // Close language dropdown on outside click
+  useEffect(() => {
+    if (!showLang) return;
+    const close = () => setShowLang(false);
+    window.addEventListener("click", close, true);
+    return () => window.removeEventListener("click", close, true);
+  }, [showLang]);
   const [form, setForm]               = useState({ childName:"", dob:"", phone:"", parentName:"", address:"", program:"" });
   const [status, setStatus]           = useState<Status>("idle");
   const [listening, setListening]     = useState(false);
@@ -108,7 +116,33 @@ export default function EnquiryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus("sending");
-    await new Promise(r => setTimeout(r, 1200));
+
+    // Save to Supabase if configured
+    try {
+      const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const { createClient } = await import("@supabase/supabase-js");
+        const sb = createClient(supabaseUrl, supabaseKey);
+        await sb.from("enquiries").insert({
+          child_name:        form.childName,
+          child_dob:         form.dob,
+          child_age_months:  ageMonths,
+          phone:             form.phone,
+          parent_name:       form.parentName || null,
+          address:           form.address || null,
+          program_id:        form.program || null,
+          program_label:     PROGRAMS.find(p=>p.id===form.program)?.label || null,
+          language:          lang,
+          source:            "website",
+          status:            "new",
+        });
+      }
+    } catch (err) {
+      console.error("DB save failed (will still send WhatsApp):", err);
+    }
+
+    await new Promise(r => setTimeout(r, 800));
     setStatus("success");
     // Open WhatsApp with confirmation
     const prog = PROGRAMS.find(p => p.id === form.program);
@@ -197,10 +231,10 @@ export default function EnquiryPage() {
     <div style={{ minHeight:"100vh", background:"#FEFCF8", fontFamily:"'Quicksand',sans-serif", paddingBottom:"40px" }}>
 
       {/* Hero */}
-      <div style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)", padding:"28px 20px", position:"relative", overflow:"hidden" }}>
-        <div style={{ position:"absolute", inset:0, backgroundImage:"radial-gradient(circle,rgba(255,255,255,0.1) 1px,transparent 1px)", backgroundSize:"24px 24px" }} />
+      <div style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)", padding:"28px 20px 20px", position:"relative" }}>
+        <div style={{ position:"absolute", inset:0, backgroundImage:"radial-gradient(circle,rgba(255,255,255,0.1) 1px,transparent 1px)", backgroundSize:"24px 24px", pointerEvents:"none" }} />
         <div style={{ maxWidth:"680px", margin:"0 auto", position:"relative", zIndex:1 }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"10px" }}>
+          <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:"10px" }}>
             <div>
               <div style={{ display:"flex", gap:"5px", marginBottom:"6px" }}>
                 {[1,2,3,4,5].map(i => <Star key={i} style={{ width:"14px", height:"14px", fill:"#F5B829", color:"#F5B829" }} />)}
@@ -212,24 +246,29 @@ export default function EnquiryPage() {
               <p style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)" }}>Evergreen Preschool & Daycare · Electronic City, Bengaluru</p>
             </div>
 
-            {/* Language selector */}
-            <div style={{ position:"relative" }}>
+            {/* Language selector — rendered in a portal-like way to avoid clipping */}
+            <div style={{ position:"relative", zIndex:999 }}>
               <button onClick={() => setShowLang(!showLang)}
-                style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.2)", border:"1.5px solid rgba(255,255,255,0.4)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.2)", border:"1.5px solid rgba(255,255,255,0.4)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
                 <Globe style={{ width:"14px", height:"14px" }} />
                 {LANGUAGES.find(l=>l.code===lang)?.native}
-                <ChevronDown style={{ width:"12px", height:"12px" }} />
+                <ChevronDown style={{ width:"12px", height:"12px", transform: showLang?"rotate(180deg)":"none", transition:"transform 0.2s" }} />
               </button>
               {showLang && (
-                <div style={{ position:"absolute", right:0, top:"calc(100% + 6px)", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 8px 24px rgba(0,0,0,0.12)", overflow:"hidden", zIndex:50, minWidth:"160px" }}>
-                  {LANGUAGES.map(l => (
-                    <button key={l.code} onClick={() => { setLang(l.code); setShowLang(false); }}
-                      style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"9px 14px", background:lang===l.code?"rgba(23,143,120,0.08)":"transparent", border:"none", cursor:"pointer", fontSize:"12px", fontWeight:lang===l.code?700:400, color:"#1A2F4A", textAlign:"left" }}>
-                      <span>{l.flag}</span>
-                      <span>{l.native}</span>
-                      {lang===l.code && <span style={{ marginLeft:"auto", color:"#178F78" }}>✓</span>}
-                    </button>
-                  ))}
+                <div style={{ position:"fixed", right:"20px", top:"auto", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 12px 40px rgba(0,0,0,0.18)", zIndex:9999, minWidth:"180px", overflow:"visible" }}>
+                  <div style={{ padding:"6px 0" }}>
+                    {LANGUAGES.map((l, idx) => (
+                      <button key={l.code} onClick={() => { setLang(l.code); setShowLang(false); }}
+                        style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"10px 16px", background:lang===l.code?"rgba(23,143,120,0.08)":"transparent", border:"none", cursor:"pointer", fontSize:"13px", fontWeight:lang===l.code?700:400, color:"#1A2F4A", textAlign:"left" }}>
+                        <span style={{ fontSize:"18px" }}>{l.flag}</span>
+                        <div>
+                          <div style={{ fontWeight:600 }}>{l.native}</div>
+                          <div style={{ fontSize:"10px", color:"#6B7A99" }}>{l.label}</div>
+                        </div>
+                        {lang===l.code && <span style={{ marginLeft:"auto", color:"#178F78", fontWeight:700 }}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
