@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // List ALL env var keys to see what's actually available
+  const allKeys = Object.keys(process.env).filter(k => 
+    k.includes("SUPA") || k.includes("supa") || k.includes("DB") || k.includes("URL")
+  );
+  
   return NextResponse.json({
-    hasUrl:  !!url,
-    hasKey:  !!key,
-    urlHint: url ? url.slice(0, 30) + "..." : "NOT SET",
+    supabase_url:      process.env.SUPABASE_URL          ? "SET" : "missing",
+    supabase_anon:     process.env.SUPABASE_ANON_KEY     ? "SET" : "missing",
+    next_public_url:   process.env.NEXT_PUBLIC_SUPABASE_URL       ? "SET" : "missing",
+    next_public_anon:  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY  ? "SET" : "missing",
+    matching_keys:     allKeys,
+    node_env:          process.env.NODE_ENV,
   });
 }
 
@@ -16,10 +22,8 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    console.log("Enquiry received:", body.childName, body.phone);
 
     if (!url || !key) {
-      console.error("Missing Supabase env vars");
       return NextResponse.json({ success: false, error: "DB not configured" }, { status: 500 });
     }
 
@@ -41,15 +45,12 @@ export async function POST(req: Request) {
     }).select();
 
     if (error) {
-      console.error("Supabase error:", JSON.stringify(error));
       return NextResponse.json({ success: false, error: error.message, code: error.code }, { status: 500 });
     }
 
-    console.log("Enquiry saved:", data?.[0]?.id);
     return NextResponse.json({ success: true, id: data?.[0]?.id });
 
   } catch (e: any) {
-    console.error("API error:", e?.message);
     return NextResponse.json({ success: false, error: e?.message }, { status: 500 });
   }
 }
