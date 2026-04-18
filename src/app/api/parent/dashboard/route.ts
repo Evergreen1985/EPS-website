@@ -11,16 +11,29 @@ function sb() {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const phone = searchParams.get("phone");
+  const month = searchParams.get("month"); // format YYYY-MM
   if (!phone) return NextResponse.json({ error: "Phone required" }, { status: 400 });
 
   const client = sb();
+  const now = new Date();
+  const m = month || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
 
+  // Children linked to this phone
   const { data: enquiries } = await client
     .from("enquiries")
-    .select("id, child_name, child_dob, child_age_months, program_label, program_id, status, created_at")
+    .select("id,child_name,child_dob,child_age_months,program_label,program_id,status,section_id,section_name,created_at")
     .eq("phone", phone.trim())
     .order("created_at", { ascending: false });
 
+  // Calendar events for this month (dynamic from DB)
+  const { data: calendarEvents } = await client
+    .from("calendar_events")
+    .select("*")
+    .gte("event_date", `${m}-01`)
+    .lte("event_date", `${m}-31`)
+    .order("event_date");
+
+  // Announcements
   const { data: announcements } = await client
     .from("announcements")
     .select("*")
@@ -28,8 +41,36 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  // Homework — only for sections that are assigned
+  const sectionIds = (enquiries || []).map(e => e.section_id).filter(Boolean);
+  let homework: any[] = [];
+  if (sectionIds.length > 0) {
+    const { data: hw } = await client
+      .from("homework")
+      .select("*")
+      .in("section_id", sectionIds)
+      .gte("due_date", `${m}-01`)
+      .order("due_date");
+    homework = hw || [];
+  }
+
+  // Photos — only for assigned sections
+  let photos: any[] = [];
+  if (sectionIds.length > 0) {
+    const { data: ph } = await client
+      .from("section_photos")
+      .select("*")
+      .in("section_id", sectionIds)
+      .order("uploaded_at", { ascending: false })
+      .limit(20);
+    photos = ph || [];
+  }
+
   return NextResponse.json({
     enquiries:     enquiries     || [],
+    calendarEvents: calendarEvents || [],
     announcements: announcements || [],
+    homework:      homework,
+    photos:        photos,
   });
 }
