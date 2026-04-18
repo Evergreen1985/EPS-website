@@ -21,6 +21,7 @@ const LANGUAGES = [
   { code:"hi-IN", label:"Hindi",    native:"हिन्दी",     flag:"🇮🇳" },
   { code:"ta-IN", label:"Tamil",    native:"தமிழ்",    flag:"🇮🇳" },
   { code:"te-IN", label:"Telugu",   native:"తెలుగు",   flag:"🇮🇳" },
+  { code:"ml-IN", label:"Malayalam",native:"മലയാളം",   flag:"🇮🇳" },
 ];
 
 const UI_TEXT: Record<string, Record<string, string>> = {
@@ -29,6 +30,7 @@ const UI_TEXT: Record<string, Record<string, string>> = {
   "hi-IN": { title:"पूछताछ फॉर्म", childName:"बच्चे का नाम", dob:"जन्म तिथि", phone:"फोन नंबर (WhatsApp)", parentName:"माता/पिता का नाम", address:"पता", program:"रुचि का कार्यक्रम", submit:"पूछताछ जमा करें", required:"अनिवार्य", optional:"वैकल्पिक", suggest:"आपके बच्चे के लिए सुझाव", submitSuccess:"धन्यवाद!", successMsg:"आपकी पूछताछ प्राप्त हो गई है। हम जल्द ही WhatsApp पर संपर्क करेंगे।", speaking:"सुन रहा हूँ...", tapMic:"आवाज़ से फॉर्म भरने के लिए माइक दबाएं", greeting:"नमस्ते! एवरग्रीन प्रीस्कूल में आपका स्वागत है। कृपया अपने बच्चे का नाम बताएं।" },
   "ta-IN": { title:"விசாரணை படிவம்", childName:"குழந்தையின் பெயர்", dob:"பிறந்த தேதி", phone:"தொலைபேசி எண் (WhatsApp)", parentName:"பெற்றோர் பெயர்", address:"முகவரி", program:"விரும்பிய திட்டம்", submit:"விசாரணை சமர்ப்பிக்கவும்", required:"கட்டாயம்", optional:"விருப்பத்தேர்வு", suggest:"உங்கள் குழந்தைக்கு பரிந்துரை", submitSuccess:"நன்றி!", successMsg:"உங்கள் விசாரணை பெறப்பட்டது. விரைவில் WhatsApp-ல் தொடர்பு கொள்கிறோம்.", speaking:"கேட்கிறேன்...", tapMic:"குரலால் படிவம் நிரப்ப மைக்கை அழுத்தவும்", greeting:"வணக்கம்! எவர்கிரீன் பூர்வ பள்ளிக்கு வரவேற்கிறோம். உங்கள் குழந்தையின் பெயரைச் சொல்லுங்கள்." },
   "te-IN": { title:"విచారణ ఫారం", childName:"పిల్లల పేరు", dob:"పుట్టిన తేదీ", phone:"ఫోన్ నంబర్ (WhatsApp)", parentName:"తల్లిదండ్రుల పేరు", address:"చిరునామా", program:"ఆసక్తి కార్యక్రమం", submit:"విచారణ సమర్పించండి", required:"తప్పనిసరి", optional:"ఐచ్ఛికం", suggest:"మీ పిల్లలకు సూచించబడింది", submitSuccess:"ధన్యవాదాలు!", successMsg:"మీ విచారణ స్వీకరించబడింది. త్వరలో WhatsApp లో సంప్రదిస్తాము.", speaking:"వింటున్నాను...", tapMic:"వాయిస్ ద్వారా ఫారం నింపడానికి మైక్ నొక్కండి", greeting:"నమస్తే! ఎవర్‌గ్రీన్ ప్రీస్కూల్‌కు స్వాగతం. దయచేసి మీ పిల్లల పేరు చెప్పండి." },
+  "ml-IN": { title:"അന്വേഷണ ഫോം", childName:"കുട്ടിയുടെ പേര്", dob:"ജനനതീയതി", phone:"ഫോൺ നമ്പർ (WhatsApp)", parentName:"രക്ഷിതാവിന്റെ പേര്", address:"വിലാസം", program:"താൽപ്പര്യമുള്ള പ്രോഗ്രാം", submit:"അന്വേഷണം സമർപ്പിക്കുക", required:"നിർബന്ധം", optional:"ഐച്ഛികം", suggest:"നിങ്ങളുടെ കുട്ടിക്ക് നിർദ്ദേശിച്ചത്", submitSuccess:"നന്ദി!", successMsg:"നിങ്ങളുടെ അന്വേഷണം ലഭിച്ചു. ഉടൻ WhatsApp-ൽ ബന്ധപ്പെടും.", speaking:"കേൾക്കുന്നു...", tapMic:"ശബ്ദം ഉപയോഗിച്ച് ഫോം പൂരിപ്പിക്കാൻ മൈക്ക് അമർത്തുക", greeting:"നമസ്കാരം! എവർഗ്രീൻ പ്രീസ്കൂളിലേക്ക് സ്വാഗതം. ദയവായി നിങ്ങളുടെ കുട്ടിയുടെ പേര് പറയൂ." },
 };
 
 function getAgeInMonths(dob: string): number | null {
@@ -119,7 +121,7 @@ export default function EnquiryPage() {
 
     // Save to DB via our API route (works even without Supabase configured)
     try {
-      await fetch("/api/enquiry", {
+      const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,8 +136,13 @@ export default function EnquiryPage() {
           lang,
         }),
       });
+      const result = await res.json();
+      if (!result.success) {
+        console.error("Enquiry save error:", result.error, result.code);
+        alert("DB Error: " + result.error + " (code: " + result.code + ")");
+      }
     } catch (err) {
-      console.error("Enquiry save failed:", err);
+      console.error("Enquiry fetch error:", err);
     }
 
     await new Promise(r => setTimeout(r, 600));
@@ -251,10 +258,11 @@ export default function EnquiryPage() {
                 <ChevronDown style={{ width:"12px", height:"12px", transform: showLang?"rotate(180deg)":"none", transition:"transform 0.2s" }} />
               </button>
               {showLang && (
-                <div style={{ position:"fixed", right:"20px", top:"auto", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 12px 40px rgba(0,0,0,0.18)", zIndex:9999, minWidth:"180px", overflow:"visible" }}>
+                <div style={{ position:"fixed", right:"20px", top:"auto", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 12px 40px rgba(0,0,0,0.18)", zIndex:9999, minWidth:"180px", overflow:"visible" }}
+                  onClick={e => e.stopPropagation()}>
                   <div style={{ padding:"6px 0" }}>
-                    {LANGUAGES.map((l, idx) => (
-                      <button key={l.code} onClick={() => { setLang(l.code); setShowLang(false); }}
+                    {LANGUAGES.map((l) => (
+                      <button key={l.code} onClick={(e) => { e.stopPropagation(); setLang(l.code); setShowLang(false); }}
                         style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"10px 16px", background:lang===l.code?"rgba(23,143,120,0.08)":"transparent", border:"none", cursor:"pointer", fontSize:"13px", fontWeight:lang===l.code?700:400, color:"#1A2F4A", textAlign:"left" }}>
                         <span style={{ fontSize:"18px" }}>{l.flag}</span>
                         <div>
