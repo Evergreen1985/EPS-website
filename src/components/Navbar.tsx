@@ -6,16 +6,14 @@ import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
 import site from "@/content/site.json";
 
 const tabs = [
-  { label:"Home",          idx:0,  href:null },
-  { label:"Programs",      idx:1,  href:null },
-  { label:"About Us",      idx:2,  href:null },
-  { label:"Daycare",       idx:3,  href:null },
-  { label:"Gallery",       idx:4,  href:null },
-  { label:"AI Tools ✨",   idx:5,  href:null },
-  { label:"Parent Portal", idx:6,  href:null },
-  { label:"Contact",       idx:7,  href:null },
-  { label:"Enquiry 📋",    idx:-1, href:"/enquiry" },
-  { label:"Parent Login",  idx:-1, href:"/parent-login" },
+  { label:"Home",         idx:0,  href:null },
+  { label:"Programs",     idx:1,  href:null },
+  { label:"About Us",     idx:2,  href:null },
+  { label:"Daycare",      idx:3,  href:null },
+  { label:"Gallery",      idx:4,  href:null },
+  { label:"AI Tools ✨",  idx:5,  href:null },
+  { label:"Contact",      idx:7,  href:null },
+  { label:"Parent Login", idx:-1, href:"/parent-login" },
 ];
 
 // We broadcast the active section index globally so Navbar can read it
@@ -81,11 +79,15 @@ export default function Navbar() {
       {/* Main nav — fixed height to contain logo */}
       <header style={{ background:"white", borderBottom:"1px solid #EDE8DF", height:"64px", display:"flex", alignItems:"center", boxShadow: scrolled ? "0 2px 12px rgba(0,0,0,0.08)" : "none" }}>
         <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between w-full">
-          {/* Logo */}
-          <button onClick={() => handleTab(tabs[0])} className="flex items-center group flex-shrink-0">
+          {/* Logo + School Name */}
+          <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-2.5 group flex-shrink-0">
             <img src="/logo.png" alt="Evergreen Preschool Logo"
               className="group-hover:scale-105 transition-transform"
               style={{ height:"58px", width:"auto", objectFit:"contain" }} />
+            <div className="hidden md:block text-left">
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#178F78", lineHeight:1.1 }}>EVERGREEN</div>
+              <div style={{ fontFamily:"'Quicksand',sans-serif", fontSize:"10px", fontWeight:600, color:"#E8694A", lineHeight:1.2 }}>Preschool & Daycare</div>
+            </div>
           </button>
 
           {/* Desktop tabs */}
@@ -105,8 +107,14 @@ export default function Navbar() {
                 </button>
               );
             })}
-            <button onClick={() => handleTab(tabs[7])}
-              className="ml-3 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
+            {/* Enquiry — highlighted like Enroll Now */}
+            <button onClick={() => handleTab({ label:"Enquiry", idx:-1, href:"/enquiry" })}
+              className="ml-2 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background:"#178F78", boxShadow:"0 4px 12px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
+              Enquiry
+            </button>
+            <button onClick={() => handleTab(tabs.find(t=>t.idx===7)!)}
+              className="ml-2 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
               style={{ background:"#E8694A", boxShadow:"0 4px 12px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
               Enroll Now
             </button>
