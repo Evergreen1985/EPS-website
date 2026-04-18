@@ -117,32 +117,28 @@ export default function EnquiryPage() {
     e.preventDefault();
     setStatus("sending");
 
-    // Save to Supabase if configured
+    // Save to DB via our API route (works even without Supabase configured)
     try {
-      const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (supabaseUrl && supabaseKey) {
-        const { createClient } = await import("@supabase/supabase-js");
-        const sb = createClient(supabaseUrl, supabaseKey);
-        await sb.from("enquiries").insert({
-          child_name:        form.childName,
-          child_dob:         form.dob,
-          child_age_months:  ageMonths,
-          phone:             form.phone,
-          parent_name:       form.parentName || null,
-          address:           form.address || null,
-          program_id:        form.program || null,
-          program_label:     PROGRAMS.find(p=>p.id===form.program)?.label || null,
-          language:          lang,
-          source:            "website",
-          status:            "new",
-        });
-      }
+      await fetch("/api/enquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childName:    form.childName,
+          dob:          form.dob,
+          ageMonths,
+          phone:        form.phone,
+          parentName:   form.parentName,
+          address:      form.address,
+          program:      form.program,
+          programLabel: PROGRAMS.find(p=>p.id===form.program)?.label,
+          lang,
+        }),
+      });
     } catch (err) {
-      console.error("DB save failed (will still send WhatsApp):", err);
+      console.error("Enquiry save failed:", err);
     }
 
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
     setStatus("success");
     // Open WhatsApp with confirmation
     const prog = PROGRAMS.find(p => p.id === form.program);
