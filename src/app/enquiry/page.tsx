@@ -151,6 +151,22 @@ export default function EnquiryPage() {
     }
 
     await new Promise(r => setTimeout(r, 600));
+
+    // Auto-create parent account for portal access
+    try {
+      await fetch("/api/auth/parent-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action:     "create",
+          phone:      form.phone,
+          childName:  form.childName,
+          childDob:   form.dob,
+          enquiryId:  null,
+        }),
+      });
+    } catch {}
+
     setStatus("success");
     // Open WhatsApp with confirmation
     const prog = PROGRAMS.find(p => p.id === form.program);
