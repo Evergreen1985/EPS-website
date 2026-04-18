@@ -57,13 +57,18 @@ type Status = "idle" | "sending" | "success";
 export default function EnquiryPage() {
   const [lang, setLang]               = useState("en-IN");
   const [showLang, setShowLang]       = useState(false);
+  const langRef                       = useRef<HTMLDivElement>(null);
 
-  // Close language dropdown on outside click
+  // Close language dropdown on outside click — use bubble phase, not capture
   useEffect(() => {
     if (!showLang) return;
-    const close = () => setShowLang(false);
-    window.addEventListener("click", close, true);
-    return () => window.removeEventListener("click", close, true);
+    const close = (e: MouseEvent) => {
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setShowLang(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
   }, [showLang]);
   const [form, setForm]               = useState({ childName:"", dob:"", phone:"", parentName:"", address:"", program:"" });
   const [status, setStatus]           = useState<Status>("idle");
@@ -250,7 +255,7 @@ export default function EnquiryPage() {
             </div>
 
             {/* Language selector — rendered in a portal-like way to avoid clipping */}
-            <div style={{ position:"relative", zIndex:999 }}>
+            <div ref={langRef} style={{ position:"relative", zIndex:999 }}>
               <button onClick={() => setShowLang(!showLang)}
                 style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.2)", border:"1.5px solid rgba(255,255,255,0.4)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
                 <Globe style={{ width:"14px", height:"14px" }} />
@@ -258,11 +263,10 @@ export default function EnquiryPage() {
                 <ChevronDown style={{ width:"12px", height:"12px", transform: showLang?"rotate(180deg)":"none", transition:"transform 0.2s" }} />
               </button>
               {showLang && (
-                <div style={{ position:"fixed", right:"20px", top:"auto", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 12px 40px rgba(0,0,0,0.18)", zIndex:9999, minWidth:"180px", overflow:"visible" }}
-                  onClick={e => e.stopPropagation()}>
+                <div style={{ position:"fixed", right:"20px", top:"auto", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 12px 40px rgba(0,0,0,0.18)", zIndex:9999, minWidth:"180px" }}>
                   <div style={{ padding:"6px 0" }}>
                     {LANGUAGES.map((l) => (
-                      <button key={l.code} onClick={(e) => { e.stopPropagation(); setLang(l.code); setShowLang(false); }}
+                      <button key={l.code} onClick={() => { setLang(l.code); setShowLang(false); }}
                         style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"10px 16px", background:lang===l.code?"rgba(23,143,120,0.08)":"transparent", border:"none", cursor:"pointer", fontSize:"13px", fontWeight:lang===l.code?700:400, color:"#1A2F4A", textAlign:"left" }}>
                         <span style={{ fontSize:"18px" }}>{l.flag}</span>
                         <div>
