@@ -14,6 +14,7 @@ const tabs = [
   { label:"AI Tools ✨",   idx:5,  href:null },
   { label:"Parent Portal", idx:6,  href:null },
   { label:"Contact",       idx:7,  href:null },
+  { label:"Enquiry 📋",    idx:-1, href:"/enquiry" },
 ];
 
 // We broadcast the active section index globally so Navbar can read it
