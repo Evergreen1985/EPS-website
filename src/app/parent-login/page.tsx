@@ -1,11 +1,13 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Phone, Lock, Eye, EyeOff, ArrowRight, Shield } from "lucide-react";
 
 type Step = "choose" | "first-login" | "login" | "success";
 
 export default function ParentLoginPage() {
+  const router = useRouter();
   const [step, setStep]         = useState<Step>("choose");
   const [phone, setPhone]       = useState("");
   const [dob, setDob]           = useState("");
@@ -33,9 +35,20 @@ export default function ParentLoginPage() {
         if (data.needsSetup)   setStep("first-login");
       } else {
         setResult(data);
+        // Save persistent session to localStorage
+        localStorage.setItem("ep_parent_session", JSON.stringify({
+          phone:     phone,
+          childName: data.childName || "",
+          loginTime: Date.now(),
+          firstLogin: data.firstLogin || false,
+        }));
         setStep("success");
         // Open WhatsApp if first login
         if (data.waUrl) setTimeout(() => window.open(data.waUrl, "_blank"), 500);
+        // Redirect to dashboard after short delay
+        if (!data.firstLogin) {
+          setTimeout(() => router.push("/parent-dashboard"), 800);
+        }
       }
     } catch {
       setError("Network error. Please try again.");
@@ -219,9 +232,9 @@ export default function ParentLoginPage() {
                 </a>
               )}
 
-              <Link href="/parent-portal"
+              <Link href="/parent-dashboard"
                 style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"8px", background:"#178F78", color:"white", borderRadius:"20px", padding:"11px 20px", fontWeight:700, fontSize:"13px", textDecoration:"none" }}>
-                Go to Parent Portal →
+                Go to Dashboard →
               </Link>
 
               <div style={{ marginTop:"12px" }}>
