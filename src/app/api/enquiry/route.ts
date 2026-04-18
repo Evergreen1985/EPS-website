@@ -31,12 +31,12 @@ export async function POST(req: Request) {
     const sb = createClient(url, key);
 
     const { data, error } = await sb.from("enquiries").insert({
-      child_name:       body.childName,
+      child_name:       body.childName?.trim() || null,
       child_dob:        body.dob || null,
       child_age_months: body.ageMonths || null,
-      phone:            body.phone,
-      parent_name:      body.parentName || null,
-      address:          body.address || null,
+      phone:            body.phone?.trim() || null,
+      parent_name:      body.parentName?.trim() || null,
+      address:          body.address?.trim() || null,
       program_id:       body.program || null,
       program_label:    body.programLabel || null,
       language:         body.lang || "en-IN",
