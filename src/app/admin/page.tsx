@@ -236,6 +236,27 @@ export default function AdminPage() {
                   ) : (
                     /* View mode */
                     <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+                      {/* Profile photo */}
+                      <div style={{ position:"relative", flexShrink:0 }}>
+                        {e.photo_url ? (
+                          <img src={e.photo_url} alt={e.child_name}
+                            style={{ width:"44px", height:"44px", borderRadius:"50%", objectFit:"cover", border:"2px solid #EDE8DF" }} />
+                        ) : (
+                          <div style={{ width:"44px", height:"44px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.15),rgba(23,143,120,0.15))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px" }}>🧒</div>
+                        )}
+                        <label htmlFor={`photo-${e.id}`} style={{ position:"absolute", bottom:-2, right:-2, width:"18px", height:"18px", borderRadius:"50%", background:"#178F78", border:"1.5px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:"9px" }}>📷</label>
+                        <input id={`photo-${e.id}`} type="file" accept="image/*" style={{ display:"none" }}
+                          onChange={async (ev) => {
+                            const file = ev.target.files?.[0];
+                            if (!file) return;
+                            const fd = new FormData();
+                            fd.append("file", file);
+                            fd.append("enquiryId", e.id);
+                            fd.append("childName", e.child_name);
+                            await fetch("/api/photos/profile", { method:"POST", body: fd });
+                            loadEnquiries();
+                          }} />
+                      </div>
                       <div style={{ flex:1, minWidth:"150px" }}>
                         <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{e.child_name}</div>
                         <div style={{ fontSize:"11px", color:"#6B7A99" }}>📞 {e.phone} · {e.program_label || "No programme"}</div>
