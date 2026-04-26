@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   // Children linked to this phone
   const { data: enquiries } = await client
     .from("enquiries")
-    .select("id,child_name,child_dob,child_age_months,program_label,program_id,status,section_id,section_name,created_at")
+    .select("id,child_name,child_dob,child_age_months,program_label,program_id,status,section_id,section_name,created_at,photo_url")
     .eq("phone", phone.trim())
     .order("created_at", { ascending: false });
 
