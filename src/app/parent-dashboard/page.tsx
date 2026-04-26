@@ -26,6 +26,7 @@ export default function ParentDashboardPage() {
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
   const [loading, setLoading]        = useState(true);
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
   const [profileUploading, setProfileUploading] = useState(false);
   const [profileError, setProfileError]         = useState("");
 
@@ -427,17 +428,33 @@ export default function ParentDashboardPage() {
                         setProfileUploading(true);
                         setProfileError("");
                         try {
-                          const fd = new FormData();
-                          fd.append("file", file);
-                          fd.append("enquiryId", selectedChild.id);
-                          fd.append("childName", selectedChild.child_name);
-                          const res  = await fetch("/api/photos/profile", { method:"POST", body: fd });
+                          // Upload direct to Supabase Storage (no Vercel size limit)
+                          const { createClient } = await import("@supabase/supabase-js");
+                          const sb = createClient(
+                            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+                          );
+                          const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+                          const fileName = `profiles/${selectedChild.id}.${ext}`;
+
+                          const { error: storageErr } = await sb.storage
+                            .from("school-photos")
+                            .upload(fileName, file, { contentType: file.type, upsert: true });
+
+                          if (storageErr) { setProfileError(storageErr.message); setProfileUploading(false); return; }
+
+                          const { data: urlData } = sb.storage.from("school-photos").getPublicUrl(fileName);
+                          const photoUrl = urlData.publicUrl + `?t=${Date.now()}`; // cache bust
+
+                          // Save URL to DB via API
+                          const res  = await fetch("/api/photos/profile", {
+                            method:"POST", headers:{"Content-Type":"application/json"},
+                            body: JSON.stringify({ enquiryId: selectedChild.id, photoUrl }),
+                          });
                           const data = await res.json();
-                          if (data.error) {
-                            setProfileError(data.error);
-                          } else if (data.photoUrl) {
-                            setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: data.photoUrl } : c));
-                            setSelected((p: any) => ({ ...p, photo_url: data.photoUrl }));
+                          if (data.error) { setProfileError(data.error); } else {
+                            setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: photoUrl } : c));
+                            setSelected((p: any) => ({ ...p, photo_url: photoUrl }));
                           }
                         } catch (err: any) {
                           setProfileError(err?.message || "Upload failed");
