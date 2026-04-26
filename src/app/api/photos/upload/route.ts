@@ -8,58 +8,37 @@ function sb() {
   );
 }
 
+export async function GET() {
+  return NextResponse.json({ status: "upload route ok" });
+}
+
+// Now receives JSON with photoUrl (file already uploaded to Supabase Storage by client)
 export async function POST(req: Request) {
   try {
-    const formData  = await req.formData();
-    const file      = formData.get("file") as File;
-    const sectionId = formData.get("sectionId") as string;
-    const sectionName = formData.get("sectionName") as string;
-    const title     = formData.get("title") as string || "";
-    const eventName = formData.get("eventName") as string || "";
-    const uploadedBy = formData.get("uploadedBy") as string || "";
-    const uploadedByRole = formData.get("uploadedByRole") as string || "teacher";
-    const isFeatured = formData.get("isFeatured") === "true";
+    const body = await req.json();
+    const { photoUrl, sectionId, sectionName, title, uploadedBy, uploadedByRole, isFeatured } = body;
 
-    if (!file || !sectionId) {
-      return NextResponse.json({ error: "File and sectionId required" }, { status: 400 });
+    if (!photoUrl || !sectionId) {
+      return NextResponse.json({ error: "photoUrl and sectionId required" }, { status: 400 });
     }
 
-    // Upload to Supabase Storage
-    const client = sb();
-    const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `${sectionId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const { data: photo, error: dbError } = await sb()
+      .from("section_photos")
+      .insert({
+        section_id:       sectionId,
+        section_name:     sectionName || null,
+        title:            title || null,
+        photo_url:        photoUrl,
+        uploaded_by:      uploadedBy || null,
+        uploaded_by_role: uploadedByRole || "teacher",
+        is_featured:      isFeatured || false,
+      })
+      .select()
+      .single();
 
-    const { data: uploadData, error: uploadError } = await client.storage
-      .from("school-photos")
-      .upload(fileName, buffer, { contentType: file.type, upsert: false });
+    if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 });
 
-    if (uploadError) {
-      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
-    }
-
-    // Get public URL
-    const { data: urlData } = client.storage.from("school-photos").getPublicUrl(fileName);
-    const photoUrl = urlData.publicUrl;
-
-    // Save to section_photos table
-    const { data: photo, error: dbError } = await client.from("section_photos").insert({
-      section_id:       sectionId,
-      section_name:     sectionName,
-      title:            title || null,
-      photo_url:        photoUrl,
-      event_name:       eventName || null,
-      uploaded_by:      uploadedBy,
-      uploaded_by_role: uploadedByRole,
-      is_featured:      isFeatured,
-    }).select().single();
-
-    if (dbError) {
-      return NextResponse.json({ error: dbError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, photo, photoUrl });
+    return NextResponse.json({ success: true, photo });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message }, { status: 500 });
   }
