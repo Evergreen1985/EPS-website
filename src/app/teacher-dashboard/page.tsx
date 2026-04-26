@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Trash2, Check, X, Clock, BookOpen, Camera, Users, Calendar } from "lucide-react";
+import { LogOut, Plus, Trash2 } from "lucide-react";
+import PhotoUploader from "@/components/PhotoUploader";
 
 type TeacherTab = "attendance" | "homework" | "students" | "photos";
 
@@ -370,26 +371,50 @@ export default function TeacherDashboardPage() {
         {tab === "photos" && (
           <div>
             <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>📸 Class Photos — {session.sectionName}</div>
-            <div style={{ background:"white", borderRadius:"16px", border:"2px dashed #EDE8DF", padding:"24px", textAlign:"center", marginBottom:"14px" }}>
-              <div style={{ fontSize:"32px", marginBottom:"8px" }}>📸</div>
-              <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78", marginBottom:"4px" }}>Upload Class Photos</div>
-              <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"14px" }}>Photos visible to parents of this section only</div>
-              <div style={{ fontSize:"11px", color:"#6B7A99", background:"rgba(245,184,41,0.08)", borderRadius:"10px", padding:"10px 14px" }}>
-                📌 Photo upload via Supabase Storage — coming in next update.<br/>For now, photos can be uploaded directly through Supabase Dashboard → Storage.
-              </div>
-            </div>
-            {photos.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"24px", color:"#6B7A99" }}>No photos uploaded yet for this section.</div>
-            ) : (
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:"10px" }}>
-                {photos.map((p:any) => (
-                  <div key={p.id} style={{ borderRadius:"14px", overflow:"hidden", border:"1px solid #EDE8DF" }}>
-                    <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"130px", objectFit:"cover", display:"block" }} />
-                    {p.title && <div style={{ padding:"6px 8px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title}</div>}
+
+            <PhotoUploader
+              sectionId={session.sectionId}
+              sectionName={session.sectionName}
+              uploadedBy={session.name}
+              uploadedByRole="teacher"
+              children={children}
+              onUploaded={() => loadData(session.sectionId)}
+            />
+
+            <div style={{ marginTop:"16px" }}>
+              {photos.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"24px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
+                  <div style={{ fontSize:"28px", marginBottom:"6px" }}>📷</div>
+                  No photos uploaded yet. Upload some above!
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize:"12px", fontWeight:700, color:"#6B7A99", marginBottom:"8px" }}>{photos.length} photos uploaded</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:"10px" }}>
+                    {photos.map((p: any) => (
+                      <div key={p.id} style={{ borderRadius:"14px", overflow:"hidden", border:"1px solid #EDE8DF", background:"white" }}>
+                        <div style={{ position:"relative" }}>
+                          <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
+                          {p.is_featured && <span style={{ position:"absolute", top:"6px", left:"6px", fontSize:"14px" }}>⭐</span>}
+                        </div>
+                        {(p.title || p.ai_caption) && (
+                          <div style={{ padding:"7px 8px" }}>
+                            <div style={{ fontSize:"11px", fontWeight:600, color:"#1A2F4A" }}>{p.title || p.ai_caption}</div>
+                            {p.ai_tags && (
+                              <div style={{ display:"flex", gap:"3px", flexWrap:"wrap", marginTop:"3px" }}>
+                                {p.ai_tags.split(",").slice(0,3).map((tag: string) => (
+                                  <span key={tag} style={{ fontSize:"9px", background:"#FAF0E8", borderRadius:"20px", padding:"1px 6px", color:"#6B7A99" }}>#{tag.trim()}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
