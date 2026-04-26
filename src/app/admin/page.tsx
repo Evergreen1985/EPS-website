@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Trash2, Edit2, Save, X, Search, ChevronDown } from "lucide-react";
+import { LogOut, Plus, Trash2, Edit2, Save, X, Search } from "lucide-react";
+import PhotoUploader from "@/components/PhotoUploader";
 
-type AdminTab = "enquiries" | "sections" | "calendar";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -150,6 +151,7 @@ export default function AdminPage() {
           { key:"enquiries", label:"📋 Enquiries", count: enquiries.length },
           { key:"sections",  label:"🏫 Sections",  count: sections.length },
           { key:"calendar",  label:"📅 Calendar",  count: events.length },
+          { key:"photos",    label:"📸 Photos",    count: 0 },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 20px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"13px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}>
@@ -457,6 +459,36 @@ export default function AdminPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ══ PHOTOS TAB ══ */}
+        {tab === "photos" && (
+          <div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>📸 Upload Class Photos</div>
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase", display:"block", marginBottom:"6px" }}>Select Section to Upload For</label>
+              <select onChange={e => {
+                const sec = sections.find(s => s.id === e.target.value);
+                if (sec) setEditSec(sec); else setEditSec(null);
+              }} style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"280px" }}>
+                <option value="">— Choose section —</option>
+                {sections.map(s => <option key={s.id} value={s.id}>{s.name} ({s.program_label})</option>)}
+              </select>
+            </div>
+            {editingSection && (
+              <PhotoUploader
+                sectionId={editingSection.id}
+                sectionName={editingSection.name}
+                uploadedBy="Admin"
+                uploadedByRole="admin"
+                children={enquiries.filter(e => e.section_id === editingSection.id).map(e => ({ id: e.id, child_name: e.child_name }))}
+              />
+            )}
+            {!editingSection && (
+              <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
+                Select a section above to upload photos for that class.
               </div>
             )}
           </div>
