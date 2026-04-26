@@ -26,7 +26,8 @@ export default function ParentDashboardPage() {
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
+  const [profileUploading, setProfileUploading] = useState(false);
+  const [profileError, setProfileError]         = useState("");
 
   const now      = new Date();
   const monthKey = String(now.getMonth()+1).padStart(2,"0");
@@ -410,29 +411,51 @@ export default function ParentDashboardPage() {
                         {prog?.icon || "🧒"}
                       </div>
                     )}
-                    {/* Camera button to upload */}
-                    <label htmlFor="profile-photo-input" style={{ position:"absolute", bottom:0, right:0, width:"28px", height:"28px", borderRadius:"50%", background:"#178F78", border:"2px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:"14px" }}>
+                    {profileUploading && (
+                      <div style={{ position:"absolute", inset:0, borderRadius:"50%", background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                        <div style={{ width:"24px", height:"24px", border:"3px solid rgba(255,255,255,0.3)", borderTopColor:"white", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+                      </div>
+                    )}
+                    <label htmlFor="profile-photo-input" style={{ position:"absolute", bottom:0, right:0, width:"28px", height:"28px", borderRadius:"50%", background:profileUploading?"#ccc":"#178F78", border:"2px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:profileUploading?"not-allowed":"pointer", fontSize:"14px" }}>
                       📷
                     </label>
                     <input id="profile-photo-input" type="file" accept="image/*" style={{ display:"none" }}
+                      disabled={profileUploading}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
-                        const fd = new FormData();
-                        fd.append("file", file);
-                        fd.append("enquiryId", selectedChild.id);
-                        fd.append("childName", selectedChild.child_name);
-                        const res  = await fetch("/api/photos/profile", { method:"POST", body: fd });
-                        const data = await res.json();
-                        if (data.photoUrl) {
-                          setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: data.photoUrl } : c));
-                          setSelected((p: any) => ({ ...p, photo_url: data.photoUrl }));
+                        setProfileUploading(true);
+                        setProfileError("");
+                        try {
+                          const fd = new FormData();
+                          fd.append("file", file);
+                          fd.append("enquiryId", selectedChild.id);
+                          fd.append("childName", selectedChild.child_name);
+                          const res  = await fetch("/api/photos/profile", { method:"POST", body: fd });
+                          const data = await res.json();
+                          if (data.error) {
+                            setProfileError(data.error);
+                          } else if (data.photoUrl) {
+                            setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: data.photoUrl } : c));
+                            setSelected((p: any) => ({ ...p, photo_url: data.photoUrl }));
+                          }
+                        } catch (err: any) {
+                          setProfileError(err?.message || "Upload failed");
                         }
+                        setProfileUploading(false);
+                        e.target.value = "";
                       }} />
                   </div>
                   <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#178F78" }}>{selectedChild.child_name}</div>
                   <div style={{ fontSize:"12px", color:"#6B7A99" }}>{selectedChild.program_label}{selectedChild.section_name && ` · ${selectedChild.section_name}`}</div>
-                  <div style={{ fontSize:"10px", color:"#178F78", marginTop:"4px", cursor:"pointer" }}>📷 Tap camera icon to update photo</div>
+                  <div style={{ fontSize:"10px", color:profileUploading?"#F5B829":"#178F78", marginTop:"4px" }}>
+                    {profileUploading ? "⏳ Uploading photo…" : "📷 Tap camera icon to update photo"}
+                  </div>
+                  {profileError && (
+                    <div style={{ marginTop:"8px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"7px 12px", fontSize:"11px", color:"#DC2626" }}>
+                      ❌ {profileError}
+                    </div>
+                  )}
                 </div>
 
                 {/* Info grid */}
