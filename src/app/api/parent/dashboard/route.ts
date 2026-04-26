@@ -26,11 +26,13 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false });
 
   // Calendar events for this month (dynamic from DB)
+  const [y, mo] = m.split("-").map(Number);
+  const lastDay = new Date(y, mo, 0).getDate();
   const { data: calendarEvents } = await client
     .from("calendar_events")
     .select("*")
     .gte("event_date", `${m}-01`)
-    .lte("event_date", `${m}-31`)
+    .lte("event_date", `${m}-${String(lastDay).padStart(2,"0")}`)
     .order("event_date");
 
   // Announcements
