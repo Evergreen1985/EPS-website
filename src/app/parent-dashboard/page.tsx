@@ -34,6 +34,33 @@ export default function ParentDashboardPage() {
   const year     = now.getFullYear();
   const month    = `${year}-${monthKey}`;
 
+  const [viewMonth, setViewMonth] = useState(() => {
+    const n = new Date();
+    return { year: n.getFullYear(), month: n.getMonth() }; // 0-indexed
+  });
+
+  const viewMonthStr  = `${viewMonth.year}-${String(viewMonth.month+1).padStart(2,"0")}`;
+  const viewMonthName = new Date(viewMonth.year, viewMonth.month, 1).toLocaleString("default", { month:"long" });
+  const [calEventsView, setCalEventsView] = useState<any[]>([]);
+
+  // Fetch events when viewMonth changes
+  useEffect(() => {
+    if (!session?.phone) return;
+    fetch(`/api/admin/calendar?month=${viewMonthStr}`)
+      .then(r => r.json())
+      .then(d => setCalEventsView(d.events || []));
+  }, [session, viewMonthStr]);
+
+  const prevMonth = () => setViewMonth(p => {
+    const d = new Date(p.year, p.month - 1, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const nextMonth = () => setViewMonth(p => {
+    const d = new Date(p.year, p.month + 1, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const goToday   = () => { const n = new Date(); setViewMonth({ year: n.getFullYear(), month: n.getMonth() }); };
+
   // ── Load session ─────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("ep_parent_session");
@@ -259,37 +286,60 @@ export default function ParentDashboardPage() {
             {tab === "calendar" && (
               <div>
                 <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"12px" }}>
-                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"14px", textAlign:"center" }}>📅 {monthName} {year}</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"2px", marginBottom:"12px" }}>
-                    {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
-                      <div key={d} style={{ textAlign:"center", fontSize:"10px", fontWeight:700, color:"#6B7A99", padding:"4px 0" }}>{d}</div>
-                    ))}
-                    {Array.from({ length: firstDay }).map((_,i) => <div key={`e${i}`} />)}
-                    {Array.from({ length: daysInMonth }).map((_,i) => {
-                      const day = i+1;
-                      const date = `${year}-${monthKey}-${String(day).padStart(2,"0")}`;
-                      const dayEvents = calendarEvents.filter(ev => ev.event_date === date);
-                      const isToday = day === now.getDate();
-                      const isHoliday = dayEvents.some(ev => ev.is_holiday);
-                      const isSun = (firstDay+i)%7===0;
-                      return (
-                        <div key={day} title={dayEvents.map(ev=>ev.title).join(", ")}
-                          style={{ textAlign:"center", padding:"5px 2px", borderRadius:"8px", fontSize:"12px", fontWeight:isToday?700:400, position:"relative",
-                            background:isToday ? "#178F78" : isHoliday ? "rgba(232,105,74,0.08)" : "transparent",
-                            color:isToday ? "white" : isHoliday ? "#E8694A" : isSun ? "#E8694A" : "#1A2F4A" }}>
-                          {day}
-                          {dayEvents.length > 0 && !isToday && <div style={{ width:"4px", height:"4px", borderRadius:"50%", background:dayEvents[0].color, margin:"1px auto 0" }} />}
-                        </div>
-                      );
-                    })}
+                  {/* Month navigation */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px" }}>
+                    <button onClick={prevMonth}
+                      style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>‹</button>
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>
+                        {viewMonthName} {viewMonth.year}
+                      </div>
+                      {viewMonthStr !== `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}` && (
+                        <button onClick={goToday} style={{ fontSize:"10px", color:"#E8694A", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>Back to today</button>
+                      )}
+                    </div>
+                    <button onClick={nextMonth}
+                      style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>›</button>
                   </div>
+
+                  {/* Calendar grid */}
+                  {(() => {
+                    const dIM = new Date(viewMonth.year, viewMonth.month+1, 0).getDate();
+                    const fD  = new Date(viewMonth.year, viewMonth.month, 1).getDay();
+                    const mStr = viewMonthStr;
+                    return (
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"2px", marginBottom:"12px" }}>
+                        {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
+                          <div key={d} style={{ textAlign:"center", fontSize:"10px", fontWeight:700, color:"#6B7A99", padding:"4px 0" }}>{d}</div>
+                        ))}
+                        {Array.from({ length: fD }).map((_,i) => <div key={`e${i}`} />)}
+                        {Array.from({ length: dIM }).map((_,i) => {
+                          const day = i+1;
+                          const date = `${mStr}-${String(day).padStart(2,"0")}`;
+                          const dayEvents = calEventsView.filter(ev => ev.event_date === date);
+                          const isToday  = viewMonth.year === now.getFullYear() && viewMonth.month === now.getMonth() && day === now.getDate();
+                          const isHoliday= dayEvents.some(ev => ev.is_holiday);
+                          const isSun    = (fD+i)%7===0;
+                          return (
+                            <div key={day} title={dayEvents.map(ev=>ev.title).join(", ")}
+                              style={{ textAlign:"center", padding:"5px 2px", borderRadius:"8px", fontSize:"12px", fontWeight:isToday?700:400, position:"relative",
+                                background:isToday?"#178F78":isHoliday?"rgba(232,105,74,0.08)":"transparent",
+                                color:isToday?"white":isHoliday?"#E8694A":isSun?"#E8694A":"#1A2F4A" }}>
+                              {day}
+                              {dayEvents.length > 0 && !isToday && <div style={{ width:"4px", height:"4px", borderRadius:"50%", background:dayEvents[0].color, margin:"1px auto 0" }} />}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                {/* Events list */}
-                {calendarEvents.length > 0 && (
-                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"12px" }}>
-                    <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78", marginBottom:"12px" }}>Events This Month</div>
-                    {calendarEvents.map(ev => (
+                {/* Events list for view month */}
+                {calEventsView.length > 0 ? (
+                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px" }}>
+                    <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78", marginBottom:"12px" }}>Events in {viewMonthName}</div>
+                    {calEventsView.map(ev => (
                       <div key={ev.id} style={{ display:"flex", alignItems:"center", gap:"12px", padding:"9px 0", borderBottom:"1px solid #EDE8DF" }}>
                         <span style={{ fontSize:"20px" }}>{ev.icon}</span>
                         <div style={{ flex:1 }}>
@@ -301,9 +351,13 @@ export default function ParentDashboardPage() {
                             {ev.description && ` · ${ev.description}`}
                           </div>
                         </div>
-                        <span style={{ fontSize:"10px", fontWeight:700, color:EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99", background:`${EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99"}15`, borderRadius:"20px", padding:"2px 8px", textTransform:"capitalize" }}>{ev.event_type}</span>
+                        <span style={{ fontSize:"10px", fontWeight:700, color:EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99", background:`${EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99"}15`, borderRadius:"20px", padding:"2px 8px", textTransform:"capitalize", whiteSpace:"nowrap" }}>{ev.event_type}</span>
                       </div>
                     ))}
+                  </div>
+                ) : (
+                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px", textAlign:"center", color:"#6B7A99", fontSize:"13px" }}>
+                    No events for {viewMonthName} {viewMonth.year}
                   </div>
                 )}
               </div>
