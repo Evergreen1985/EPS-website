@@ -18,6 +18,8 @@ export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uplo
   const [aiTagging, setAiTagging] = useState(false);
   const [results, setResults]   = useState<{ url: string; caption: string; tags: string[] }[]>([]);
   const [done, setDone]         = useState(false);
+  const [error, setError]       = useState("");
+  const [progress, setProgress] = useState(0);
 
   const onFiles = useCallback((files: FileList | null) => {
     if (!files) return;
@@ -34,46 +36,69 @@ export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uplo
   const upload = async () => {
     if (previews.length === 0) return;
     setUploading(true);
+    setError("");
+    setProgress(0);
     const uploaded: any[] = [];
 
-    for (const p of previews) {
-      const fd = new FormData();
-      fd.append("file", p.file);
-      fd.append("sectionId", sectionId);
-      fd.append("sectionName", sectionName);
-      fd.append("title", p.title);
-      fd.append("eventName", p.event);
-      fd.append("uploadedBy", uploadedBy);
-      fd.append("uploadedByRole", uploadedByRole);
-      fd.append("isFeatured", String(p.featured));
+    for (let i = 0; i < previews.length; i++) {
+      const p = previews[i];
+      setProgress(Math.round(((i) / previews.length) * 100));
+      try {
+        const fd = new FormData();
+        fd.append("file", p.file);
+        fd.append("sectionId", sectionId);
+        fd.append("sectionName", sectionName);
+        fd.append("title", p.title);
+        fd.append("eventName", p.event);
+        fd.append("uploadedBy", uploadedBy);
+        fd.append("uploadedByRole", uploadedByRole);
+        fd.append("isFeatured", String(p.featured));
 
-      const res  = await fetch("/api/photos/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.photo) uploaded.push(data.photo);
+        const res  = await fetch("/api/photos/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.error) {
+          setError(`Upload failed: ${data.error}`);
+          setUploading(false);
+          return;
+        }
+        if (data.photo) {
+          uploaded.push(data.photo);
+          onUploaded?.(data.photo);
+        }
+      } catch (e: any) {
+        setError(`Error: ${e?.message}`);
+        setUploading(false);
+        return;
+      }
     }
 
+    setProgress(100);
     setUploading(false);
 
-    // Run AI tagging on each uploaded photo
+    // AI tagging
     if (uploaded.length > 0) {
       setAiTagging(true);
       const aiResults: { url: string; caption: string; tags: string[] }[] = [];
       for (const photo of uploaded) {
-        const res  = await fetch("/api/photos/ai-tag", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photoId: photo.id, photoUrl: photo.photo_url, childrenInSection: children }),
-        });
-        const data = await res.json();
-        aiResults.push({ url: photo.photo_url, caption: data.aiResult?.caption || "", tags: data.aiResult?.tags || [] });
-        onUploaded?.(photo);
+        try {
+          const res  = await fetch("/api/photos/ai-tag", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photoId: photo.id, photoUrl: photo.photo_url, childrenInSection: children }),
+          });
+          const data = await res.json();
+          aiResults.push({ url: photo.photo_url, caption: data.aiResult?.caption || "", tags: data.aiResult?.tags || [] });
+        } catch {
+          aiResults.push({ url: photo.photo_url, caption: "", tags: [] });
+        }
       }
       setResults(aiResults);
       setAiTagging(false);
     }
 
     setPreviews([]);
+    setProgress(0);
     setDone(true);
-    setTimeout(() => setDone(false), 4000);
+    setTimeout(() => setDone(false), 5000);
   };
 
   return (
@@ -125,22 +150,39 @@ export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uplo
             ))}
           </div>
 
-          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+          <div style={{ display:"flex", gap:"8px", alignItems:"center", flexWrap:"wrap" }}>
             <button onClick={upload} disabled={uploading || aiTagging}
-              style={{ display:"flex", alignItems:"center", gap:"7px", background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor:"pointer", boxShadow:"0 4px 14px rgba(23,143,120,0.3)" }}>
-              {uploading ? <><Loader2 style={{ width:"14px", height:"14px", animation:"spin 0.8s linear infinite" }} /> Uploading…</>
+              style={{ display:"flex", alignItems:"center", gap:"7px", background: uploading||aiTagging ? "#ccc" : "#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor: uploading||aiTagging ? "not-allowed":"pointer", boxShadow: uploading||aiTagging ? "none":"0 4px 14px rgba(23,143,120,0.3)" }}>
+              {uploading ? <><Loader2 style={{ width:"14px", height:"14px", animation:"spin 0.8s linear infinite" }} /> Uploading {progress}%…</>
                : aiTagging ? <><Sparkles style={{ width:"14px", height:"14px" }} /> AI Tagging…</>
                : <><Upload style={{ width:"14px", height:"14px" }} /> Upload {previews.length} Photo{previews.length>1?"s":""}</>}
             </button>
-            <button onClick={() => setPreviews([])}
+            <button onClick={() => { setPreviews([]); setError(""); }}
               style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"12px", padding:"9px 14px", fontSize:"12px", cursor:"pointer" }}>
               Clear
             </button>
-            <div style={{ fontSize:"11px", color:"#6B7A99", display:"flex", alignItems:"center", gap:"4px" }}>
-              <Sparkles style={{ width:"12px", height:"12px", color:"#F5B829" }} />
-              AI will auto-tag & caption after upload
-            </div>
+            {!uploading && !aiTagging && (
+              <div style={{ fontSize:"11px", color:"#6B7A99", display:"flex", alignItems:"center", gap:"4px" }}>
+                <Sparkles style={{ width:"12px", height:"12px", color:"#F5B829" }} />
+                AI will auto-tag & caption after upload
+              </div>
+            )}
           </div>
+
+          {/* Progress bar */}
+          {uploading && (
+            <div style={{ marginTop:"10px", background:"#EDE8DF", borderRadius:"20px", height:"6px", overflow:"hidden" }}>
+              <div style={{ height:"100%", background:"#178F78", borderRadius:"20px", width:`${progress}%`, transition:"width 0.3s" }} />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div style={{ marginTop:"10px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"9px 12px", fontSize:"12px", color:"#DC2626" }}>
+              ❌ {error}<br/>
+              <span style={{ fontSize:"10px", color:"#6B7A99" }}>Make sure the Supabase Storage bucket "school-photos" exists and is public.</span>
+            </div>
+          )}
         </div>
       )}
 
