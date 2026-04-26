@@ -138,9 +138,14 @@ export default function ParentDashboardPage() {
               {children.map(child => (
                 <button key={child.id} onClick={() => { setSelected(child); setTab("home"); }}
                   style={{ display:"flex", alignItems:"center", gap:"10px", padding:"10px 16px", borderRadius:"16px", border:`2px solid ${selectedChild?.id===child.id ? "#178F78" : "#EDE8DF"}`, background:selectedChild?.id===child.id ? "rgba(23,143,120,0.08)" : "white", cursor:"pointer", transition:"all 0.2s" }}>
-                  <div style={{ width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
-                    {PROGRAMS[child.program_id]?.icon || "🧒"}
-                  </div>
+                  {child.photo_url ? (
+                    <img src={child.photo_url} alt={child.child_name}
+                      style={{ width:"40px", height:"40px", borderRadius:"50%", objectFit:"cover", border:"2px solid #EDE8DF", flexShrink:0 }} />
+                  ) : (
+                    <div style={{ width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
+                      {PROGRAMS[child.program_id]?.icon || "🧒"}
+                    </div>
+                  )}
                   <div style={{ textAlign:"left" }}>
                     <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{child.child_name}</div>
                     <div style={{ fontSize:"10px", color:"#6B7A99" }}>
@@ -394,13 +399,43 @@ export default function ParentDashboardPage() {
             {/* PROFILE TAB */}
             {tab === "profile" && (
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                {/* Profile photo */}
                 <div style={{ textAlign:"center", marginBottom:"20px" }}>
-                  <div style={{ width:"72px", height:"72px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"32px", margin:"0 auto 10px" }}>
-                    {prog?.icon || "🧒"}
+                  <div style={{ position:"relative", width:"90px", margin:"0 auto 10px" }}>
+                    {selectedChild.photo_url ? (
+                      <img src={selectedChild.photo_url} alt={selectedChild.child_name}
+                        style={{ width:"90px", height:"90px", borderRadius:"50%", objectFit:"cover", border:"3px solid #178F78" }} />
+                    ) : (
+                      <div style={{ width:"90px", height:"90px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"36px", border:"3px solid #EDE8DF" }}>
+                        {prog?.icon || "🧒"}
+                      </div>
+                    )}
+                    {/* Camera button to upload */}
+                    <label htmlFor="profile-photo-input" style={{ position:"absolute", bottom:0, right:0, width:"28px", height:"28px", borderRadius:"50%", background:"#178F78", border:"2px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:"14px" }}>
+                      📷
+                    </label>
+                    <input id="profile-photo-input" type="file" accept="image/*" style={{ display:"none" }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        fd.append("enquiryId", selectedChild.id);
+                        fd.append("childName", selectedChild.child_name);
+                        const res  = await fetch("/api/photos/profile", { method:"POST", body: fd });
+                        const data = await res.json();
+                        if (data.photoUrl) {
+                          setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: data.photoUrl } : c));
+                          setSelected((p: any) => ({ ...p, photo_url: data.photoUrl }));
+                        }
+                      }} />
                   </div>
                   <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#178F78" }}>{selectedChild.child_name}</div>
-                  <div style={{ fontSize:"12px", color:"#6B7A99" }}>{selectedChild.program_label} {selectedChild.section_name && `· ${selectedChild.section_name}`}</div>
+                  <div style={{ fontSize:"12px", color:"#6B7A99" }}>{selectedChild.program_label}{selectedChild.section_name && ` · ${selectedChild.section_name}`}</div>
+                  <div style={{ fontSize:"10px", color:"#178F78", marginTop:"4px", cursor:"pointer" }}>📷 Tap camera icon to update photo</div>
                 </div>
+
+                {/* Info grid */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
                   {[
                     ["🎂","Date of Birth", selectedChild.child_dob ? new Date(selectedChild.child_dob).toLocaleDateString("en-IN") : "—"],
@@ -417,6 +452,7 @@ export default function ParentDashboardPage() {
                     </div>
                   ))}
                 </div>
+
                 <button onClick={logout} style={{ width:"100%", marginTop:"20px", padding:"11px", borderRadius:"20px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", color:"#DC2626", fontWeight:700, fontSize:"13px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px" }}>
                   <LogOut style={{ width:"16px", height:"16px" }} /> Logout
                 </button>
