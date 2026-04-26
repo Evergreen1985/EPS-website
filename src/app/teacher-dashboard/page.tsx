@@ -213,7 +213,7 @@ export default function TeacherDashboardPage() {
                 {children.map(child => {
                   const attStatus = attendance[child.id];
                   return (
-                    <div key={child.id} style={{ background:"white", borderRadius:"16px", border:`2px solid ${attStatus==="present"?"rgba(23,143,120,0.25)":attStatus==="absent"?"rgba(232,105,74,0.25)":attStatus==="late"?"rgba(245,184,41,0.25)":"#EDE8DF"}`, padding:"12px 16px`, display:"flex", alignItems:"center", gap:"12px" }}>
+                    <div key={child.id} style={{ background:"white", borderRadius:"16px", border:`2px solid ${attStatus==="present"?"rgba(23,143,120,0.25)":attStatus==="absent"?"rgba(232,105,74,0.25)":attStatus==="late"?"rgba(245,184,41,0.25)":"#EDE8DF"}`, padding:"12px 16px", display:"flex", alignItems:"center", gap:"12px" }}>
                       <div style={{ width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(23,143,120,0.15),rgba(232,105,74,0.15))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>🧒</div>
                       <div style={{ flex:1 }}>
                         <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{child.child_name}</div>
