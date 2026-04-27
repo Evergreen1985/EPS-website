@@ -84,12 +84,22 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH: Save a name tag for a face
+// PATCH: Save face tags (single or bulk from auto-tagger)
 export async function PATCH(req: Request) {
   try {
-    const { photoId, faceIndex, childName } = await req.json();
-    const { data: photo } = await sb().from("section_photos").select("ai_tags").eq("id", photoId).single();
+    const { photoId, faceIndex, childName, bulkFaces, caption } = await req.json();
 
+    // Bulk save from FaceAutoTagger
+    if (bulkFaces) {
+      await sb().from("section_photos").update({
+        ai_tags:    JSON.stringify(bulkFaces),
+        ai_caption: caption || null,
+      }).eq("id", photoId);
+      return NextResponse.json({ success: true });
+    }
+
+    // Single face correction
+    const { data: photo } = await sb().from("section_photos").select("ai_tags").eq("id", photoId).single();
     let faces: any[] = [];
     try { faces = photo?.ai_tags ? JSON.parse(photo.ai_tags) : []; } catch {}
 
