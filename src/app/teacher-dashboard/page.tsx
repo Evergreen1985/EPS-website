@@ -28,9 +28,16 @@ function DetectButton({ photoId, photoUrl, sectionId, onDone }: {
         body: JSON.stringify({ photoId, photoUrl, sectionId }),
       });
       const data = await res.json();
-      if (data.error) { setError(data.error); }
-      else {
-        setResult(`✅ ${data.autoTagged || 0} auto-tagged, ${data.faceCount || 0} faces found`);
+      console.log("Auto-tag result:", data);
+      if (data.error) {
+        setError(`${data.error} | ${(data.log||[]).slice(-3).join(" → ")}`);
+      } else {
+        const msg = data.autoTagged > 0
+          ? `✅ ${data.autoTagged} auto-tagged`
+          : data.faceCount > 0
+          ? `${data.faceCount} faces found — tag manually`
+          : "No faces detected";
+        setResult(msg);
         onDone();
       }
     } catch (e: any) { setError(e.message); }
