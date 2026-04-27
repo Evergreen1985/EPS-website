@@ -3,15 +3,18 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Lazy client — only created on client side, never at build time
+// Lazy client — fetches config from server if env vars not baked in
 let _sb: SupabaseClient | null = null;
-function getSb() {
-  if (!_sb) {
-    _sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-    );
+async function getSb(): Promise<SupabaseClient> {
+  if (_sb) return _sb;
+  let url  = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  let key  = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!url || !key) {
+    const cfg = await fetch("/api/config").then(r => r.json());
+    url = cfg.supabaseUrl;
+    key = cfg.supabaseKey;
   }
+  _sb = createClient(url, key);
   return _sb;
 }
 
@@ -57,13 +60,13 @@ export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uplo
         const ext      = (p.file.name.split(".").pop() || "jpg").toLowerCase();
         const fileName = `sections/${sectionId}/${Date.now()}-${i}.${ext}`;
 
-        const { error: storageErr } = await getSb().storage
+        const { error: storageErr } = await (await getSb()).storage
           .from("school-photos")
           .upload(fileName, p.file, { contentType: p.file.type, upsert: false });
 
         if (storageErr) { setError(`Storage: ${storageErr.message}`); setUploading(false); return; }
 
-        const { data: urlData } = getSb().storage.from("school-photos").getPublicUrl(fileName);
+        const { data: urlData } = (await getSb()).storage.from("school-photos").getPublicUrl(fileName);
         const photoUrl = urlData.publicUrl;
 
         const res  = await fetch("/api/photos/upload", {
