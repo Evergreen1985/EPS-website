@@ -8,7 +8,56 @@ function sb() {
   );
 }
 
-async function toBase64(url: string): Promise<{ base64: string; mime: string } | null> {
+// DEBUG endpoint — visit /api/photos/face-match?sectionId=xxx&profileUrl=yyy in browser
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const sectionId    = searchParams.get("sectionId") || "";
+  const profileUrl   = searchParams.get("profileUrl") || "";
+  const debug: any   = { steps: [] };
+
+  // Step 1: Check env vars
+  debug.steps.push({ step: 1, name: "Env vars", supabaseUrl: !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL), anthropicKey: !!process.env.ANTHROPIC_API_KEY });
+
+  // Step 2: Fetch photos from DB
+  if (sectionId) {
+    const { data, error } = await sb().from("section_photos").select("id,photo_url").eq("section_id", sectionId).limit(6);
+    debug.steps.push({ step: 2, name: "DB photos", count: data?.length, error: error?.message, firstUrl: data?.[0]?.photo_url?.slice(0,60) });
+  } else {
+    debug.steps.push({ step: 2, name: "DB photos", skipped: "no sectionId param" });
+  }
+
+  // Step 3: Test profile photo fetch
+  if (profileUrl) {
+    try {
+      const res = await fetch(profileUrl.split("?")[0], { signal: AbortSignal.timeout(5000) });
+      const buf = await res.arrayBuffer();
+      debug.steps.push({ step: 3, name: "Profile photo fetch", status: res.status, size: buf.byteLength, ok: res.ok });
+    } catch (e: any) {
+      debug.steps.push({ step: 3, name: "Profile photo fetch", error: e.message });
+    }
+  } else {
+    debug.steps.push({ step: 3, name: "Profile photo fetch", skipped: "no profileUrl param" });
+  }
+
+  // Step 4: Test Claude API
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+        body: JSON.stringify({ model: "claude-opus-4-5", max_tokens: 10, messages: [{ role: "user", content: "say hi" }] }),
+      });
+      const data = await res.json();
+      debug.steps.push({ step: 4, name: "Claude API test", status: res.status, response: data?.content?.[0]?.text, error: data?.error?.message });
+    } catch (e: any) {
+      debug.steps.push({ step: 4, name: "Claude API test", error: e.message });
+    }
+  } else {
+    debug.steps.push({ step: 4, name: "Claude API test", error: "ANTHROPIC_API_KEY not set!" });
+  }
+
+  return NextResponse.json(debug, { headers: { "Content-Type": "application/json" } });
+}
   try {
     const clean = url.split("?")[0]; // remove cache params
     const res   = await fetch(clean, { signal: AbortSignal.timeout(5000) });
