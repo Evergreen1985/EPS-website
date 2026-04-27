@@ -39,6 +39,8 @@ export default function ParentDashboardPage() {
   const [announcements, setAnnounce] = useState<any[]>([]);
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
+  const [matchedPhotos, setMatched]  = useState<any[]>([]);
+  const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
   const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
   const [profileUploading, setProfileUploading] = useState(false);
@@ -105,6 +107,28 @@ export default function ParentDashboardPage() {
       })
       .catch(() => setLoading(false));
   }, [session, month]);
+
+  // ── Face match when child selected ───────────────────
+  useEffect(() => {
+    if (!selectedChild?.photo_url || !selectedChild?.section_id) return;
+    setMatchLoad(true);
+    fetch("/api/photos/face-match", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profilePhotoUrl: selectedChild.photo_url,
+        sectionId:       selectedChild.section_id,
+        childName:       selectedChild.child_name,
+      }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        setMatched(data.matchedPhotos || []);
+        if (data.allPhotos) setPhotos(data.allPhotos);
+        setMatchLoad(false);
+      })
+      .catch(() => setMatchLoad(false));
+  }, [selectedChild?.id, selectedChild?.photo_url]);
 
   const logout = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
 
@@ -275,6 +299,46 @@ export default function ParentDashboardPage() {
                     </div>
                   ))}
                 </div>
+
+                {/* ✨ AI Matched Photos — child's face in class photos */}
+                {selectedChild?.photo_url && selectedChild?.section_id && (
+                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginTop:"12px" }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
+                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78" }}>
+                        ✨ {selectedChild.child_name} in Photos
+                      </div>
+                      {matchLoading && (
+                        <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", color:"#6B7A99" }}>
+                          <div style={{ width:"12px", height:"12px", border:"2px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+                          AI scanning…
+                        </div>
+                      )}
+                    </div>
+
+                    {!matchLoading && matchedPhotos.length === 0 && (
+                      <div style={{ textAlign:"center", padding:"16px", color:"#6B7A99", fontSize:"12px" }}>
+                        {selectedChild.photo_url
+                          ? "No photos with your child found yet. Check back after teacher uploads class photos!"
+                          : "Add a profile photo in the Profile tab to enable AI photo matching! 📷"}
+                      </div>
+                    )}
+
+                    {matchedPhotos.length > 0 && (
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:"8px" }}>
+                        {matchedPhotos.map((p: any) => (
+                          <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:"1px solid #EDE8DF", position:"relative" }}>
+                            <img src={p.photo_url} alt={p.title || "Class photo"}
+                              style={{ width:"100%", height:"110px", objectFit:"cover", display:"block" }} />
+                            <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 7px", fontSize:"9px", fontWeight:700, color:"white" }}>✨ Match</div>
+                            {(p.title || p.ai_caption) && (
+                              <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title || p.ai_caption}</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -387,27 +451,63 @@ export default function ParentDashboardPage() {
             {/* PHOTOS TAB */}
             {tab === "photos" && (
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
-                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"14px" }}>📸 Class Photos</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px", flexWrap:"wrap", gap:"8px" }}>
+                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>
+                    📸 {selectedChild.section_name || "Class"} Photos
+                  </div>
+                  {matchedPhotos.length > 0 && (
+                    <div style={{ fontSize:"11px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"4px 12px", fontWeight:600 }}>
+                      ✨ {matchedPhotos.length} with {selectedChild.child_name}
+                    </div>
+                  )}
+                </div>
                 {!hasSection ? (
                   <div style={{ background:"rgba(245,184,41,0.08)", border:"1px solid rgba(245,184,41,0.25)", borderRadius:"16px", padding:"24px", textAlign:"center" }}>
                     <div style={{ fontSize:"32px", marginBottom:"8px" }}>📸</div>
-                    <div style={{ fontWeight:700, fontSize:"14px", color:"#B08000", marginBottom:"4px" }}>Section not assigned yet</div>
-                    <div style={{ fontSize:"12px", color:"#6B7A99" }}>Class photos will appear here once admin assigns your child to a section.</div>
+                    <div style={{ fontWeight:700, fontSize:"14px", color:"#B08000" }}>Section not assigned yet</div>
+                  </div>
+                ) : matchLoading ? (
+                  <div style={{ textAlign:"center", padding:"32px", color:"#6B7A99" }}>
+                    <div style={{ width:"32px", height:"32px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
+                    <div style={{ fontSize:"12px" }}>✨ Finding photos with {selectedChild.child_name}…</div>
                   </div>
                 ) : photos.length === 0 ? (
                   <div style={{ textAlign:"center", padding:"24px", color:"#6B7A99" }}>
                     <div style={{ fontSize:"32px", marginBottom:"8px" }}>🌿</div>
-                    <div style={{ fontSize:"13px" }}>No photos uploaded yet for {selectedChild.section_name}.</div>
+                    No photos yet for {selectedChild.section_name}.
                   </div>
                 ) : (
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:"10px" }}>
-                    {photos.map((p:any) => (
-                      <div key={p.id} style={{ borderRadius:"14px", overflow:"hidden", border:"1px solid #EDE8DF" }}>
-                        <img src={p.photo_url} alt={p.title || "Class photo"} style={{ width:"100%", height:"130px", objectFit:"cover", display:"block" }} />
-                        {p.title && <div style={{ padding:"6px 8px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title}</div>}
+                  <>
+                    {matchedPhotos.length > 0 && (
+                      <div style={{ marginBottom:"18px" }}>
+                        <div style={{ fontSize:"12px", fontWeight:700, color:"#178F78", marginBottom:"8px" }}>✨ {selectedChild.child_name} appears in these ({matchedPhotos.length})</div>
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
+                          {matchedPhotos.map((p:any) => (
+                            <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:"2px solid rgba(23,143,120,0.35)", position:"relative" }}>
+                              <img src={p.photo_url} alt={p.title||""} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
+                              <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 7px", fontSize:"9px", fontWeight:700, color:"white" }}>✨ You!</div>
+                              {(p.title||p.ai_caption) && <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", background:"white" }}>{p.title||p.ai_caption}</div>}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                    <div>
+                      <div style={{ fontSize:"12px", fontWeight:700, color:"#6B7A99", marginBottom:"8px" }}>All Class Photos ({photos.length})</div>
+                      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
+                        {photos.map((p:any) => {
+                          const isMatch = matchedPhotos.find((m:any) => m.id === p.id);
+                          return (
+                            <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:`1px solid ${isMatch?"rgba(23,143,120,0.3)":"#EDE8DF"}`, position:"relative" }}>
+                              <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
+                              {isMatch && <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 6px", fontSize:"9px", fontWeight:700, color:"white" }}>✨</div>}
+                              {(p.title||p.ai_caption) && <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title||p.ai_caption}</div>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}
