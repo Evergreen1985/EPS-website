@@ -172,47 +172,6 @@ function FaceTagPhoto({ photo, sectionId, children, onSaved }: {
 }
 
 export default function TeacherDashboardPage() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult]   = useState("");
-  const [error, setError]     = useState("");
-
-  const detect = async () => {
-    setLoading(true); setError(""); setResult("");
-    try {
-      const res  = await fetch("/api/photos/detect-faces", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ photoId, photoUrl, sectionId }),
-      });
-      const data = await res.json();
-      console.log("Auto-tag result:", data);
-      if (data.error) {
-        setError(`${data.error} | ${(data.log||[]).slice(-3).join(" → ")}`);
-      } else {
-        const msg = data.autoTagged > 0
-          ? `✅ ${data.autoTagged} auto-tagged`
-          : data.faceCount > 0
-          ? `${data.faceCount} faces found — tag manually`
-          : "No faces detected";
-        setResult(msg);
-        onDone();
-      }
-    } catch (e: any) { setError(e.message); }
-    setLoading(false);
-  };
-
-  return (
-    <div>
-      <button onClick={detect} disabled={loading}
-        style={{ fontSize:"11px", background:loading?"#EDE8DF":"#178F78", color:loading?"#6B7A99":"white", border:"none", borderRadius:"20px", padding:"5px 14px", cursor:loading?"not-allowed":"pointer", fontWeight:700, display:"flex", alignItems:"center", gap:"5px" }}>
-        {loading ? <><span style={{ display:"inline-block", width:"10px", height:"10px", border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"white", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Auto-Tagging…</> : "🤖 Auto-Tag Faces"}
-      </button>
-      {result && <div style={{ fontSize:"10px", color:"#178F78", marginTop:"3px", fontWeight:600 }}>{result}</div>}
-      {error  && <div style={{ fontSize:"10px", color:"#DC2626", marginTop:"3px" }}>❌ {error}</div>}
-    </div>
-  );
-}
-
-export default function TeacherDashboardPage() {
   const router = useRouter();
   const [session, setSession]     = useState<any>(null);
   const [tab, setTab]             = useState<TeacherTab>("attendance");
