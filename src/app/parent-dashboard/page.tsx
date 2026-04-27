@@ -3,12 +3,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+let _sb: SupabaseClient | null = null;
+function getSb() {
+  if (!_sb) _sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+  return _sb;
+}
 
 const PROGRAMS: Record<string, { label:string; icon:string; color:string; schedule:string; highlights:string[] }> = {
   "infant":     { label:"Infant Care",     icon:"🍼", color:"#EC4899", schedule:"9:00 AM – 3:30 PM", highlights:["Sensory play daily","Primary caregiver assigned","Feeding & sleep schedule maintained","Daily parent updates"] },
@@ -437,13 +438,13 @@ export default function ParentDashboardPage() {
                           const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
                           const fileName = `profiles/${selectedChild.id}.${ext}`;
 
-                          const { error: storageErr } = await supabase.storage
+                          const { error: storageErr } = await getSb().storage
                             .from("school-photos")
                             .upload(fileName, file, { contentType: file.type, upsert: true });
 
                           if (storageErr) { setProfileError(storageErr.message); setProfileUploading(false); return; }
 
-                          const { data: urlData } = supabase.storage.from("school-photos").getPublicUrl(fileName);
+                          const { data: urlData } = getSb().storage.from("school-photos").getPublicUrl(fileName);
                           const photoUrl = urlData.publicUrl + `?t=${Date.now()}`;
 
                           // Save URL to DB via API
