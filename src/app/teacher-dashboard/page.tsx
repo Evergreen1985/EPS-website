@@ -529,43 +529,6 @@ export default function TeacherDashboardPage() {
             </div>
           </div>
         )}
-
-            <div style={{ marginTop:"16px" }}>
-              {photos.length === 0 ? (
-                <div style={{ textAlign:"center", padding:"24px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
-                  <div style={{ fontSize:"28px", marginBottom:"6px" }}>📷</div>
-                  No photos uploaded yet. Upload some above!
-                </div>
-              ) : (
-                <>
-                  <div style={{ fontSize:"12px", fontWeight:700, color:"#6B7A99", marginBottom:"8px" }}>{photos.length} photos uploaded</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:"10px" }}>
-                    {photos.map((p: any) => (
-                      <div key={p.id} style={{ borderRadius:"14px", overflow:"hidden", border:"1px solid #EDE8DF", background:"white" }}>
-                        <div style={{ position:"relative" }}>
-                          <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
-                          {p.is_featured && <span style={{ position:"absolute", top:"6px", left:"6px", fontSize:"14px" }}>⭐</span>}
-                        </div>
-                        {(p.title || p.ai_caption) && (
-                          <div style={{ padding:"7px 8px" }}>
-                            <div style={{ fontSize:"11px", fontWeight:600, color:"#1A2F4A" }}>{p.title || p.ai_caption}</div>
-                            {p.ai_tags && (
-                              <div style={{ display:"flex", gap:"3px", flexWrap:"wrap", marginTop:"3px" }}>
-                                {p.ai_tags.split(",").slice(0,3).map((tag: string) => (
-                                  <span key={tag} style={{ fontSize:"9px", background:"#FAF0E8", borderRadius:"20px", padding:"1px 6px", color:"#6B7A99" }}>#{tag.trim()}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
