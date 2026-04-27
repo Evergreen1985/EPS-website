@@ -10,7 +10,8 @@ function sb() {
 
 async function toBase64(url: string) {
   try {
-    const res = await fetch(url.split("?")[0], { signal: AbortSignal.timeout(6000) });
+    const clean = url.split("?")[0];
+    const res   = await fetch(clean, { signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const buf  = await res.arrayBuffer();
     const mime = (res.headers.get("content-type") || "image/jpeg").split(";")[0];
@@ -18,18 +19,45 @@ async function toBase64(url: string) {
   } catch { return null; }
 }
 
-// POST: Auto-detect + auto-match faces using Google Vision + Claude Vision
+// GET: Debug endpoint
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const sectionId = searchParams.get("sectionId") || "";
+  const debug: any = {};
+
+  debug.visionKey  = !!process.env.GOOGLE_VISION_API_KEY;
+  debug.claudeKey  = !!process.env.ANTHROPIC_API_KEY;
+  debug.supabase   = !!(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+
+  if (sectionId) {
+    const { data, error } = await sb()
+      .from("enquiries")
+      .select("id, child_name, photo_url")
+      .eq("section_id", sectionId)
+      .not("photo_url", "is", null);
+    debug.childrenWithPhotos = data?.length || 0;
+    debug.dbError = error?.message;
+    debug.children = data?.map(c => ({ name: c.child_name, hasPhoto: !!c.photo_url }));
+  }
+
+  return NextResponse.json(debug);
+}
+
 export async function POST(req: Request) {
+  const log: string[] = [];
   try {
     const { photoId, photoUrl, sectionId } = await req.json();
-    const visionKey  = process.env.GOOGLE_VISION_API_KEY;
-    const claudeKey  = process.env.ANTHROPIC_API_KEY;
+    log.push(`Start: photoId=${photoId} sectionId=${sectionId}`);
 
     if (!photoId || !photoUrl || !sectionId) {
       return NextResponse.json({ error: "photoId, photoUrl, sectionId required" }, { status: 400 });
     }
 
-    // Step 1: Google Vision — detect faces & count
+    const visionKey = process.env.GOOGLE_VISION_API_KEY;
+    const claudeKey = process.env.ANTHROPIC_API_KEY;
+    log.push(`Keys: vision=${!!visionKey} claude=${!!claudeKey}`);
+
+    // Step 1: Google Vision face count
     let faceCount = 0;
     if (visionKey) {
       const vRes = await fetch(
@@ -46,125 +74,141 @@ export async function POST(req: Request) {
         }
       );
       const vData = await vRes.json();
-      faceCount = vData.responses?.[0]?.faceAnnotations?.length || 0;
+      if (vData.error) {
+        log.push(`Vision error: ${vData.error.message}`);
+      } else {
+        faceCount = vData.responses?.[0]?.faceAnnotations?.length || 0;
+        log.push(`Vision: ${faceCount} faces detected`);
+      }
+    } else {
+      log.push("No Google Vision key — skipping face count");
     }
 
-    // Step 2: Get all children with profile photos in this section
-    const { data: childrenData } = await sb()
+    // Step 2: Get children with profile photos in this section
+    const { data: childrenData, error: dbErr } = await sb()
       .from("enquiries")
       .select("id, child_name, photo_url")
       .eq("section_id", sectionId)
       .not("photo_url", "is", null);
 
     const children = (childrenData || []).filter(c => c.photo_url);
+    log.push(`Children with profiles: ${children.length} (db error: ${dbErr?.message || "none"})`);
 
-    // Step 3: Claude Vision — auto-match faces to children profiles
+    // Step 3: Claude Vision auto-match
     let faces: any[] = [];
 
     if (claudeKey && children.length > 0) {
-      // Load class photo
       const classImg = await toBase64(photoUrl);
-      if (!classImg) return NextResponse.json({ error: "Could not load class photo" }, { status: 400 });
+      if (!classImg) {
+        log.push("Could not load class photo");
+      } else {
+        log.push(`Class photo loaded: ${Math.round(classImg.base64.length / 1024)}KB`);
 
-      // Load all children profile photos
-      const profileImgs = await Promise.all(
-        children.map(async c => {
+        // Load profile photos
+        const profiles: { child: any; img: any }[] = [];
+        for (const c of children) {
           const img = await toBase64(c.photo_url!);
-          return { child: c, img };
-        })
-      );
-      const validProfiles = profileImgs.filter(p => p.img !== null);
+          if (img) {
+            profiles.push({ child: c, img });
+            log.push(`Loaded profile: ${c.child_name} (${Math.round(img.base64.length / 1024)}KB)`);
+          } else {
+            log.push(`Failed to load profile: ${c.child_name}`);
+          }
+        }
 
-      if (validProfiles.length > 0) {
-        // Build Claude message: class photo first, then all profile photos
-        const content: any[] = [
-          {
-            type: "text",
-            text: `Image 1 is a class photo. Images 2 to ${validProfiles.length + 1} are individual profile photos of children in this class, in this order: ${validProfiles.map((p, i) => `Image ${i + 2}: ${p.child.child_name}`).join(", ")}.
+        if (profiles.length > 0) {
+          const content: any[] = [
+            {
+              type: "text",
+              text: `Image 1 is a class/group photo. The following images are profile photos of children in this class:
+${profiles.map((p, i) => `Image ${i + 2}: ${p.child.child_name}`).join("\n")}
 
-Look at Image 1 carefully. For each child visible in the class photo, match them to their profile photo.
+For each child you can identify in Image 1, match them to their profile photo.
+Reply ONLY with valid JSON array:
+[{"childName":"Name","confidence":"high"},{"childName":"Name2","confidence":"medium"}]
+Only include children you can clearly identify. No extra text.`,
+            },
+            { type: "image", source: { type: "base64", media_type: classImg.mime, data: classImg.base64 } },
+            ...profiles.map(p => ({
+              type: "image" as const,
+              source: { type: "base64" as const, media_type: p.img.mime, data: p.img.base64 },
+            })),
+          ];
 
-Reply ONLY with a JSON array like:
-[{"childName":"Lekhya","confidence":"high"},{"childName":"Jatin","confidence":"medium"}]
+          log.push(`Calling Claude with ${profiles.length + 1} images...`);
 
-Only include children you can clearly identify. Use confidence: "high", "medium", or "low". No extra text.`
-          },
-          // Class photo
-          { type: "image", source: { type: "base64", media_type: classImg.mime, data: classImg.base64 } },
-          // All profile photos
-          ...validProfiles.map(p => ({
-            type: "image" as const,
-            source: { type: "base64" as const, media_type: p.img!.mime, data: p.img!.base64 }
-          }))
-        ];
+          const cRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": claudeKey,
+              "anthropic-version": "2023-06-01",
+            },
+            body: JSON.stringify({
+              model: "claude-opus-4-5",
+              max_tokens: 300,
+              messages: [{ role: "user", content }],
+            }),
+          });
 
-        const cRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": claudeKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-opus-4-5",
-            max_tokens: 200,
-            messages: [{ role: "user", content }],
-          }),
-        });
+          const cData = await cRes.json();
+          log.push(`Claude status: ${cRes.status}`);
 
-        const cData = await cRes.json();
-        const raw = cData?.content?.[0]?.text?.trim() || "[]";
-        console.log("Claude auto-tag response:", raw);
-
-        try {
-          const matched = JSON.parse(raw.replace(/```json|```/g, "").trim());
-          faces = matched.map((m: any, i: number) => ({
-            index:      i,
-            childName:  m.childName,
-            confidence: m.confidence,
-            autoTagged: true,
-          }));
-        } catch {
-          console.error("Could not parse Claude response:", raw);
+          if (cData.error) {
+            log.push(`Claude error: ${cData.error.message} (${cData.error.type})`);
+          } else {
+            const raw = cData?.content?.[0]?.text?.trim() || "[]";
+            log.push(`Claude response: ${raw}`);
+            try {
+              const matched = JSON.parse(raw.replace(/```json|```/g, "").trim());
+              faces = matched.map((m: any, i: number) => ({
+                index:      i,
+                childName:  m.childName,
+                confidence: m.confidence,
+                autoTagged: true,
+              }));
+              log.push(`Parsed ${faces.length} matches`);
+            } catch (e: any) {
+              log.push(`Parse error: ${e.message} | raw: ${raw}`);
+            }
+          }
         }
       }
+    } else {
+      log.push(`Skipping Claude: key=${!!claudeKey} children=${children.length}`);
     }
 
-    // Fallback: if no Claude or no matches, create blank face slots from Google Vision count
+    // Fallback: blank slots from face count
     if (faces.length === 0 && faceCount > 0) {
       faces = Array.from({ length: faceCount }, (_, i) => ({
         index: i, childName: null, confidence: null, autoTagged: false,
       }));
+      log.push(`Created ${faceCount} blank face slots`);
     }
 
     const namedChildren = faces.filter(f => f.childName).map(f => f.childName).join(",");
 
-    // Save to DB
     await sb().from("section_photos").update({
       ai_tags:    JSON.stringify(faces),
       ai_caption: namedChildren || null,
     }).eq("id", photoId);
 
-    return NextResponse.json({
-      success: true,
-      faces,
-      faceCount,
-      autoTagged: faces.filter(f => f.autoTagged).length,
-    });
+    log.push(`Saved ${faces.length} faces to DB`);
+
+    return NextResponse.json({ success: true, faces, faceCount, autoTagged: faces.filter(f => f.autoTagged).length, log });
 
   } catch (e: any) {
-    console.error("detect-faces error:", e?.message);
-    return NextResponse.json({ error: e?.message }, { status: 500 });
+    log.push(`CRASH: ${e?.message}`);
+    return NextResponse.json({ error: e?.message, log }, { status: 500 });
   }
 }
 
-// PATCH: Teacher corrects/changes a tag
+// PATCH: Correct a tag manually
 export async function PATCH(req: Request) {
   try {
     const { photoId, faceIndex, childName } = await req.json();
-    const client = sb();
 
-    const { data: photo } = await client
+    const { data: photo } = await sb()
       .from("section_photos")
       .select("ai_tags")
       .eq("id", photoId)
@@ -173,19 +217,18 @@ export async function PATCH(req: Request) {
     let faces: any[] = [];
     try { faces = photo?.ai_tags ? JSON.parse(photo.ai_tags) : []; } catch {}
 
-    // Update or add the face
     const existing = faces.find(f => f.index === faceIndex);
     if (existing) {
-      existing.childName   = childName;
-      existing.autoTagged  = false; // manually corrected
-      existing.confidence  = "manual";
+      existing.childName  = childName || null;
+      existing.confidence = "manual";
+      existing.autoTagged = false;
     } else {
       faces.push({ index: faceIndex, childName, confidence: "manual", autoTagged: false });
     }
 
     const namedChildren = faces.filter(f => f.childName).map(f => f.childName).join(",");
 
-    await client.from("section_photos").update({
+    await sb().from("section_photos").update({
       ai_tags:    JSON.stringify(faces),
       ai_caption: namedChildren || null,
     }).eq("id", photoId);
