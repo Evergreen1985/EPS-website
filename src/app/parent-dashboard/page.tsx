@@ -39,8 +39,9 @@ export default function ParentDashboardPage() {
   const [announcements, setAnnounce] = useState<any[]>([]);
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
-  const [matchedPhotos, setMatched]  = useState<any[]>([]);
+  const [matchedPhotos, setMatched]   = useState<any[]>([]);
   const [matchStatus, setMatchStatus] = useState("");
+  const [matchLoading, setMatchLoad]  = useState(false);
   const [loading, setLoading]        = useState(true);
   const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
   const [profileUploading, setProfileUploading] = useState(false);
