@@ -15,6 +15,15 @@ const supabase = createClient(
   onUploaded?:    (photo: any) => void;
 }
 
+interface Props {
+  sectionId:      string;
+  sectionName:    string;
+  uploadedBy:     string;
+  uploadedByRole: "teacher" | "admin";
+  children?:      { id: string; child_name: string }[];
+  onUploaded?:    (photo: any) => void;
+}
+
 function sbClient() { return supabase; }
 
 export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uploadedByRole, children = [], onUploaded }: Props) {
