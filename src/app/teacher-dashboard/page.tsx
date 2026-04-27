@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Plus, Trash2 } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
@@ -12,10 +12,166 @@ const ATT_STATUS = [
   { key:"late",    label:"Late",    color:"#F5B829", bg:"rgba(245,184,41,0.12)", icon:"⏰" },
 ];
 
-// ── DetectButton: run Google Vision + Claude auto-tagging ─
-function DetectButton({ photoId, photoUrl, sectionId, onDone }: {
-  photoId: string; photoUrl: string; sectionId: string; onDone: () => void;
+// ── FaceTagModal: visual face tagging on photo ────────────
+function FaceTagPhoto({ photo, sectionId, children, onSaved }: {
+  photo: any; sectionId: string; children: any[]; onSaved: () => void;
 }) {
+  const [open, setOpen]         = useState(false);
+  const [faces, setFaces]       = useState<any[]>([]);
+  const [detecting, setDetect]  = useState(false);
+  const [imgSize, setImgSize]   = useState({ w: 1, h: 1 });
+  const [activeFace, setActive] = useState<number | null>(null);
+  const [error, setError]       = useState("");
+  const imgRef = useRef<HTMLImageElement>(null);
+
+  let parsedFaces: any[] = [];
+  try { parsedFaces = photo.ai_tags ? JSON.parse(photo.ai_tags) : []; } catch {}
+  const hasFaces  = Array.isArray(parsedFaces) && parsedFaces.length > 0;
+  const tagged    = parsedFaces.filter((f: any) => f.childName).length;
+  const allTagged = hasFaces && tagged === parsedFaces.length;
+
+  const detect = async () => {
+    setDetect(true); setError("");
+    const res  = await fetch("/api/photos/detect-faces", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoId: photo.id, photoUrl: photo.photo_url, sectionId }),
+    });
+    const data = await res.json();
+    if (data.error) { setError(data.error); setDetect(false); return; }
+    setFaces(data.faces || []);
+    setDetect(false);
+  };
+
+  const saveTag = async (faceIndex: number, childName: string) => {
+    await fetch("/api/photos/detect-faces", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoId: photo.id, faceIndex, childName }),
+    });
+    setFaces(prev => prev.map(f => f.index === faceIndex ? { ...f, childName, confidence:"manual" } : f));
+    setActive(null);
+    onSaved();
+  };
+
+  const displayFaces = faces.length > 0 ? faces : parsedFaces;
+
+  return (
+    <div style={{ background:"white", borderRadius:"16px", border:`1px solid ${allTagged?"rgba(23,143,120,0.35)":"#EDE8DF"}`, overflow:"hidden", marginBottom:"10px" }}>
+      {/* Collapsed row */}
+      <div style={{ display:"flex", gap:"12px", padding:"12px", alignItems:"center" }}>
+        <div style={{ position:"relative", flexShrink:0, cursor:"pointer" }} onClick={() => { setOpen(!open); if (!open && faces.length===0) setFaces(parsedFaces); }}>
+          <img src={photo.photo_url} alt="" style={{ width:"80px", height:"65px", objectFit:"cover", borderRadius:"10px", display:"block" }} />
+          {hasFaces && (
+            <div style={{ position:"absolute", bottom:"3px", right:"3px", background:"rgba(0,0,0,0.6)", borderRadius:"20px", padding:"1px 6px", fontSize:"9px", color:"white", fontWeight:700 }}>
+              👤 {parsedFaces.length}
+            </div>
+          )}
+        </div>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"4px" }}>
+            {photo.title || "Class photo"}
+            {allTagged && <span style={{ marginLeft:"6px", fontSize:"10px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"1px 8px" }}>✅ All tagged</span>}
+          </div>
+          {hasFaces ? (
+            <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+              {tagged}/{parsedFaces.length} tagged ·{" "}
+              {parsedFaces.filter((f:any)=>f.childName).map((f:any)=>f.childName).join(", ")}
+            </div>
+          ) : (
+            <div style={{ fontSize:"11px", color:"#6B7A99" }}>Not tagged yet</div>
+          )}
+        </div>
+        <button
+          onClick={async () => { setDetect(true); await detect(); setOpen(true); }}
+          disabled={detecting}
+          style={{ fontSize:"11px", background:detecting?"#EDE8DF":"#178F78", color:detecting?"#6B7A99":"white", border:"none", borderRadius:"20px", padding:"6px 14px", cursor:detecting?"not-allowed":"pointer", fontWeight:700, whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:"4px" }}>
+          {detecting
+            ? <><span style={{ display:"inline-block", width:"10px", height:"10px", border:"2px solid rgba(255,255,255,0.3)", borderTopColor:"white", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Detecting…</>
+            : hasFaces ? "✏️ Edit Tags" : "🔍 Detect Faces"}
+        </button>
+      </div>
+
+      {error && <div style={{ padding:"6px 14px", fontSize:"11px", color:"#DC2626", background:"rgba(220,38,38,0.06)" }}>❌ {error}</div>}
+
+      {/* Expanded: visual tagging */}
+      {open && displayFaces.length > 0 && (
+        <div style={{ borderTop:"1px solid #EDE8DF", padding:"12px" }}>
+          <div style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", marginBottom:"8px" }}>Click a face box to tag the child:</div>
+          <div style={{ position:"relative", display:"inline-block", maxWidth:"100%" }}>
+            <img
+              ref={imgRef}
+              src={photo.photo_url}
+              alt=""
+              style={{ width:"100%", maxWidth:"500px", display:"block", borderRadius:"10px" }}
+              onLoad={() => {
+                if (imgRef.current) setImgSize({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight });
+              }}
+            />
+            {displayFaces.map((face: any) => {
+              const imgEl   = imgRef.current;
+              const dispW   = imgEl?.offsetWidth  || 500;
+              const dispH   = imgEl?.offsetHeight || 400;
+              const scaleX  = dispW / (imgSize.w || dispW);
+              const scaleY  = dispH / (imgSize.h || dispH);
+              const color   = face.childName ? "#178F78" : "#E8694A";
+              return (
+                <div key={face.index}>
+                  {/* Face box */}
+                  <div
+                    onClick={() => setActive(activeFace === face.index ? null : face.index)}
+                    style={{
+                      position:"absolute",
+                      left:   `${face.x * scaleX}px`,
+                      top:    `${face.y * scaleY}px`,
+                      width:  `${face.w * scaleX}px`,
+                      height: `${face.h * scaleY}px`,
+                      border: `2px solid ${color}`,
+                      borderRadius:"4px",
+                      cursor:"pointer",
+                      background:`${color}15`,
+                      boxShadow:`0 0 0 1px ${color}40`,
+                    }}
+                  >
+                    <div style={{ position:"absolute", bottom:"-20px", left:0, background:color, color:"white", fontSize:"9px", fontWeight:700, padding:"1px 6px", borderRadius:"0 0 6px 6px", whiteSpace:"nowrap", maxWidth:"120px", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {face.childName || "?"}
+                    </div>
+                  </div>
+                  {/* Dropdown when active */}
+                  {activeFace === face.index && (
+                    <div style={{
+                      position:"absolute",
+                      left:   `${face.x * scaleX}px`,
+                      top:    `${(face.y + face.h) * scaleY + 24}px`,
+                      background:"white", borderRadius:"12px", border:"1px solid #EDE8DF",
+                      boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:50, minWidth:"180px", padding:"6px",
+                    }}>
+                      <div style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", padding:"4px 8px" }}>Who is this?</div>
+                      {children.map((c: any) => (
+                        <button key={c.id} onClick={() => saveTag(face.index, c.child_name)}
+                          style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", padding:"7px 10px", background:face.childName===c.child_name?"rgba(23,143,120,0.08)":"transparent", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"12px", fontWeight:face.childName===c.child_name?700:400, color:"#1A2F4A" }}>
+                          {c.photo_url
+                            ? <img src={c.photo_url} alt="" style={{ width:"24px", height:"24px", borderRadius:"50%", objectFit:"cover" }} />
+                            : <div style={{ width:"24px", height:"24px", borderRadius:"50%", background:"#EDE8DF", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"12px" }}>🧒</div>}
+                          {c.child_name}
+                          {face.childName===c.child_name && <span style={{ marginLeft:"auto", color:"#178F78" }}>✓</span>}
+                        </button>
+                      ))}
+                      <button onClick={() => saveTag(face.index, "")}
+                        style={{ width:"100%", padding:"6px 10px", background:"transparent", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"11px", color:"#DC2626", textAlign:"left" }}>
+                        ✕ Remove tag
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function TeacherDashboardPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState("");
   const [error, setError]     = useState("");
@@ -53,63 +209,6 @@ function DetectButton({ photoId, photoUrl, sectionId, onDone }: {
       {result && <div style={{ fontSize:"10px", color:"#178F78", marginTop:"3px", fontWeight:600 }}>{result}</div>}
       {error  && <div style={{ fontSize:"10px", color:"#DC2626", marginTop:"3px" }}>❌ {error}</div>}
     </div>
-  );
-}
-
-// ── FaceTag: show auto-tagged name, allow correction ──────
-function FaceTag({ face, photoId, allFaces, children, onSaved }: {
-  face: any; photoId: string; allFaces: any[];
-  children: any[]; onSaved: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName]       = useState(face.childName || "");
-  const [saving, setSaving]   = useState(false);
-
-  const confidenceColor = face.confidence === "high" ? "#178F78"
-    : face.confidence === "medium" ? "#F5B829"
-    : face.confidence === "manual" ? "#6366F1"
-    : "#6B7A99";
-
-  const save = async () => {
-    setSaving(true);
-    await fetch("/api/photos/detect-faces", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoId, faceIndex: face.index, childName: name }),
-    });
-    setSaving(false); setEditing(false); onSaved();
-  };
-
-  if (editing) return (
-    <div style={{ display:"flex", gap:"4px", alignItems:"center" }}>
-      <select value={name} onChange={e => setName(e.target.value)}
-        style={{ border:"1px solid #EDE8DF", borderRadius:"8px", padding:"4px 8px", fontSize:"11px", background:"#FAF0E8", outline:"none" }}>
-        <option value="">— Remove tag —</option>
-        {children.map((c:any) => <option key={c.id} value={c.child_name}>{c.child_name}</option>)}
-      </select>
-      <button onClick={save} disabled={saving}
-        style={{ background:"#178F78", color:"white", border:"none", borderRadius:"8px", padding:"4px 10px", fontSize:"11px", cursor:"pointer", fontWeight:700 }}>
-        {saving ? "…" : "✓"}
-      </button>
-      <button onClick={() => setEditing(false)}
-        style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"8px", padding:"4px 8px", fontSize:"11px", cursor:"pointer" }}>✕</button>
-    </div>
-  );
-
-  return (
-    <button onClick={() => setEditing(true)}
-      style={{ display:"flex", alignItems:"center", gap:"4px", padding:"4px 10px", borderRadius:"20px", border:`1.5px solid ${face.childName ? confidenceColor : "#EDE8DF"}`, background:face.childName ? `${confidenceColor}12` : "white", cursor:"pointer", fontSize:"11px", fontWeight:face.childName ? 700 : 400, color:face.childName ? confidenceColor : "#6B7A99" }}>
-      {face.childName ? (
-        <>
-          👤 {face.childName}
-          {face.confidence && face.confidence !== "manual" && (
-            <span style={{ fontSize:"9px", opacity:0.7 }}>{face.confidence === "high" ? "●" : "◐"}</span>
-          )}
-          {face.confidence === "manual" && <span style={{ fontSize:"9px" }}>✏️</span>}
-        </>
-      ) : (
-        <>👤 Tag face {face.index + 1}</>
-      )}
-    </button>
   );
 }
 
@@ -489,49 +588,14 @@ export default function TeacherDashboardPage() {
                   No photos yet. Upload above!
                 </div>
               ) : (
-                <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
-                  {photos.map((p: any) => {
-                    let faces: any[] = [];
-                    try { faces = p.ai_tags ? JSON.parse(p.ai_tags) : []; } catch { faces = []; }
-                    const hasFaces  = Array.isArray(faces) && faces.length > 0;
-                    const allTagged = hasFaces && faces.every((f:any) => f.childName);
-                    const tagged    = faces.filter((f:any) => f.childName);
-
-                    return (
-                      <div key={p.id} style={{ background:"white", borderRadius:"16px", border:`1px solid ${allTagged?"rgba(23,143,120,0.3)":"#EDE8DF"}`, overflow:"hidden" }}>
-                        <div style={{ display:"flex", gap:"12px", padding:"12px", alignItems:"flex-start" }}>
-                          <img src={p.photo_url} alt="" style={{ width:"90px", height:"75px", objectFit:"cover", borderRadius:"10px", flexShrink:0 }} />
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"6px" }}>
-                              {p.title || "Class photo"}
-                              {allTagged && <span style={{ marginLeft:"6px", fontSize:"10px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"1px 8px", fontWeight:700 }}>✅ Tagged</span>}
-                            </div>
-
-                            {hasFaces ? (
-                              <>
-                                <div style={{ fontSize:"10px", color:"#6B7A99", marginBottom:"6px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                                  <span>👤 {faces.length} face{faces.length>1?"s":""} · {tagged.length}/{faces.length} tagged</span>
-                                  <DetectButton photoId={p.id} photoUrl={p.photo_url} sectionId={session.sectionId} onDone={() => loadData(session.sectionId)} />
-                                </div>
-                                <div style={{ display:"flex", flexWrap:"wrap", gap:"5px" }}>
-                                  {faces.map((face: any) => (
-                                    <FaceTag key={face.index} face={face} photoId={p.id} allFaces={faces}
-                                      children={children} onSaved={() => loadData(session.sectionId)} />
-                                  ))}
-                                </div>
-                              </>
-                            ) : (
-                              <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
-                                <span style={{ fontSize:"10px", color:"#6B7A99" }}>Not tagged yet</span>
-                                <DetectButton photoId={p.id} photoUrl={p.photo_url} sectionId={session.sectionId} onDone={() => loadData(session.sectionId)} />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div>
+                  {photos.map((p: any) => (
+                    <FaceTagPhoto key={p.id} photo={p} sectionId={session.sectionId}
+                      children={children} onSaved={() => loadData(session.sectionId)} />
+                  ))}
                 </div>
+              )}
+            </div>                </div>
               )}
             </div>
           </div>
