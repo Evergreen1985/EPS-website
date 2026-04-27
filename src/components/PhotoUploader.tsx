@@ -3,7 +3,10 @@ import { useState, useRef, useCallback } from "react";
 import { Upload, X, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 
-interface Props {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+);
   sectionId:      string;
   sectionName:    string;
   uploadedBy:     string;
@@ -12,12 +15,7 @@ interface Props {
   onUploaded?:    (photo: any) => void;
 }
 
-function sbClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
+function sbClient() { return supabase; }
 
 export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uploadedByRole, children = [], onUploaded }: Props) {
   const fileRef                   = useRef<HTMLInputElement>(null);
