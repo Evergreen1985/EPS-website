@@ -1,12 +1,19 @@
 "use client";
 import { useState, useRef, useCallback } from "react";
 import { Upload, X, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+// Lazy client — only created on client side, never at build time
+let _sb: SupabaseClient | null = null;
+function getSb() {
+  if (!_sb) {
+    _sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+    );
+  }
+  return _sb;
+}
 
 interface Props {
   sectionId:      string;
@@ -50,13 +57,13 @@ export default function PhotoUploader({ sectionId, sectionName, uploadedBy, uplo
         const ext      = (p.file.name.split(".").pop() || "jpg").toLowerCase();
         const fileName = `sections/${sectionId}/${Date.now()}-${i}.${ext}`;
 
-        const { error: storageErr } = await supabase.storage
+        const { error: storageErr } = await getSb().storage
           .from("school-photos")
           .upload(fileName, p.file, { contentType: p.file.type, upsert: false });
 
         if (storageErr) { setError(`Storage: ${storageErr.message}`); setUploading(false); return; }
 
-        const { data: urlData } = supabase.storage.from("school-photos").getPublicUrl(fileName);
+        const { data: urlData } = getSb().storage.from("school-photos").getPublicUrl(fileName);
         const photoUrl = urlData.publicUrl;
 
         const res  = await fetch("/api/photos/upload", {
