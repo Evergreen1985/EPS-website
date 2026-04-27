@@ -27,13 +27,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "profilePhotoUrl and sectionId required" }, { status: 400 });
     }
 
-    // Get all class photos for this section
+    // Get only last 10 class photos for face matching (faster)
     const { data: photos } = await sb()
       .from("section_photos")
       .select("id, photo_url, title, ai_caption, ai_tags, uploaded_at")
       .eq("section_id", sectionId)
       .order("uploaded_at", { ascending: false })
-      .limit(50);
+      .limit(25);
 
     if (!photos || photos.length === 0) {
       return NextResponse.json({ matchedPhotos: [], allPhotos: [] });
@@ -69,22 +69,20 @@ export async function POST(req: Request) {
           },
           body: JSON.stringify({
             model: "claude-opus-4-5",
-            max_tokens: 100,
+            max_tokens: 50,
             messages: [{
               role: "user",
               content: [
                 {
                   type: "text",
-                  text: `The first image is a profile photo of a child named ${childName}. The second image is a class photo. Does the child from the first image appear in the second image? Reply with ONLY "yes" or "no".`
+                  text: `Image 1 is a profile photo of a child named "${childName}". Image 2 is a class/group photo from their school. 
+
+Look carefully at the face in Image 1. Does that same child appear anywhere in Image 2? Consider face shape, skin tone, hair, and overall appearance. Even if the child is small or in the background, try to identify them.
+
+Reply with ONLY the word "yes" or "no".`
                 },
-                {
-                  type: "image",
-                  source: { type: "base64", media_type: profileImg.mime as any, data: profileImg.base64 }
-                },
-                {
-                  type: "image",
-                  source: { type: "base64", media_type: classImg.mime as any, data: classImg.base64 }
-                },
+                { type: "image", source: { type: "base64", media_type: profileImg.mime as any, data: profileImg.base64 } },
+                { type: "image", source: { type: "base64", media_type: classImg.mime as any, data: classImg.base64 } },
               ]
             }]
           }),
@@ -92,6 +90,7 @@ export async function POST(req: Request) {
 
         const data = await resp.json();
         const answer = data?.content?.[0]?.text?.toLowerCase().trim();
+        console.log(`Face match photo ${i+1}/${photos.length}: "${answer}" — ${photo.photo_url.slice(-30)}`);
         if (answer === "yes" || answer?.startsWith("yes")) {
           matchedPhotos.push(photo);
         }
