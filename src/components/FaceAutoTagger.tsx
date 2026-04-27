@@ -34,7 +34,11 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
   const tagged    = parsedFaces.filter((f: any) => f.childName).length;
   const allTagged = parsedFaces.length > 0 && tagged === parsedFaces.length;
 
-  const displayFaces = faces.length > 0 ? faces : parsedFaces;
+  useEffect(() => {
+    const close = () => setActive(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
 
   // Load face-api.js from CDN
   const loadFaceApi = (): Promise<void> => {
@@ -218,14 +222,58 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
             {photo.title || "Class photo"}
             {allTagged && <span style={{ marginLeft:"6px", fontSize:"10px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"1px 8px" }}>✅ Tagged</span>}
           </div>
+
+          {/* Tag chips — always visible, click to change/remove */}
           {parsedFaces.length > 0 ? (
-            <div style={{ fontSize:"11px", color:"#6B7A99" }}>
-              {tagged}/{parsedFaces.length} tagged · {parsedFaces.filter((f:any)=>f.childName).map((f:any)=>f.childName).join(", ")}
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"4px", marginBottom:"4px" }}>
+              {parsedFaces.map((face: any) => (
+                <div key={face.index} style={{ position:"relative" }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setActive(activeFace === face.index ? null : face.index); }}
+                    style={{
+                      fontSize:"10px", fontWeight:600, padding:"3px 8px", borderRadius:"20px", border:"none", cursor:"pointer",
+                      background: face.childName
+                        ? face.confidence==="high" ? "rgba(23,143,120,0.12)"
+                        : face.confidence==="medium" ? "rgba(245,184,41,0.12)" : "rgba(232,105,74,0.12)"
+                        : "#F0F0F0",
+                      color: face.childName
+                        ? face.confidence==="high" ? "#178F78"
+                        : face.confidence==="medium" ? "#B08000" : "#E8694A"
+                        : "#6B7A99",
+                    }}>
+                    👤 {face.childName || `Face ${face.index+1}`} ✏️
+                  </button>
+                  {/* Inline dropdown */}
+                  {activeFace === face.index && (
+                    <div style={{ position:"absolute", top:"100%", left:0, marginTop:"4px", background:"white", borderRadius:"12px", border:"1px solid #EDE8DF", boxShadow:"0 8px 24px rgba(0,0,0,0.15)", zIndex:100, minWidth:"180px", padding:"6px" }}
+                    onClick={e => e.stopPropagation()}>
+                      <div style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", padding:"3px 8px 5px" }}>Change to:</div>
+                      {children.map((c: any) => (
+                        <button key={c.id} onClick={() => saveTag(face.index, c.child_name)}
+                          style={{ display:"flex", alignItems:"center", gap:"8px", width:"100%", padding:"7px 10px", background:face.childName===c.child_name?"rgba(23,143,120,0.08)":"transparent", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#1A2F4A", fontWeight:face.childName===c.child_name?700:400 }}>
+                          {c.photo_url
+                            ? <img src={c.photo_url} alt="" style={{ width:"22px", height:"22px", borderRadius:"50%", objectFit:"cover", flexShrink:0 }} />
+                            : <div style={{ width:"22px", height:"22px", borderRadius:"50%", background:"#EDE8DF", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", flexShrink:0 }}>🧒</div>}
+                          {c.child_name}
+                          {face.childName===c.child_name && <span style={{ marginLeft:"auto", color:"#178F78" }}>✓</span>}
+                        </button>
+                      ))}
+                      <div style={{ borderTop:"1px solid #EDE8DF", marginTop:"4px", paddingTop:"4px" }}>
+                        <button onClick={() => saveTag(face.index, "")}
+                          style={{ width:"100%", padding:"6px 10px", background:"rgba(220,38,38,0.06)", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"11px", color:"#DC2626", textAlign:"left" as const, fontWeight:600 }}>
+                          ✕ Remove this tag
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           ) : (
-            <div style={{ fontSize:"11px", color:"#6B7A99" }}>Not tagged yet</div>
+            <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"3px" }}>Not tagged yet — click Auto-Tag</div>
           )}
-          {status && <div style={{ fontSize:"10px", color: status.startsWith("❌")?"#DC2626":status.startsWith("✅")?"#178F78":"#6B7A99", marginTop:"3px" }}>{status}</div>}
+
+          {status && <div style={{ fontSize:"10px", color: status.startsWith("❌")?"#DC2626":status.startsWith("✅")?"#178F78":"#F5B829", marginTop:"2px" }}>{status}</div>}
         </div>
         <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
           <button onClick={() => { setOpen(o => !o); if (!open && displayFaces.length===0) {} }}
