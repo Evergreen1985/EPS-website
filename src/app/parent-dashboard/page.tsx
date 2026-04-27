@@ -6,8 +6,15 @@ import { LogOut } from "lucide-react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 let _sb: SupabaseClient | null = null;
-function getSb() {
-  if (!_sb) _sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL || "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+async function getSb() {
+  if (_sb) return _sb;
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  let key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!url || !key) {
+    const cfg = await fetch("/api/config").then(r => r.json());
+    url = cfg.supabaseUrl; key = cfg.supabaseKey;
+  }
+  _sb = createClient(url, key);
   return _sb;
 }
 
@@ -438,13 +445,14 @@ export default function ParentDashboardPage() {
                           const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
                           const fileName = `profiles/${selectedChild.id}.${ext}`;
 
-                          const { error: storageErr } = await getSb().storage
+                          const sb = await getSb();
+                          const { error: storageErr } = await sb.storage
                             .from("school-photos")
                             .upload(fileName, file, { contentType: file.type, upsert: true });
 
                           if (storageErr) { setProfileError(storageErr.message); setProfileUploading(false); return; }
 
-                          const { data: urlData } = getSb().storage.from("school-photos").getPublicUrl(fileName);
+                          const { data: urlData } = sb.storage.from("school-photos").getPublicUrl(fileName);
                           const photoUrl = urlData.publicUrl + `?t=${Date.now()}`;
 
                           // Save URL to DB via API
