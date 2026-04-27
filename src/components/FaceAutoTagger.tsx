@@ -18,9 +18,9 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
 
   // Close dropdown on outside click
   useEffect(() => {
-    const close = (e: MouseEvent) => setActive(null);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    const close = () => setActive(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
   }, []);
 
   // Parse saved tags from DB
@@ -192,7 +192,7 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
               const c = chipColor(face);
               return (
                 <div key={face.index} style={{ position:"relative" }}
-                  onMouseDown={e => e.stopPropagation()}>
+                  onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => setActive(active===face.index ? null : face.index)}
                     style={{ fontSize:"11px", fontWeight:600, padding:"3px 10px", borderRadius:"20px", border:`1px solid ${c.text}40`, background:c.bg, color:c.text, cursor:"pointer" }}>
@@ -212,8 +212,12 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
                         </button>
                       ))}
                       <div style={{ borderTop:"1px solid #EDE8DF", marginTop:"4px", paddingTop:"4px" }}>
-                        <button onClick={() => saveTag(face.index, "")}
-                          style={{ width:"100%", padding:"6px 10px", background:"rgba(220,38,38,0.06)", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"11px", color:"#DC2626", textAlign:"left" as const, fontWeight:600 }}>
+                        <button
+                          onClick={async () => {
+                            setActive(null);
+                            await saveTag(face.index, "");
+                          }}
+                          style={{ width:"100%", padding:"7px 10px", background:"rgba(220,38,38,0.06)", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#DC2626", textAlign:"left" as const, fontWeight:700 }}>
                           ✕ Remove tag
                         </button>
                       </div>
