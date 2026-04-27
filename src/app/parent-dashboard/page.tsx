@@ -110,33 +110,29 @@ export default function ParentDashboardPage() {
       .catch(() => setLoading(false));
   }, [session, month]);
 
-  // ── Face match runs AFTER photos are shown ────────────
+  // ── Find tagged photos — read from DB, no re-scanning ─
   useEffect(() => {
-    if (!selectedChild?.photo_url || !selectedChild?.section_id) return;
+    if (!selectedChild?.section_id || !selectedChild?.child_name) return;
     setMatchLoad(true);
-    setMatchStatus("🔍 Finding your child in recent photos…");
     fetch("/api/photos/face-match", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        profilePhotoUrl: selectedChild.photo_url.split("?")[0],
-        sectionId:       selectedChild.section_id,
-        childName:       selectedChild.child_name,
+        sectionId: selectedChild.section_id,
+        childName: selectedChild.child_name,
       }),
     })
       .then(r => r.json())
       .then(data => {
         setMatched(data.matchedPhotos || []);
-        if (data.noAi)       setMatchStatus("⚠️ AI key not set");
-        else if (data.error) setMatchStatus(`❌ ${data.error}`);
-        else if ((data.matchedPhotos||[]).length > 0)
-          setMatchStatus(`✨ Found ${selectedChild.child_name} in ${data.matchedPhotos.length} recent photo${data.matchedPhotos.length>1?"s":""}`);
-        else
-          setMatchStatus("No recent photos with your child found");
+        if (data.allPhotos) setPhotos(data.allPhotos);
+        if ((data.matchedPhotos||[]).length > 0)
+          setMatchStatus(`✨ ${selectedChild.child_name} tagged in ${data.matchedPhotos.length} photo${data.matchedPhotos.length>1?"s":""}`);
+        else setMatchStatus("");
         setMatchLoad(false);
       })
-      .catch(e => { setMatchStatus(`❌ ${e.message}`); setMatchLoad(false); });
-  }, [selectedChild?.id, selectedChild?.photo_url]);
+      .catch(() => { setMatchStatus(""); setMatchLoad(false); });
+  }, [selectedChild?.id]);
 
   const logout = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
 
