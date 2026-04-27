@@ -16,9 +16,15 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
   const canvasRef             = useRef<HTMLCanvasElement>(null);
   const imgRef                = useRef<HTMLImageElement>(null);
 
+  const dropRef = useRef<HTMLDivElement>(null);
+
   // Close dropdown on outside click
   useEffect(() => {
-    const close = () => setActive(null);
+    const close = (e: MouseEvent) => {
+      if (dropRef.current && !dropRef.current.contains(e.target as Node)) {
+        setActive(null);
+      }
+    };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
@@ -187,12 +193,11 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
           </div>
 
           {/* Tag chips */}
-          <div style={{ display:"flex", flexWrap:"wrap", gap:"5px" }}>
+          <div ref={dropRef} style={{ display:"flex", flexWrap:"wrap", gap:"5px" }}>
             {displayFaces.length > 0 ? displayFaces.map((face: any) => {
               const c = chipColor(face);
               return (
-                <div key={face.index} style={{ position:"relative" }}
-                  onClick={e => e.stopPropagation()}>
+                <div key={face.index} style={{ position:"relative" }}>
                   <button
                     onClick={() => setActive(active===face.index ? null : face.index)}
                     style={{ fontSize:"11px", fontWeight:600, padding:"3px 10px", borderRadius:"20px", border:`1px solid ${c.text}40`, background:c.bg, color:c.text, cursor:"pointer" }}>
@@ -213,10 +218,7 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
                       ))}
                       <div style={{ borderTop:"1px solid #EDE8DF", marginTop:"4px", paddingTop:"4px" }}>
                         <button
-                          onClick={async () => {
-                            setActive(null);
-                            await saveTag(face.index, "");
-                          }}
+                          onClick={async () => { setActive(null); await saveTag(face.index, ""); }}
                           style={{ width:"100%", padding:"7px 10px", background:"rgba(220,38,38,0.06)", border:"none", borderRadius:"8px", cursor:"pointer", fontSize:"12px", color:"#DC2626", textAlign:"left" as const, fontWeight:700 }}>
                           ✕ Remove tag
                         </button>
