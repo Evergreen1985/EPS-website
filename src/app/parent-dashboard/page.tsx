@@ -40,7 +40,7 @@ export default function ParentDashboardPage() {
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
   const [matchedPhotos, setMatched]  = useState<any[]>([]);
-  const [matchLoading, setMatchLoad] = useState(false);
+  const [matchStatus, setMatchStatus] = useState("");
   const [loading, setLoading]        = useState(true);
   const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
   const [profileUploading, setProfileUploading] = useState(false);
@@ -91,32 +91,34 @@ export default function ParentDashboardPage() {
     setSession(s);
   }, [router]);
 
-  // ── Load dashboard data ──────────────────────────────
+  // ── Load dashboard data (photos load immediately) ────
   useEffect(() => {
     if (!session?.phone) return;
     fetch(`/api/parent/dashboard?phone=${encodeURIComponent(session.phone)}&month=${month}`)
       .then(r => r.json())
       .then(data => {
-        setChildren(data.enquiries || []);
+        const childs = data.enquiries || [];
+        setChildren(childs);
         setCalEvts(data.calendarEvents || []);
         setAnnounce(data.announcements || []);
         setHomework(data.homework || []);
-        setPhotos(data.photos || []);
-        if (data.enquiries?.length === 1) setSelected(data.enquiries[0]);
+        setPhotos(data.photos || []);           // ← photos show immediately
+        if (childs.length === 1) setSelected(childs[0]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [session, month]);
 
-  // ── Face match when child selected ───────────────────
+  // ── Face match runs AFTER photos are shown ────────────
   useEffect(() => {
     if (!selectedChild?.photo_url || !selectedChild?.section_id) return;
     setMatchLoad(true);
+    setMatchStatus("🔍 Finding your child in recent photos…");
     fetch("/api/photos/face-match", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        profilePhotoUrl: selectedChild.photo_url,
+        profilePhotoUrl: selectedChild.photo_url.split("?")[0],
         sectionId:       selectedChild.section_id,
         childName:       selectedChild.child_name,
       }),
@@ -124,10 +126,15 @@ export default function ParentDashboardPage() {
       .then(r => r.json())
       .then(data => {
         setMatched(data.matchedPhotos || []);
-        if (data.allPhotos) setPhotos(data.allPhotos);
+        if (data.noAi)       setMatchStatus("⚠️ AI key not set");
+        else if (data.error) setMatchStatus(`❌ ${data.error}`);
+        else if ((data.matchedPhotos||[]).length > 0)
+          setMatchStatus(`✨ Found ${selectedChild.child_name} in ${data.matchedPhotos.length} recent photo${data.matchedPhotos.length>1?"s":""}`);
+        else
+          setMatchStatus("No recent photos with your child found");
         setMatchLoad(false);
       })
-      .catch(() => setMatchLoad(false));
+      .catch(e => { setMatchStatus(`❌ ${e.message}`); setMatchLoad(false); });
   }, [selectedChild?.id, selectedChild?.photo_url]);
 
   const logout = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
@@ -310,7 +317,12 @@ export default function ParentDashboardPage() {
                       {matchLoading && (
                         <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", color:"#6B7A99" }}>
                           <div style={{ width:"12px", height:"12px", border:"2px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-                          AI scanning…
+                          AI scanning {photos.length} photos…
+                        </div>
+                      )}
+                      {!matchLoading && matchStatus && (
+                        <div style={{ fontSize:"11px", fontWeight:600, color: matchStatus.startsWith("✨") ? "#178F78" : matchStatus.startsWith("❌") ? "#DC2626" : "#B08000" }}>
+                          {matchStatus}
                         </div>
                       )}
                     </div>
@@ -318,7 +330,7 @@ export default function ParentDashboardPage() {
                     {!matchLoading && matchedPhotos.length === 0 && (
                       <div style={{ textAlign:"center", padding:"16px", color:"#6B7A99", fontSize:"12px" }}>
                         {selectedChild.photo_url
-                          ? "No photos with your child found yet. Check back after teacher uploads class photos!"
+                          ? matchStatus.startsWith("❌") ? matchStatus : "No recent photos with your child yet."
                           : "Add a profile photo in the Profile tab to enable AI photo matching! 📷"}
                       </div>
                     )}
@@ -455,59 +467,50 @@ export default function ParentDashboardPage() {
                   <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>
                     📸 {selectedChild.section_name || "Class"} Photos
                   </div>
-                  {matchedPhotos.length > 0 && (
-                    <div style={{ fontSize:"11px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"4px 12px", fontWeight:600 }}>
-                      ✨ {matchedPhotos.length} with {selectedChild.child_name}
+                  {matchLoading && (
+                    <div style={{ display:"flex", alignItems:"center", gap:"5px", fontSize:"11px", color:"#6B7A99" }}>
+                      <div style={{ width:"10px", height:"10px", border:"2px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
+                      Finding your child…
+                    </div>
+                  )}
+                  {!matchLoading && matchedPhotos.length > 0 && (
+                    <div style={{ fontSize:"11px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"3px 10px", fontWeight:600 }}>
+                      ✨ {selectedChild.child_name} spotted!
                     </div>
                   )}
                 </div>
+
                 {!hasSection ? (
                   <div style={{ background:"rgba(245,184,41,0.08)", border:"1px solid rgba(245,184,41,0.25)", borderRadius:"16px", padding:"24px", textAlign:"center" }}>
                     <div style={{ fontSize:"32px", marginBottom:"8px" }}>📸</div>
                     <div style={{ fontWeight:700, fontSize:"14px", color:"#B08000" }}>Section not assigned yet</div>
                   </div>
-                ) : matchLoading ? (
-                  <div style={{ textAlign:"center", padding:"32px", color:"#6B7A99" }}>
-                    <div style={{ width:"32px", height:"32px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
-                    <div style={{ fontSize:"12px" }}>✨ Finding photos with {selectedChild.child_name}…</div>
-                  </div>
                 ) : photos.length === 0 ? (
                   <div style={{ textAlign:"center", padding:"24px", color:"#6B7A99" }}>
                     <div style={{ fontSize:"32px", marginBottom:"8px" }}>🌿</div>
-                    No photos yet for {selectedChild.section_name}.
+                    No photos uploaded yet for {selectedChild.section_name}.
                   </div>
                 ) : (
-                  <>
-                    {matchedPhotos.length > 0 && (
-                      <div style={{ marginBottom:"18px" }}>
-                        <div style={{ fontSize:"12px", fontWeight:700, color:"#178F78", marginBottom:"8px" }}>✨ {selectedChild.child_name} appears in these ({matchedPhotos.length})</div>
-                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
-                          {matchedPhotos.map((p:any) => (
-                            <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:"2px solid rgba(23,143,120,0.35)", position:"relative" }}>
-                              <img src={p.photo_url} alt={p.title||""} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
-                              <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 7px", fontSize:"9px", fontWeight:700, color:"white" }}>✨ You!</div>
-                              {(p.title||p.ai_caption) && <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", background:"white" }}>{p.title||p.ai_caption}</div>}
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
+                    {photos.map((p:any) => {
+                      const isMatch = !matchLoading && matchedPhotos.find((m:any) => m.id === p.id);
+                      return (
+                        <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:`2px solid ${isMatch?"rgba(23,143,120,0.4)":"#EDE8DF"}`, position:"relative", transition:"border-color 0.4s" }}>
+                          <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
+                          {isMatch && (
+                            <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.88)", borderRadius:"20px", padding:"2px 8px", fontSize:"10px", fontWeight:700, color:"white" }}>
+                              ✨ You!
                             </div>
-                          ))}
+                          )}
+                          {(p.title || p.ai_caption) && (
+                            <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>
+                              {p.title || p.ai_caption}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
-                    <div>
-                      <div style={{ fontSize:"12px", fontWeight:700, color:"#6B7A99", marginBottom:"8px" }}>All Class Photos ({photos.length})</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
-                        {photos.map((p:any) => {
-                          const isMatch = matchedPhotos.find((m:any) => m.id === p.id);
-                          return (
-                            <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:`1px solid ${isMatch?"rgba(23,143,120,0.3)":"#EDE8DF"}`, position:"relative" }}>
-                              <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
-                              {isMatch && <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 6px", fontSize:"9px", fontWeight:700, color:"white" }}>✨</div>}
-                              {(p.title||p.ai_caption) && <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title||p.ai_caption}</div>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}
