@@ -595,8 +595,6 @@ export default function TeacherDashboardPage() {
                   ))}
                 </div>
               )}
-            </div>                </div>
-              )}
             </div>
           </div>
         )}
