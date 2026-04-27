@@ -39,13 +39,18 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
     document.head.appendChild(s);
   });
 
-  const loadImg = (url: string): Promise<HTMLImageElement> => new Promise((res, rej) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = url.split("?")[0];
-  });
+  const loadImg = async (url: string): Promise<HTMLImageElement> => {
+    // Fetch as blob first to bypass CORS restriction on canvas
+    const res  = await fetch(url.split("?")[0]);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = blobUrl;
+    });
+  };
 
   const autoTag = async () => {
     setLoading(true); setStatus("Loading face models…");
@@ -72,12 +77,11 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
       }
 
       if (refs.length === 0) {
-        setStatus("❌ No faces in profile photos. Upload clear profile photos first.");
+        setStatus("❌ Could not load any profile photos. Check if profile photos are uploaded and accessible.");
         setLoading(false); return;
       }
 
-      // Detect faces in class photo
-      setStatus("Scanning class photo…");
+      setStatus(`✅ Loaded ${refs.length} profiles. Scanning class photo…`);
       const classImg  = await loadImg(photo.photo_url);
       const dets = await fa.detectAllFaces(classImg, new fa.SsdMobilenetv1Options({ minConfidence: 0.3 }))
         .withFaceLandmarks().withFaceDescriptors();
@@ -110,8 +114,9 @@ export default function FaceAutoTagger({ photo, sectionId, children, onSaved }: 
       });
 
       const autoCount = matched.filter(f => f.autoTagged).length;
+      const distInfo  = matched.map(f => `${f.childName||"?"}: ${f.distance}`).join(", ");
       setFaces(matched);
-      setStatus(`✅ ${autoCount}/${dets.length} auto-matched! Click chips to correct.`);
+      setStatus(`✅ ${autoCount}/${dets.length} matched! Distances: ${distInfo}`);
 
       // Save to DB
       const caption = matched.filter(f => f.childName).map(f => f.childName).join(",");
