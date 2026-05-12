@@ -68,6 +68,9 @@ export default function TeacherLoginPage() {
         <div style={{ textAlign:"center", marginTop:"16px", fontSize:"11px", color:"rgba(255,255,255,0.3)" }}>
           Default password: Teacher@123
         </div>
+        <div style={{ textAlign:"center", marginTop:"8px" }}>
+          <a href="/forgot-password?role=teacher" style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)" }}>Forgot Password?</a>
+        </div>
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -38,6 +38,14 @@ export default function AdminPage() {
   const router = useRouter();
   const [session, setSession]       = useState<any>(null);
   const [tab, setTab]               = useState<AdminTab>("enquiries");
+  const [feeStructures, setFeeStructures] = useState<any[]>([]);
+  const [feeAssignments, setFeeAssignments] = useState<any[]>([]);
+  const [feeTab, setFeeTab]               = useState<"assignments"|"structures">("assignments");
+  const [showFeeForm, setShowFeeForm]     = useState(false);
+  const [showStructForm, setShowStructForm] = useState(false);
+  const [selectedChild, setSelectedChild] = useState<any>(null);
+  const [feeForm, setFeeForm]             = useState({ feeStructureId:"", feeType:"monthly", amount:"", dueDate:"", periodLabel:"", notes:"" });
+  const [structForm, setStructForm]       = useState({ name:"", programme_id:"", fee_type:"monthly", amount:"", description:"" });
 
   // Enquiries state
   const [enquiries, setEnquiries]   = useState<any[]>([]);
@@ -91,6 +99,17 @@ export default function AdminPage() {
 
   useEffect(() => { if (session) { loadEnquiries(); loadSections(); } }, [session, loadEnquiries, loadSections]);
   useEffect(() => { if (session && tab === "calendar") loadEvents(); }, [session, tab, calMonth, loadEvents]);
+
+  const loadFees = useCallback(async () => {
+    const [structs, assigns] = await Promise.all([
+      fetch("/api/fees/structures").then(r => r.json()),
+      fetch("/api/fees/assignments").then(r => r.json()),
+    ]);
+    setFeeStructures(Array.isArray(structs) ? structs : []);
+    setFeeAssignments(Array.isArray(assigns) ? assigns : []);
+  }, []);
+
+  useEffect(() => { if (session && tab === "fees") loadFees(); }, [session, tab, loadFees]);
 
   const logout = () => { localStorage.removeItem("ep_admin_session"); router.push("/admin-login"); };
 
@@ -166,6 +185,7 @@ export default function AdminPage() {
           { key:"sections",  label:"🏫 Sections",  count: sections.length },
           { key:"calendar",  label:"📅 Calendar",  count: events.length },
           { key:"photos",    label:"📸 Photos",    count: 0 },
+          { key:"fees",      label:"💳 Fees",      count: 0 },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 20px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"13px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}>
@@ -511,7 +531,236 @@ export default function AdminPage() {
             )}
           </div>
         )}
-        {/* ══ PHOTOS TAB ══ */}
+        {/* ══ FEES TAB ══ */}
+        {tab === "fees" && (
+          <div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>💳 Fee Management</div>
+              <div style={{ display:"flex", gap:"8px" }}>
+                <button onClick={() => { setFeeTab("assignments"); }}
+                  style={{ padding:"6px 14px", borderRadius:"20px", border:"none", background:feeTab==="assignments"?"#178F78":"#EDE8DF", color:feeTab==="assignments"?"white":"#6B7A99", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  📋 Fee Records
+                </button>
+                <button onClick={() => { setFeeTab("structures"); }}
+                  style={{ padding:"6px 14px", borderRadius:"20px", border:"none", background:feeTab==="structures"?"#178F78":"#EDE8DF", color:feeTab==="structures"?"white":"#6B7A99", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  ⚙️ Fee Structures
+                </button>
+              </div>
+            </div>
+
+            {/* ── Fee Records ── */}
+            {feeTab === "assignments" && (
+              <div>
+                {/* Assign fee form */}
+                <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"14px" }}>
+                  <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"12px" }}>Assign Fee to Child</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:"10px", marginBottom:"10px" }}>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>SELECT CHILD *</label>
+                      <select onChange={e => {
+                        const child = enquiries.find(enq => enq.id === e.target.value);
+                        setSelectedChild(child || null);
+                        if (child) {
+                          const struct = feeStructures.find(s => s.programme_id === child.program_id);
+                          if (struct) setFeeForm(p => ({ ...p, feeStructureId: struct.id, feeType: struct.fee_type, amount: struct.amount.toString() }));
+                        }
+                      }} style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
+                        <option value="">— Select child —</option>
+                        {enquiries.filter(e => e.status === "enrolled" || e.status === "visited").map(e => (
+                          <option key={e.id} value={e.id}>{e.child_name} — {e.program_label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>FEE STRUCTURE</label>
+                      <select value={feeForm.feeStructureId} onChange={e => {
+                        const struct = feeStructures.find(s => s.id === e.target.value);
+                        setFeeForm(p => ({ ...p, feeStructureId: e.target.value, feeType: struct?.fee_type || p.feeType, amount: struct?.amount?.toString() || p.amount }));
+                      }} style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
+                        <option value="">— Select structure —</option>
+                        {feeStructures.map(s => <option key={s.id} value={s.id}>{s.name} — ₹{s.amount}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>AMOUNT (₹) *</label>
+                      <input value={feeForm.amount} onChange={e => setFeeForm(p => ({...p, amount: e.target.value}))}
+                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                        placeholder="5000" type="number" />
+                    </div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px", marginBottom:"12px" }}>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>FEE TYPE</label>
+                      <select value={feeForm.feeType} onChange={e => setFeeForm(p => ({...p, feeType: e.target.value}))}
+                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly</option>
+                        <option value="annual">Annual</option>
+                        <option value="one-time">One-time</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>PERIOD LABEL</label>
+                      <input value={feeForm.periodLabel} onChange={e => setFeeForm(p => ({...p, periodLabel: e.target.value}))}
+                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                        placeholder="e.g. June 2025, Q1 2025-26" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>DUE DATE *</label>
+                      <input type="date" value={feeForm.dueDate} onChange={e => setFeeForm(p => ({...p, dueDate: e.target.value}))}
+                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }} />
+                    </div>
+                  </div>
+                  <button
+                    disabled={!selectedChild || !feeForm.amount || !feeForm.dueDate}
+                    onClick={async () => {
+                      if (!selectedChild) return;
+                      await fetch("/api/fees/assignments", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          enquiryId: selectedChild.id, childName: selectedChild.child_name,
+                          feeStructureId: feeForm.feeStructureId || null,
+                          feeType: feeForm.feeType, amount: parseFloat(feeForm.amount),
+                          dueDate: feeForm.dueDate, periodLabel: feeForm.periodLabel, notes: feeForm.notes,
+                        }),
+                      });
+                      setFeeForm({ feeStructureId:"", feeType:"monthly", amount:"", dueDate:"", periodLabel:"", notes:"" });
+                      setSelectedChild(null);
+                      loadFees();
+                    }}
+                    style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor:"pointer", opacity: (!selectedChild || !feeForm.amount || !feeForm.dueDate) ? 0.5 : 1 }}>
+                    + Assign Fee
+                  </button>
+                </div>
+
+                {/* Fee records list */}
+                {feeAssignments.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
+                    <div style={{ fontSize:"32px", marginBottom:"8px" }}>💳</div>
+                    No fee records yet. Assign fees to children above.
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                    {feeAssignments.map((fee: any) => {
+                      const isOverdue = fee.status === "pending" && new Date(fee.due_date) < new Date();
+                      const statusColor = fee.status === "paid" ? "#178F78" : isOverdue ? "#DC2626" : "#F5B829";
+                      const phone = enquiries.find(e => e.id === fee.enquiry_id)?.phone;
+                      return (
+                        <div key={fee.id} style={{ background:"white", borderRadius:"14px", border:`1px solid ${isOverdue?"rgba(220,38,38,0.2)":fee.status==="paid"?"rgba(23,143,120,0.2)":"#EDE8DF"}`, padding:"14px 16px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+                            <div style={{ flex:1, minWidth:"150px" }}>
+                              <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{fee.child_name}</div>
+                              <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+                                {fee.period_label && <span>{fee.period_label} · </span>}
+                                <span style={{ textTransform:"capitalize" }}>{fee.fee_type}</span>
+                                {fee.due_date && <span> · Due: {new Date(fee.due_date).toLocaleDateString("en-IN")}</span>}
+                              </div>
+                            </div>
+                            <div style={{ fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>₹{fee.amount?.toLocaleString("en-IN")}</div>
+                            <span style={{ background:`${statusColor}15`, color:statusColor, border:`1px solid ${statusColor}40`, borderRadius:"20px", padding:"3px 10px", fontSize:"10px", fontWeight:700, textTransform:"capitalize" }}>
+                              {isOverdue ? "Overdue" : fee.status}
+                            </span>
+                            {fee.status !== "paid" && (
+                              <div style={{ display:"flex", gap:"6px" }}>
+                                <button onClick={async () => {
+                                  await fetch("/api/fees/assignments", {
+                                    method:"PATCH", headers:{"Content-Type":"application/json"},
+                                    body: JSON.stringify({ id: fee.id, status:"paid", paidAt: new Date().toISOString() }),
+                                  });
+                                  loadFees();
+                                }} style={{ background:"rgba(23,143,120,0.1)", color:"#178F78", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
+                                  ✅ Mark Paid
+                                </button>
+                                {phone && (
+                                  <button onClick={async () => {
+                                    const res  = await fetch("/api/fees/reminder", {
+                                      method:"POST", headers:{"Content-Type":"application/json"},
+                                      body: JSON.stringify({ feeId: fee.id, phone, childName: fee.child_name, amount: fee.amount, dueDate: fee.due_date, periodLabel: fee.period_label }),
+                                    });
+                                    const data = await res.json();
+                                    window.open(data.waLink, "_blank");
+                                  }} style={{ background:"rgba(37,211,102,0.1)", color:"#128C7E", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
+                                    💬 Remind
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {fee.status === "paid" && fee.paid_at && (
+                              <div style={{ fontSize:"10px", color:"#6B7A99" }}>Paid: {new Date(fee.paid_at).toLocaleDateString("en-IN")}</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Fee Structures ── */}
+            {feeTab === "structures" && (
+              <div>
+                <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"14px" }}>
+                  <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"12px" }}>Add Fee Structure</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap:"10px", marginBottom:"10px" }}>
+                    <input value={structForm.name} onChange={e => setStructForm(p=>({...p,name:e.target.value}))}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                      placeholder="e.g. Nursery Monthly 2025-26" />
+                    <select value={structForm.programme_id} onChange={e => setStructForm(p=>({...p,programme_id:e.target.value}))}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
+                      <option value="">All Programmes</option>
+                      <option value="infant">Infant Care</option>
+                      <option value="playgroup">Playgroup</option>
+                      <option value="nursery">Nursery</option>
+                      <option value="jrkg">Junior KG</option>
+                      <option value="srkg">Senior KG</option>
+                    </select>
+                    <select value={structForm.fee_type} onChange={e => setStructForm(p=>({...p,fee_type:e.target.value}))}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="annual">Annual</option>
+                      <option value="one-time">One-time</option>
+                    </select>
+                    <input value={structForm.amount} onChange={e => setStructForm(p=>({...p,amount:e.target.value}))}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                      placeholder="Amount ₹" type="number" />
+                  </div>
+                  <button onClick={async () => {
+                    if (!structForm.name || !structForm.amount) return;
+                    await fetch("/api/fees/structures", {
+                      method:"POST", headers:{"Content-Type":"application/json"},
+                      body: JSON.stringify({ ...structForm, amount: parseFloat(structForm.amount) }),
+                    });
+                    setStructForm({ name:"", programme_id:"", fee_type:"monthly", amount:"", description:"" });
+                    loadFees();
+                  }} style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor:"pointer" }}>
+                    + Add Structure
+                  </button>
+                </div>
+
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:"10px" }}>
+                  {feeStructures.map((s: any) => (
+                    <div key={s.id} style={{ background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", padding:"14px" }}>
+                      <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"4px" }}>{s.name}</div>
+                      <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"8px" }}>
+                        {s.programme_id || "All"} · <span style={{ textTransform:"capitalize" }}>{s.fee_type}</span>
+                      </div>
+                      <div style={{ fontSize:"20px", fontWeight:700, color:"#178F78" }}>₹{s.amount?.toLocaleString("en-IN")}</div>
+                      <button onClick={async () => {
+                        if (!confirm(`Delete "${s.name}"?`)) return;
+                        await fetch("/api/fees/structures", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id: s.id }) });
+                        loadFees();
+                      }} style={{ marginTop:"8px", background:"rgba(220,38,38,0.08)", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", color:"#DC2626", cursor:"pointer", fontWeight:600 }}>
+                        🗑 Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {tab === "photos" && (
           <div>
             <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>📸 Upload Class Photos</div>

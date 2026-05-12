@@ -237,7 +237,11 @@ export default function ParentLoginPage() {
                 Go to Dashboard →
               </Link>
 
-              <div style={{ marginTop:"12px" }}>
+              <div style={{ marginTop:"12px", textAlign:"center" }}>
+                <Link href="/forgot-password?role=parent" style={{ fontSize:"12px", color:"#178F78", fontWeight:600 }}>Forgot Password?</Link>
+              </div>
+
+              <div style={{ marginTop:"8px" }}>
                 <Link href="/" style={{ fontSize:"12px", color:"#6B7A99" }}>Back to Home</Link>
               </div>
             </div>

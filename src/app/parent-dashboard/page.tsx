@@ -5,6 +5,45 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
+// ── Fee dues alert component ─────────────────────────────
+function FeeDues({ enquiryId }: { enquiryId?: string }) {
+  const [fees, setFees] = useState<any[]>([]);
+  useEffect(() => {
+    if (!enquiryId) return;
+    fetch(`/api/fees/assignments?enquiryId=${enquiryId}&status=pending`)
+      .then(r => r.json()).then(data => setFees(Array.isArray(data) ? data : []));
+  }, [enquiryId]);
+
+  const overdue  = fees.filter(f => new Date(f.due_date) < new Date());
+  const upcoming = fees.filter(f => new Date(f.due_date) >= new Date());
+
+  if (fees.length === 0) return null;
+
+  return (
+    <div style={{ background: overdue.length > 0 ? "rgba(220,38,38,0.06)" : "rgba(245,184,41,0.08)", border:`1px solid ${overdue.length>0?"rgba(220,38,38,0.2)":"rgba(245,184,41,0.25)"}`, borderRadius:"16px", padding:"14px 16px", marginBottom:"12px" }}>
+      <div style={{ fontWeight:700, fontSize:"14px", color: overdue.length>0?"#DC2626":"#B08000", marginBottom:"8px" }}>
+        {overdue.length > 0 ? "🔴 Fee Overdue" : "📢 Fee Due Soon"}
+      </div>
+      {fees.map((f: any) => {
+        const isOverdue = new Date(f.due_date) < new Date();
+        return (
+          <div key={f.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderTop:"1px solid rgba(0,0,0,0.05)" }}>
+            <div>
+              <div style={{ fontSize:"13px", fontWeight:600, color:"#1A2F4A" }}>{f.period_label || f.fee_type}</div>
+              <div style={{ fontSize:"11px", color:"#6B7A99" }}>Due: {new Date(f.due_date).toLocaleDateString("en-IN")}</div>
+            </div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:"16px", fontWeight:700, color: isOverdue?"#DC2626":"#B08000" }}>₹{f.amount?.toLocaleString("en-IN")}</div>
+              <div style={{ fontSize:"10px", color: isOverdue?"#DC2626":"#B08000", fontWeight:600 }}>{isOverdue?"OVERDUE":"UPCOMING"}</div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"8px" }}>Contact school to pay: <strong>7411574504</strong></div>
+    </div>
+  );
+}
+
 let _sb: SupabaseClient | null = null;
 async function getSb() {
   if (_sb) return _sb;
@@ -236,6 +275,9 @@ export default function ParentDashboardPage() {
             {/* HOME TAB */}
             {tab === "home" && (
               <div>
+                {/* Fee dues alert */}
+                <FeeDues enquiryId={selectedChild?.id} />
+
                 {prog && (
                   <div style={{ background:"white", borderRadius:"20px", border:`2px solid ${prog.color}33`, padding:"16px", marginBottom:"12px" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"10px" }}>
