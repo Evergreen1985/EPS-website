@@ -3,6 +3,20 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Plus, Trash2, Edit2, Save, X, Search } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+let _sb: SupabaseClient | null = null;
+async function getSb() {
+  if (_sb) return _sb;
+  let url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  let key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!url || !key) {
+    const cfg = await fetch("/api/config").then(r => r.json());
+    url = cfg.supabaseUrl; key = cfg.supabaseKey;
+  }
+  _sb = createClient(url, key);
+  return _sb;
+}
 
 type AdminTab = "enquiries" | "sections" | "calendar" | "photos";
 
@@ -249,12 +263,25 @@ export default function AdminPage() {
                           onChange={async (ev) => {
                             const file = ev.target.files?.[0];
                             if (!file) return;
-                            const fd = new FormData();
-                            fd.append("file", file);
-                            fd.append("enquiryId", e.id);
-                            fd.append("childName", e.child_name);
-                            await fetch("/api/photos/profile", { method:"POST", body: fd });
-                            loadEnquiries();
+                            try {
+                              const sb  = await getSb();
+                              const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+                              const fileName = `profiles/${e.id}.${ext}`;
+                              const { error: uploadErr } = await sb.storage
+                                .from("school-photos")
+                                .upload(fileName, file, { contentType: file.type, upsert: true });
+                              if (uploadErr) { alert("Upload failed: " + uploadErr.message); return; }
+                              const { data: urlData } = sb.storage.from("school-photos").getPublicUrl(fileName);
+                              const photoUrl = urlData.publicUrl + `?t=${Date.now()}`;
+                              await fetch("/api/photos/profile", {
+                                method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ enquiryId: e.id, photoUrl }),
+                              });
+                              loadEnquiries();
+                            } catch (err: any) {
+                              alert("Error: " + err.message);
+                            }
+                            ev.target.value = "";
                           }} />
                       </div>
                       <div style={{ flex:1, minWidth:"150px" }}>

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   // Children in this section
   const { data: children } = await sb()
     .from("enquiries")
-    .select("id, child_name, child_dob, child_age_months, phone, parent_name, status")
+    .select("id, child_name, child_dob, child_age_months, phone, parent_name, status, photo_url")
     .eq("section_id", sectionId)
     .order("child_name");
 
