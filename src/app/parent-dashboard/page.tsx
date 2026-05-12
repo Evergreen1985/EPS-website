@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Fee dues alert component ─────────────────────────────
-function FeeDues({ enquiryId }: { enquiryId?: string }) {
+function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childName?: string; phone?: string }) {
   const [fees, setFees] = useState<any[]>([]);
   useEffect(() => {
     if (!enquiryId) return;
@@ -39,7 +39,17 @@ function FeeDues({ enquiryId }: { enquiryId?: string }) {
           </div>
         );
       })}
-      <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"8px" }}>Contact school to pay: <strong>7411574504</strong></div>
+      <div style={{ display:"flex", gap:"8px", marginTop:"10px", flexWrap:"wrap" }}>
+  <a href="https://wa.me/917411574504?text=Hi! I would like to pay the school fee."
+    target="_blank" rel="noopener noreferrer"
+    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", background:"#25D366", color:"white", borderRadius:"12px", padding:"8px 14px", fontSize:"12px", fontWeight:700, textDecoration:"none" }}>
+    💬 Pay via WhatsApp
+  </a>
+  <a href="tel:7411574504"
+    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"12px", padding:"8px 14px", fontSize:"12px", fontWeight:700, textDecoration:"none", border:"1px solid rgba(23,143,120,0.2)" }}>
+    📞 Call School
+  </a>
+</div>
     </div>
   );
 }
@@ -276,7 +286,7 @@ export default function ParentDashboardPage() {
             {tab === "home" && (
               <div>
                 {/* Fee dues alert */}
-                <FeeDues enquiryId={selectedChild?.id} />
+                <FeeDues enquiryId={selectedChild?.id} childName={selectedChild?.child_name} phone={session?.phone} />
 
                 {prog && (
                   <div style={{ background:"white", borderRadius:"20px", border:`2px solid ${prog.color}33`, padding:"16px", marginBottom:"12px" }}>

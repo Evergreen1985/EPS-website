@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Phone, Lock, Eye, EyeOff, ArrowRight, Shield } from "lucide-react";
+import { Eye, EyeOff, ArrowRight } from "lucide-react";
 
 type Step = "choose" | "first-login" | "login" | "success";
 
@@ -20,6 +20,7 @@ export default function ParentLoginPage() {
 
   const inp  = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all";
   const inpS = { borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" };
+  const inpCls = `${inp} focus:ring-teal-400`;
 
   const call = async (action: string, extra: any = {}) => {
     setLoading(true); setError("");
@@ -35,28 +36,18 @@ export default function ParentLoginPage() {
         if (data.needsSetup)   setStep("first-login");
       } else {
         setResult(data);
-        // Save persistent session to localStorage
         localStorage.setItem("ep_parent_session", JSON.stringify({
-          phone:     phone,
-          childName: data.childName || "",
-          loginTime: Date.now(),
-          firstLogin: data.firstLogin || false,
+          phone, childName: data.childName || "", loginTime: Date.now(), firstLogin: data.firstLogin || false,
         }));
         setStep("success");
-        // Open WhatsApp if first login
         if (data.waUrl) setTimeout(() => window.open(data.waUrl, "_blank"), 500);
-        // Redirect to dashboard after short delay
-        if (!data.firstLogin) {
-          setTimeout(() => router.push("/parent-dashboard"), 800);
-        }
+        if (!data.firstLogin) setTimeout(() => router.push("/parent-dashboard"), 800);
       }
     } catch {
       setError("Network error. Please try again.");
     }
     setLoading(false);
   };
-
-  const inpCls = `${inp} focus:ring-teal-400`;
 
   return (
     <div style={{ minHeight:"100vh", background:"#FEFCF8", fontFamily:"'Quicksand',sans-serif", display:"flex", flexDirection:"column" }}>
@@ -71,7 +62,7 @@ export default function ParentLoginPage() {
       <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
         <div style={{ width:"100%", maxWidth:"400px" }}>
 
-          {/* CHOOSE step */}
+          {/* ── CHOOSE ── */}
           {step === "choose" && (
             <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"6px" }}>Welcome Back!</div>
@@ -104,10 +95,11 @@ export default function ParentLoginPage() {
             </div>
           )}
 
-          {/* FIRST TIME LOGIN */}
+          {/* ── FIRST TIME LOGIN ── */}
           {step === "first-login" && (
             <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
-              <button onClick={() => { setStep("choose"); setError(""); }} style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
+              <button onClick={() => { setStep("choose"); setError(""); }}
+                style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>First Time Setup</div>
               <p style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"20px" }}>Verify your identity to create your password</p>
 
@@ -136,24 +128,29 @@ export default function ParentLoginPage() {
                 <p style={{ fontSize:"10px", color:"#6B7A99", marginTop:"4px" }}>Last 4 digits of the phone number you registered with</p>
               </div>
 
-              {error && <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"12px", padding:"10px 14px", color:"#DC2626", fontSize:"12px", marginBottom:"14px" }}>{error}</div>}
+              {error && (
+                <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"12px", padding:"10px 14px", color:"#DC2626", fontSize:"12px", marginBottom:"14px" }}>{error}</div>
+              )}
 
-              <button disabled={loading || !phone || !dob || !last4}
-                onClick={() => call("first-login")}
-                style={{ width:"100%", padding:"13px", borderRadius:"20px", background: loading||!phone||!dob||!last4 ? "#ccc" : "#178F78", color:"white", border:"none", fontWeight:700, fontSize:"14px", cursor: loading||!phone||!dob||!last4 ? "not-allowed" : "pointer", boxShadow:"0 5px 16px rgba(23,143,120,0.3)" }}>
+              <button disabled={loading || !phone || !dob || !last4} onClick={() => call("first-login")}
+                style={{ width:"100%", padding:"13px", borderRadius:"20px", background:loading||!phone||!dob||!last4?"#ccc":"#178F78", color:"white", border:"none", fontWeight:700, fontSize:"14px", cursor:loading||!phone||!dob||!last4?"not-allowed":"pointer", boxShadow:"0 5px 16px rgba(23,143,120,0.3)" }}>
                 {loading ? "Verifying..." : "Verify & Create Password →"}
               </button>
 
-              <div style={{ textAlign:"center", marginTop:"14px" }}>
-                <button onClick={() => { setStep("login"); setError(""); }} style={{ fontSize:"12px", color:"#178F78", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>Already have a password? Login →</button>
+              <div style={{ textAlign:"center", marginTop:"14px", display:"flex", flexDirection:"column", gap:"6px" }}>
+                <button onClick={() => { setStep("login"); setError(""); }}
+                  style={{ fontSize:"12px", color:"#178F78", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
+                  Already have a password? Login →
+                </button>
               </div>
             </div>
           )}
 
-          {/* REGULAR LOGIN */}
+          {/* ── REGULAR LOGIN ── */}
           {step === "login" && (
             <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
-              <button onClick={() => { setStep("choose"); setError(""); }} style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
+              <button onClick={() => { setStep("choose"); setError(""); }}
+                style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>Parent Login</div>
               <p style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"20px" }}>Enter your phone and password</p>
 
@@ -168,12 +165,20 @@ export default function ParentLoginPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom:"20px" }}>
-                <label style={{ fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", color:"#6B7A99", display:"block", marginBottom:"6px" }}>Password *</label>
+              <div style={{ marginBottom:"8px" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                  <label style={{ fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", color:"#6B7A99" }}>Password *</label>
+                  {/* ← FORGOT PASSWORD LINK right next to the label */}
+                  <Link href="/forgot-password?role=parent"
+                    style={{ fontSize:"11px", color:"#E8694A", fontWeight:600, textDecoration:"none" }}>
+                    Forgot Password?
+                  </Link>
+                </div>
                 <div style={{ position:"relative" }}>
                   <input className={inpCls} style={{ ...inpS, paddingRight:"44px" }}
                     type={showPass ? "text" : "password"} placeholder="Your password"
-                    value={password} onChange={e => setPassword(e.target.value)} />
+                    value={password} onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && !loading && phone && password && call("login")} />
                   <button onClick={() => setShowPass(!showPass)} type="button"
                     style={{ position:"absolute", right:"12px", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#6B7A99" }}>
                     {showPass ? <EyeOff style={{ width:"16px", height:"16px" }} /> : <Eye style={{ width:"16px", height:"16px" }} />}
@@ -181,26 +186,30 @@ export default function ParentLoginPage() {
                 </div>
               </div>
 
-              {error && <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"12px", padding:"10px 14px", color:"#DC2626", fontSize:"12px", marginBottom:"14px" }}>{error}</div>}
+              {error && (
+                <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"12px", padding:"10px 14px", color:"#DC2626", fontSize:"12px", marginBottom:"14px", marginTop:"8px" }}>{error}</div>
+              )}
 
-              <button disabled={loading || !phone || !password}
-                onClick={() => call("login")}
-                style={{ width:"100%", padding:"13px", borderRadius:"20px", background: loading||!phone||!password ? "#ccc" : "#E8694A", color:"white", border:"none", fontWeight:700, fontSize:"14px", cursor: loading||!phone||!password ? "not-allowed" : "pointer", boxShadow:"0 5px 16px rgba(232,105,74,0.3)" }}>
+              <button disabled={loading || !phone || !password} onClick={() => call("login")}
+                style={{ width:"100%", padding:"13px", borderRadius:"20px", background:loading||!phone||!password?"#ccc":"#E8694A", color:"white", border:"none", fontWeight:700, fontSize:"14px", cursor:loading||!phone||!password?"not-allowed":"pointer", boxShadow:"0 5px 16px rgba(232,105,74,0.3)", marginTop:"16px" }}>
                 {loading ? "Logging in..." : "Login →"}
               </button>
 
               <div style={{ textAlign:"center", marginTop:"14px" }}>
-                <button onClick={() => { setStep("first-login"); setError(""); }} style={{ fontSize:"12px", color:"#178F78", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>First time? Set up your account →</button>
+                <button onClick={() => { setStep("first-login"); setError(""); }}
+                  style={{ fontSize:"12px", color:"#178F78", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
+                  First time? Set up your account →
+                </button>
               </div>
             </div>
           )}
 
-          {/* SUCCESS */}
+          {/* ── SUCCESS ── */}
           {step === "success" && result && (
             <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)", textAlign:"center" }}>
               <div style={{ width:"60px", height:"60px", borderRadius:"50%", background:"rgba(23,143,120,0.1)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:"28px" }}>✅</div>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.5rem", fontWeight:700, color:"#178F78", marginBottom:"6px" }}>
-                {result.firstLogin ? "Account Created!" : `Welcome back!`}
+                {result.firstLogin ? "Account Created!" : "Welcome back!"}
               </div>
               <p style={{ fontSize:"13px", color:"#6B7A99", marginBottom:"20px" }}>
                 {result.firstLogin
@@ -237,15 +246,13 @@ export default function ParentLoginPage() {
                 Go to Dashboard →
               </Link>
 
-              <div style={{ marginTop:"12px", textAlign:"center" }}>
+              <div style={{ marginTop:"16px", display:"flex", flexDirection:"column", gap:"8px", alignItems:"center" }}>
                 <Link href="/forgot-password?role=parent" style={{ fontSize:"12px", color:"#178F78", fontWeight:600 }}>Forgot Password?</Link>
-              </div>
-
-              <div style={{ marginTop:"8px" }}>
                 <Link href="/" style={{ fontSize:"12px", color:"#6B7A99" }}>Back to Home</Link>
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>
