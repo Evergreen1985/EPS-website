@@ -5,55 +5,199 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// ── Fee dues alert component ─────────────────────────────
+// ── Razorpay global type ─────────────────────────────────
+declare global { interface Window { Razorpay: any; } }
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://checkout.razorpay.com/v1/checkout.js";
+    s.onload  = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.body.appendChild(s);
+  });
+}
+
+// ── Fee dues component with Razorpay payments ────────────
 function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childName?: string; phone?: string }) {
-  const [fees, setFees] = useState<any[]>([]);
-  useEffect(() => {
+  const [fees, setFees]         = useState<any[]>([]);
+  const [paying, setPaying]     = useState<string | null>(null);
+  const [paidIds, setPaidIds]   = useState<string[]>([]);
+  const [payError, setPayError] = useState("");
+
+  const loadFees = () => {
     if (!enquiryId) return;
     fetch(`/api/fees/assignments?enquiryId=${enquiryId}&status=pending`)
-      .then(r => r.json()).then(data => setFees(Array.isArray(data) ? data : []));
-  }, [enquiryId]);
+      .then(r => r.json())
+      .then(data => setFees(Array.isArray(data) ? data : []));
+  };
 
-  const overdue  = fees.filter(f => new Date(f.due_date) < new Date());
-  const upcoming = fees.filter(f => new Date(f.due_date) >= new Date());
+  useEffect(() => { loadFees(); }, [enquiryId]);
+
+  const handlePay = async (fee: any) => {
+    setPayError("");
+    setPaying(fee.id);
+
+    const loaded = await loadRazorpayScript();
+    if (!loaded) {
+      setPayError("Failed to load payment gateway. Please check your connection.");
+      setPaying(null);
+      return;
+    }
+
+    const res = await fetch("/api/fees/pay", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        feeId:     fee.id,
+        amount:    fee.amount,
+        childName: childName || fee.child_name,
+        phone:     phone || "",
+      }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      setPayError(data.error || "Could not create payment order. Please try again.");
+      setPaying(null);
+      return;
+    }
+
+    const { order, keyId } = data;
+
+    const rzp = new window.Razorpay({
+      key:         keyId,
+      amount:      order.amount,
+      currency:    order.currency,
+      name:        "Evergreen Preschool & Daycare",
+      description: `${fee.period_label || fee.fee_type} — ${childName || fee.child_name}`,
+      order_id:    order.id,
+      prefill:     { contact: phone || "", name: childName || fee.child_name },
+      theme:       { color: "#178F78" },
+      modal:       { ondismiss: () => setPaying(null) },
+      handler: async (response: any) => {
+        const verifyRes = await fetch("/api/fees/pay", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            feeId:     fee.id,
+            paymentId: response.razorpay_payment_id,
+            orderId:   response.razorpay_order_id,
+            signature: response.razorpay_signature,
+          }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.success) {
+          setPaidIds(p => [...p, fee.id]);
+          setFees(prev => prev.filter(f => f.id !== fee.id));
+        } else {
+          setPayError("Payment received but verification failed. Contact school with payment ID: " + response.razorpay_payment_id);
+        }
+        setPaying(null);
+      },
+    });
+
+    rzp.on("payment.failed", (response: any) => {
+      setPayError("Payment failed: " + response.error.description);
+      setPaying(null);
+    });
+
+    rzp.open();
+  };
+
+  const overdue = fees.filter(f => new Date(f.due_date) < new Date());
+
+  if (paidIds.length > 0 && fees.length === 0) {
+    return (
+      <div style={{ background:"rgba(23,143,120,0.08)", border:"1px solid rgba(23,143,120,0.25)", borderRadius:"16px", padding:"14px 16px", marginBottom:"12px", display:"flex", alignItems:"center", gap:"12px" }}>
+        <span style={{ fontSize:"28px" }}>✅</span>
+        <div>
+          <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78" }}>Payment Successful!</div>
+          <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>Fee has been marked as paid. Thank you!</div>
+        </div>
+      </div>
+    );
+  }
 
   if (fees.length === 0) return null;
 
   return (
-    <div style={{ background: overdue.length > 0 ? "rgba(220,38,38,0.06)" : "rgba(245,184,41,0.08)", border:`1px solid ${overdue.length>0?"rgba(220,38,38,0.2)":"rgba(245,184,41,0.25)"}`, borderRadius:"16px", padding:"14px 16px", marginBottom:"12px" }}>
-      <div style={{ fontWeight:700, fontSize:"14px", color: overdue.length>0?"#DC2626":"#B08000", marginBottom:"8px" }}>
+    <div style={{ background: overdue.length > 0 ? "rgba(220,38,38,0.05)" : "rgba(245,184,41,0.07)", border:`1px solid ${overdue.length > 0 ? "rgba(220,38,38,0.2)" : "rgba(245,184,41,0.3)"}`, borderRadius:"16px", padding:"16px", marginBottom:"12px" }}>
+
+      <div style={{ fontWeight:700, fontSize:"14px", color: overdue.length > 0 ? "#DC2626" : "#B08000", marginBottom:"12px", display:"flex", alignItems:"center", gap:"8px" }}>
         {overdue.length > 0 ? "🔴 Fee Overdue" : "📢 Fee Due Soon"}
+        <span style={{ fontSize:"10px", background: overdue.length > 0 ? "rgba(220,38,38,0.1)" : "rgba(245,184,41,0.15)", color: overdue.length > 0 ? "#DC2626" : "#B08000", borderRadius:"20px", padding:"2px 8px", fontWeight:600 }}>
+          {fees.length} pending
+        </span>
       </div>
+
+      {payError && (
+        <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"9px 12px", fontSize:"11px", color:"#DC2626", marginBottom:"10px" }}>
+          ⚠️ {payError}
+        </div>
+      )}
+
       {fees.map((f: any) => {
         const isOverdue = new Date(f.due_date) < new Date();
+        const isPaying  = paying === f.id;
         return (
-          <div key={f.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderTop:"1px solid rgba(0,0,0,0.05)" }}>
-            <div>
-              <div style={{ fontSize:"13px", fontWeight:600, color:"#1A2F4A" }}>{f.period_label || f.fee_type}</div>
-              <div style={{ fontSize:"11px", color:"#6B7A99" }}>Due: {new Date(f.due_date).toLocaleDateString("en-IN")}</div>
+          <div key={f.id} style={{ borderTop:"1px solid rgba(0,0,0,0.06)", paddingTop:"12px", marginTop:"10px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:"13px", fontWeight:700, color:"#1A2F4A" }}>{f.period_label || f.fee_type}</div>
+                <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>
+                  Due:{" "}
+                  <span style={{ fontWeight:600, color: isOverdue ? "#DC2626" : "#B08000" }}>
+                    {new Date(f.due_date).toLocaleDateString("en-IN")}
+                  </span>
+                  {isOverdue && (
+                    <span style={{ marginLeft:"6px", background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>OVERDUE</span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"8px" }}>
+                <div style={{ fontSize:"20px", fontWeight:700, color: isOverdue ? "#DC2626" : "#1A2F4A" }}>
+                  ₹{f.amount?.toLocaleString("en-IN")}
+                </div>
+                <button
+                  onClick={() => handlePay(f)}
+                  disabled={!!paying}
+                  style={{
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:"6px",
+                    background: isPaying ? "#b2dfdb" : "#178F78",
+                    color:"white", border:"none", borderRadius:"14px",
+                    padding:"9px 20px", fontSize:"13px", fontWeight:700,
+                    cursor: paying ? "not-allowed" : "pointer",
+                    boxShadow: isPaying ? "none" : "0 4px 14px rgba(23,143,120,0.4)",
+                    transition:"all 0.2s", whiteSpace:"nowrap" as const, minWidth:"130px",
+                  }}>
+                  {isPaying ? (
+                    <>
+                      <span style={{ width:"13px", height:"13px", border:"2px solid rgba(255,255,255,0.35)", borderTopColor:"white", borderRadius:"50%", display:"inline-block", animation:"spin 0.8s linear infinite" }} />
+                      Processing…
+                    </>
+                  ) : <>💳 Pay Now</>}
+                </button>
+              </div>
             </div>
-            <div style={{ textAlign:"right" }}>
-              <div style={{ fontSize:"16px", fontWeight:700, color: isOverdue?"#DC2626":"#B08000" }}>₹{f.amount?.toLocaleString("en-IN")}</div>
-              <div style={{ fontSize:"10px", color: isOverdue?"#DC2626":"#B08000", fontWeight:600 }}>{isOverdue?"OVERDUE":"UPCOMING"}</div>
+            <div style={{ display:"flex", gap:"5px", flexWrap:"wrap", marginTop:"8px" }}>
+              {["UPI / GPay / PhonePe", "Credit Card", "Debit Card", "Net Banking"].map(m => (
+                <span key={m} style={{ fontSize:"9px", fontWeight:600, background:"rgba(23,143,120,0.07)", color:"#178F78", borderRadius:"20px", padding:"2px 8px", border:"1px solid rgba(23,143,120,0.15)" }}>{m}</span>
+              ))}
             </div>
           </div>
         );
       })}
-      <div style={{ display:"flex", gap:"8px", marginTop:"10px", flexWrap:"wrap" }}>
-  <a href="https://wa.me/917411574504?text=Hi! I would like to pay the school fee."
-    target="_blank" rel="noopener noreferrer"
-    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", background:"#25D366", color:"white", borderRadius:"12px", padding:"8px 14px", fontSize:"12px", fontWeight:700, textDecoration:"none" }}>
-    💬 Pay via WhatsApp
-  </a>
-  <a href="tel:7411574504"
-    style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"12px", padding:"8px 14px", fontSize:"12px", fontWeight:700, textDecoration:"none", border:"1px solid rgba(23,143,120,0.2)" }}>
-    📞 Call School
-  </a>
-</div>
+
+      <div style={{ marginTop:"14px", paddingTop:"10px", borderTop:"1px solid rgba(0,0,0,0.05)", fontSize:"10px", color:"#9CA3AF", display:"flex", alignItems:"center", gap:"5px" }}>
+        🔒 Secured by Razorpay &nbsp;·&nbsp; All payments are encrypted
+      </div>
     </div>
   );
 }
 
+// ── Supabase lazy client ─────────────────────────────────
 let _sb: SupabaseClient | null = null;
 async function getSb() {
   if (_sb) return _sb;
@@ -68,13 +212,13 @@ async function getSb() {
 }
 
 const PROGRAMS: Record<string, { label:string; icon:string; color:string; schedule:string; highlights:string[] }> = {
-  "infant":     { label:"Infant Care",     icon:"🍼", color:"#EC4899", schedule:"9:00 AM – 3:30 PM", highlights:["Sensory play daily","Primary caregiver assigned","Feeding & sleep schedule maintained","Daily parent updates"] },
-  "playgroup":  { label:"Playgroup",        icon:"🎈", color:"#E8694A", schedule:"9:00 AM – 3:30 PM", highlights:["Language development","Motor skill activities","Music & movement","Creative play"] },
-  "nursery":    { label:"Nursery",          icon:"🌸", color:"#F5B829", schedule:"9:00 AM – 3:30 PM", highlights:["Pre-literacy & numeracy","Cooperative play","Arts & self-expression","Science exploration"] },
-  "jrkg":       { label:"Junior KG",        icon:"📚", color:"#6366F1", schedule:"9:00 AM – 3:30 PM", highlights:["Phonics & reading","Basic maths concepts","Science awareness","Critical thinking"] },
-  "srkg":       { label:"Senior KG",        icon:"🎓", color:"#178F78", schedule:"9:00 AM – 3:30 PM", highlights:["Reading & writing","Advanced numeracy","School readiness","Social skills"] },
-  "daycare":    { label:"Full-Day Daycare", icon:"🏡", color:"#0F766E", schedule:"7:00 AM – 7:00 PM", highlights:["Meals provided","Rest periods","Educational activities","Extended care"] },
-  "afterschool":{ label:"After-School",     icon:"🚌", color:"#7C3AED", schedule:"3:00 PM – 7:00 PM", highlights:["Homework help","Enrichment activities","Snacks provided","Supervised play"] },
+  "infant":     { label:"Infant Care",     icon:"🍼", color:"#EC4899", schedule:"9:00 AM – 3:30 PM", highlights:[] },
+  "playgroup":  { label:"Playgroup",        icon:"🎈", color:"#E8694A", schedule:"9:00 AM – 3:30 PM", highlights:[] },
+  "nursery":    { label:"Nursery",          icon:"🌸", color:"#F5B829", schedule:"9:00 AM – 3:30 PM", highlights:[] },
+  "jrkg":       { label:"Junior KG",        icon:"📚", color:"#6366F1", schedule:"9:00 AM – 3:30 PM", highlights:[] },
+  "srkg":       { label:"Senior KG",        icon:"🎓", color:"#178F78", schedule:"9:00 AM – 3:30 PM", highlights:[] },
+  "daycare":    { label:"Full-Day Daycare", icon:"🏡", color:"#0F766E", schedule:"7:00 AM – 7:00 PM", highlights:[] },
+  "afterschool":{ label:"After-School",     icon:"🚌", color:"#7C3AED", schedule:"3:00 PM – 7:00 PM", highlights:[] },
 };
 
 const EVENT_TYPE_COLORS: Record<string,string> = { holiday:"#E8694A", festival:"#F5B829", activity:"#178F78", exam:"#6366F1", ptm:"#EC4899", sports:"#0F766E" };
@@ -88,60 +232,47 @@ export default function ParentDashboardPage() {
   const [announcements, setAnnounce] = useState<any[]>([]);
   const [homework, setHomework]      = useState<any[]>([]);
   const [photos, setPhotos]          = useState<any[]>([]);
-  const [matchedPhotos, setMatched]   = useState<any[]>([]);
-  const [matchStatus, setMatchStatus] = useState("");
-  const [matchLoading, setMatchLoad]  = useState(false);
+  const [matchedPhotos, setMatched]  = useState<any[]>([]);
+  const [matchStatus, setMatchStatus]= useState("");
+  const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
   const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
   const [profileUploading, setProfileUploading] = useState(false);
   const [profileError, setProfileError]         = useState("");
 
-  const now      = new Date();
-  const monthKey = String(now.getMonth()+1).padStart(2,"0");
-  const monthName= now.toLocaleString("default", { month:"long" });
-  const year     = now.getFullYear();
-  const month    = `${year}-${monthKey}`;
+  const now       = new Date();
+  const monthKey  = String(now.getMonth()+1).padStart(2,"0");
+  const monthName = now.toLocaleString("default", { month:"long" });
+  const year      = now.getFullYear();
+  const month     = `${year}-${monthKey}`;
 
   const [viewMonth, setViewMonth] = useState(() => {
-    const n = new Date();
-    return { year: n.getFullYear(), month: n.getMonth() }; // 0-indexed
+    const n = new Date(); return { year:n.getFullYear(), month:n.getMonth() };
   });
-
   const viewMonthStr  = `${viewMonth.year}-${String(viewMonth.month+1).padStart(2,"0")}`;
   const viewMonthName = new Date(viewMonth.year, viewMonth.month, 1).toLocaleString("default", { month:"long" });
   const [calEventsView, setCalEventsView] = useState<any[]>([]);
 
-  // Fetch events when viewMonth changes
   useEffect(() => {
     if (!session?.phone) return;
     fetch(`/api/admin/calendar?month=${viewMonthStr}`)
-      .then(r => r.json())
-      .then(d => setCalEventsView(d.events || []));
+      .then(r => r.json()).then(d => setCalEventsView(d.events || []));
   }, [session, viewMonthStr]);
 
-  const prevMonth = () => setViewMonth(p => {
-    const d = new Date(p.year, p.month - 1, 1);
-    return { year: d.getFullYear(), month: d.getMonth() };
-  });
-  const nextMonth = () => setViewMonth(p => {
-    const d = new Date(p.year, p.month + 1, 1);
-    return { year: d.getFullYear(), month: d.getMonth() };
-  });
-  const goToday   = () => { const n = new Date(); setViewMonth({ year: n.getFullYear(), month: n.getMonth() }); };
+  const prevMonth = () => setViewMonth(p => { const d = new Date(p.year,p.month-1,1); return { year:d.getFullYear(), month:d.getMonth() }; });
+  const nextMonth = () => setViewMonth(p => { const d = new Date(p.year,p.month+1,1); return { year:d.getFullYear(), month:d.getMonth() }; });
+  const goToday   = () => { const n = new Date(); setViewMonth({ year:n.getFullYear(), month:n.getMonth() }); };
 
-  // ── Load session ─────────────────────────────────────
   useEffect(() => {
     const stored = localStorage.getItem("ep_parent_session");
     if (!stored) { router.replace("/parent-login"); return; }
     const s = JSON.parse(stored);
-    if (Date.now() - s.loginTime > 7 * 24 * 60 * 60 * 1000) {
-      localStorage.removeItem("ep_parent_session");
-      router.replace("/parent-login"); return;
+    if (Date.now() - s.loginTime > 7*24*60*60*1000) {
+      localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); return;
     }
     setSession(s);
   }, [router]);
 
-  // ── Load dashboard data (photos load immediately) ────
   useEffect(() => {
     if (!session?.phone) return;
     fetch(`/api/parent/dashboard?phone=${encodeURIComponent(session.phone)}&month=${month}`)
@@ -152,48 +283,35 @@ export default function ParentDashboardPage() {
         setCalEvts(data.calendarEvents || []);
         setAnnounce(data.announcements || []);
         setHomework(data.homework || []);
-        setPhotos(data.photos || []);           // ← photos show immediately
+        setPhotos(data.photos || []);
         if (childs.length === 1) setSelected(childs[0]);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [session, month]);
 
-  // ── Find tagged photos — read from DB, no re-scanning ─
   useEffect(() => {
     if (!selectedChild?.section_id || !selectedChild?.child_name) return;
     setMatchLoad(true);
     fetch("/api/photos/face-match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sectionId: selectedChild.section_id,
-        childName: selectedChild.child_name,
-      }),
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ sectionId:selectedChild.section_id, childName:selectedChild.child_name }),
     })
       .then(r => r.json())
       .then(data => {
         setMatched(data.matchedPhotos || []);
         if (data.allPhotos) setPhotos(data.allPhotos);
-        if ((data.matchedPhotos||[]).length > 0)
-          setMatchStatus(`✨ ${selectedChild.child_name} tagged in ${data.matchedPhotos.length} photo${data.matchedPhotos.length>1?"s":""}`);
-        else setMatchStatus("");
+        setMatchStatus((data.matchedPhotos||[]).length > 0
+          ? `✨ ${selectedChild.child_name} tagged in ${data.matchedPhotos.length} photo${data.matchedPhotos.length>1?"s":""}`
+          : "");
         setMatchLoad(false);
       })
       .catch(() => { setMatchStatus(""); setMatchLoad(false); });
   }, [selectedChild?.id]);
 
-  const logout = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
-
-  const prog     = selectedChild ? PROGRAMS[selectedChild.program_id] || PROGRAMS["nursery"] : null;
-  const holidays = calendarEvents.filter(e => e.is_holiday);
-  const festivals= calendarEvents.filter(e => e.event_type === "festival" || e.event_type === "holiday");
-  const activities= calendarEvents.filter(e => e.event_type === "activity" || e.event_type === "sports" || e.event_type === "ptm" || e.event_type === "exam");
+  const logout     = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
+  const prog       = selectedChild ? PROGRAMS[selectedChild.program_id] || PROGRAMS["nursery"] : null;
   const hasSection = !!selectedChild?.section_id;
-
-  // Calendar grid
-  const daysInMonth = new Date(year, now.getMonth()+1, 0).getDate();
-  const firstDay    = new Date(year, now.getMonth(), 1).getDay();
 
   if (loading) return (
     <div style={{ minHeight:"100vh", background:"#FEFCF8", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Quicksand',sans-serif" }}>
@@ -206,6 +324,7 @@ export default function ParentDashboardPage() {
 
   return (
     <div style={{ minHeight:"100vh", background:"#FEFCF8", fontFamily:"'Quicksand',sans-serif" }}>
+
       {/* Header */}
       <div style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)", padding:"16px 20px" }}>
         <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -230,15 +349,11 @@ export default function ParentDashboardPage() {
             <div style={{ display:"flex", gap:"10px", flexWrap:"wrap" }}>
               {children.map(child => (
                 <button key={child.id} onClick={() => { setSelected(child); setTab("home"); }}
-                  style={{ display:"flex", alignItems:"center", gap:"10px", padding:"10px 16px", borderRadius:"16px", border:`2px solid ${selectedChild?.id===child.id ? "#178F78" : "#EDE8DF"}`, background:selectedChild?.id===child.id ? "rgba(23,143,120,0.08)" : "white", cursor:"pointer", transition:"all 0.2s" }}>
-                  {child.photo_url ? (
-                    <img src={child.photo_url} alt={child.child_name}
-                      style={{ width:"40px", height:"40px", borderRadius:"50%", objectFit:"cover", border:"2px solid #EDE8DF", flexShrink:0 }} />
-                  ) : (
-                    <div style={{ width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
-                      {PROGRAMS[child.program_id]?.icon || "🧒"}
-                    </div>
-                  )}
+                  style={{ display:"flex", alignItems:"center", gap:"10px", padding:"10px 16px", borderRadius:"16px", border:`2px solid ${selectedChild?.id===child.id?"#178F78":"#EDE8DF"}`, background:selectedChild?.id===child.id?"rgba(23,143,120,0.08)":"white", cursor:"pointer", transition:"all 0.2s" }}>
+                  {child.photo_url
+                    ? <img src={child.photo_url} alt={child.child_name} style={{ width:"40px", height:"40px", borderRadius:"50%", objectFit:"cover", border:"2px solid #EDE8DF", flexShrink:0 }} />
+                    : <div style={{ width:"40px", height:"40px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>{PROGRAMS[child.program_id]?.icon||"🧒"}</div>
+                  }
                   <div style={{ textAlign:"left" }}>
                     <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{child.child_name}</div>
                     <div style={{ fontSize:"10px", color:"#6B7A99" }}>
@@ -261,32 +376,27 @@ export default function ParentDashboardPage() {
           </div>
         )}
 
-        {/* Tabs */}
+        {/* Tabs + content */}
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[
-                { key:"home",     icon:"🏠", label:"Home" },
-                { key:"homework", icon:"📚", label:"Homework" },
-                { key:"calendar", icon:"📅", label:"Calendar" },
-                { key:"photos",   icon:"📸", label:"Photos" },
-                { key:"profile",  icon:"👶", label:"Profile" },
-              ].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
-                  style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s",
-                    background:tab===t.key ? "#178F78" : "transparent",
-                    color:tab===t.key ? "white" : "#6B7A99" }}>
-                  <span style={{ fontSize:"16px" }}>{t.icon}</span>
-                  {t.label}
+                  style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
+                  <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
                 </button>
               ))}
             </div>
 
-            {/* HOME TAB */}
+            {/* ══ HOME TAB ══ */}
             {tab === "home" && (
               <div>
-                {/* Fee dues alert */}
-                <FeeDues enquiryId={selectedChild?.id} childName={selectedChild?.child_name} phone={session?.phone} />
+                {/* ✅ Razorpay fee payment */}
+                <FeeDues
+                  enquiryId={selectedChild?.id}
+                  childName={selectedChild?.child_name}
+                  phone={session?.phone}
+                />
 
                 {prog && (
                   <div style={{ background:"white", borderRadius:"20px", border:`2px solid ${prog.color}33`, padding:"16px", marginBottom:"12px" }}>
@@ -299,7 +409,7 @@ export default function ParentDashboardPage() {
                       </div>
                       <div style={{ background:`${prog.color}12`, borderRadius:"12px", padding:"6px 12px", textAlign:"center" }}>
                         <div style={{ fontSize:"10px", color:"#6B7A99" }}>Status</div>
-                        <div style={{ fontSize:"11px", fontWeight:700, color:prog.color, textTransform:"capitalize" }}>{selectedChild.status || "Enquired"}</div>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:prog.color, textTransform:"capitalize" }}>{selectedChild.status||"Enquired"}</div>
                       </div>
                     </div>
                     {!hasSection && (
@@ -310,26 +420,23 @@ export default function ParentDashboardPage() {
                   </div>
                 )}
 
-                {/* This month from DB */}
+                {/* Month events */}
                 <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"12px" }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
                     <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78" }}>🗓️ {monthName} {year}</div>
                     <span style={{ fontSize:"10px", color:"#6B7A99", background:"#FAF0E8", borderRadius:"20px", padding:"3px 10px" }}>{calendarEvents.length} events</span>
                   </div>
-
                   {calendarEvents.length === 0 ? (
-                    <div style={{ fontSize:"12px", color:"#6B7A99", textAlign:"center", padding:"12px 0" }}>
-                      No events this month. Admin can add events from the admin panel.
-                    </div>
+                    <div style={{ fontSize:"12px", color:"#6B7A99", textAlign:"center", padding:"12px 0" }}>No events this month.</div>
                   ) : (
                     <div style={{ display:"flex", flexDirection:"column", gap:"7px" }}>
                       {calendarEvents.map(ev => (
-                        <div key={ev.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"8px 12px", borderRadius:"12px", background:ev.is_holiday ? `${ev.color}0d` : "#FAF0E8", border:`1px solid ${ev.color}25` }}>
+                        <div key={ev.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"8px 12px", borderRadius:"12px", background:ev.is_holiday?`${ev.color}0d`:"#FAF0E8", border:`1px solid ${ev.color}25` }}>
                           <span style={{ fontSize:"18px", flexShrink:0 }}>{ev.icon}</span>
                           <div style={{ flex:1 }}>
                             <div style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{ev.title}</div>
                             <div style={{ fontSize:"10px", color:"#6B7A99" }}>
-                              {new Date(ev.event_date).toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" })}
+                              {new Date(ev.event_date).toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}
                               {ev.description && ` · ${ev.description}`}
                             </div>
                           </div>
@@ -346,54 +453,40 @@ export default function ParentDashboardPage() {
                 {/* Announcements */}
                 <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px" }}>
                   <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78", marginBottom:"10px" }}>📢 Announcements</div>
-                  {announcements.length === 0 ? (
-                    <div style={{ textAlign:"center", color:"#6B7A99", fontSize:"12px", padding:"12px" }}>No announcements yet. Check back soon!</div>
-                  ) : announcements.map((a:any) => (
-                    <div key={a.id} style={{ padding:"10px 0", borderBottom:"1px solid #EDE8DF" }}>
-                      <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"3px" }}>{a.title}</div>
-                      <div style={{ fontSize:"11px", color:"#6B7A99" }}>{a.body}</div>
-                    </div>
-                  ))}
+                  {announcements.length === 0
+                    ? <div style={{ textAlign:"center", color:"#6B7A99", fontSize:"12px", padding:"12px" }}>No announcements yet.</div>
+                    : announcements.map((a:any) => (
+                      <div key={a.id} style={{ padding:"10px 0", borderBottom:"1px solid #EDE8DF" }}>
+                        <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"3px" }}>{a.title}</div>
+                        <div style={{ fontSize:"11px", color:"#6B7A99" }}>{a.body}</div>
+                      </div>
+                    ))
+                  }
                 </div>
 
-                {/* ✨ AI Matched Photos — child's face in class photos */}
+                {/* AI matched photos */}
                 {selectedChild?.photo_url && selectedChild?.section_id && (
                   <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginTop:"12px" }}>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"12px" }}>
-                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78" }}>
-                        ✨ {selectedChild.child_name} in Photos
-                      </div>
+                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78" }}>✨ {selectedChild.child_name} in Photos</div>
                       {matchLoading && (
                         <div style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11px", color:"#6B7A99" }}>
                           <div style={{ width:"12px", height:"12px", border:"2px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
-                          AI scanning {photos.length} photos…
+                          Scanning…
                         </div>
                       )}
-                      {!matchLoading && matchStatus && (
-                        <div style={{ fontSize:"11px", fontWeight:600, color: matchStatus.startsWith("✨") ? "#178F78" : matchStatus.startsWith("❌") ? "#DC2626" : "#B08000" }}>
-                          {matchStatus}
-                        </div>
-                      )}
+                      {!matchLoading && matchStatus && <div style={{ fontSize:"11px", fontWeight:600, color:"#178F78" }}>{matchStatus}</div>}
                     </div>
-
                     {!matchLoading && matchedPhotos.length === 0 && (
-                      <div style={{ textAlign:"center", padding:"16px", color:"#6B7A99", fontSize:"12px" }}>
-                        {selectedChild.photo_url
-                          ? matchStatus.startsWith("❌") ? matchStatus : "No recent photos with your child yet."
-                          : "Add a profile photo in the Profile tab to enable AI photo matching! 📷"}
-                      </div>
+                      <div style={{ textAlign:"center", padding:"16px", color:"#6B7A99", fontSize:"12px" }}>No recent photos with your child yet.</div>
                     )}
-
                     {matchedPhotos.length > 0 && (
                       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))", gap:"8px" }}>
-                        {matchedPhotos.map((p: any) => (
+                        {matchedPhotos.map((p:any) => (
                           <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:"1px solid #EDE8DF", position:"relative" }}>
-                            <img src={p.photo_url} alt={p.title || "Class photo"}
-                              style={{ width:"100%", height:"110px", objectFit:"cover", display:"block" }} />
+                            <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"110px", objectFit:"cover", display:"block" }} />
                             <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.85)", borderRadius:"20px", padding:"2px 7px", fontSize:"9px", fontWeight:700, color:"white" }}>✨ Match</div>
-                            {(p.title || p.ai_caption) && (
-                              <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title || p.ai_caption}</div>
-                            )}
+                            {(p.title||p.ai_caption) && <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title||p.ai_caption}</div>}
                           </div>
                         ))}
                       </div>
@@ -403,7 +496,7 @@ export default function ParentDashboardPage() {
               </div>
             )}
 
-            {/* HOMEWORK TAB */}
+            {/* ══ HOMEWORK TAB ══ */}
             {tab === "homework" && (
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
                 <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"14px" }}>📚 Homework — {monthName}</div>
@@ -428,51 +521,42 @@ export default function ParentDashboardPage() {
               </div>
             )}
 
-            {/* CALENDAR TAB */}
+            {/* ══ CALENDAR TAB ══ */}
             {tab === "calendar" && (
               <div>
                 <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"12px" }}>
-                  {/* Month navigation */}
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px" }}>
-                    <button onClick={prevMonth}
-                      style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>‹</button>
+                    <button onClick={prevMonth} style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>‹</button>
                     <div style={{ textAlign:"center" }}>
-                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>
-                        {viewMonthName} {viewMonth.year}
-                      </div>
+                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>{viewMonthName} {viewMonth.year}</div>
                       {viewMonthStr !== `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}` && (
                         <button onClick={goToday} style={{ fontSize:"10px", color:"#E8694A", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>Back to today</button>
                       )}
                     </div>
-                    <button onClick={nextMonth}
-                      style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>›</button>
+                    <button onClick={nextMonth} style={{ width:"34px", height:"34px", borderRadius:"50%", border:"1px solid #EDE8DF", background:"#FAF0E8", fontSize:"16px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#178F78", fontWeight:700 }}>›</button>
                   </div>
-
-                  {/* Calendar grid */}
                   {(() => {
                     const dIM = new Date(viewMonth.year, viewMonth.month+1, 0).getDate();
                     const fD  = new Date(viewMonth.year, viewMonth.month, 1).getDay();
-                    const mStr = viewMonthStr;
                     return (
                       <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:"2px", marginBottom:"12px" }}>
                         {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
                           <div key={d} style={{ textAlign:"center", fontSize:"10px", fontWeight:700, color:"#6B7A99", padding:"4px 0" }}>{d}</div>
                         ))}
-                        {Array.from({ length: fD }).map((_,i) => <div key={`e${i}`} />)}
-                        {Array.from({ length: dIM }).map((_,i) => {
-                          const day = i+1;
-                          const date = `${mStr}-${String(day).padStart(2,"0")}`;
-                          const dayEvents = calEventsView.filter(ev => ev.event_date === date);
-                          const isToday  = viewMonth.year === now.getFullYear() && viewMonth.month === now.getMonth() && day === now.getDate();
-                          const isHoliday= dayEvents.some(ev => ev.is_holiday);
-                          const isSun    = (fD+i)%7===0;
+                        {Array.from({length:fD}).map((_,i) => <div key={`e${i}`}/>)}
+                        {Array.from({length:dIM}).map((_,i) => {
+                          const day=i+1, date=`${viewMonthStr}-${String(day).padStart(2,"0")}`;
+                          const dayEvts=calEventsView.filter(ev=>ev.event_date===date);
+                          const isToday=viewMonth.year===now.getFullYear()&&viewMonth.month===now.getMonth()&&day===now.getDate();
+                          const isHoliday=dayEvts.some(ev=>ev.is_holiday);
+                          const isSun=(fD+i)%7===0;
                           return (
-                            <div key={day} title={dayEvents.map(ev=>ev.title).join(", ")}
+                            <div key={day} title={dayEvts.map(ev=>ev.title).join(", ")}
                               style={{ textAlign:"center", padding:"5px 2px", borderRadius:"8px", fontSize:"12px", fontWeight:isToday?700:400, position:"relative",
                                 background:isToday?"#178F78":isHoliday?"rgba(232,105,74,0.08)":"transparent",
                                 color:isToday?"white":isHoliday?"#E8694A":isSun?"#E8694A":"#1A2F4A" }}>
                               {day}
-                              {dayEvents.length > 0 && !isToday && <div style={{ width:"4px", height:"4px", borderRadius:"50%", background:dayEvents[0].color, margin:"1px auto 0" }} />}
+                              {dayEvts.length>0&&!isToday&&<div style={{ width:"4px", height:"4px", borderRadius:"50%", background:dayEvts[0].color, margin:"1px auto 0" }}/>}
                             </div>
                           );
                         })}
@@ -480,8 +564,6 @@ export default function ParentDashboardPage() {
                     );
                   })()}
                 </div>
-
-                {/* Events list for view month */}
                 {calEventsView.length > 0 ? (
                   <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"16px" }}>
                     <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"15px", fontWeight:700, color:"#178F78", marginBottom:"12px" }}>Events in {viewMonthName}</div>
@@ -490,11 +572,11 @@ export default function ParentDashboardPage() {
                         <span style={{ fontSize:"20px" }}>{ev.icon}</span>
                         <div style={{ flex:1 }}>
                           <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{ev.title}
-                            {ev.is_holiday && <span style={{ marginLeft:"6px", background:"rgba(232,105,74,0.1)", color:"#E8694A", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>HOLIDAY</span>}
+                            {ev.is_holiday&&<span style={{ marginLeft:"6px", background:"rgba(232,105,74,0.1)", color:"#E8694A", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>HOLIDAY</span>}
                           </div>
                           <div style={{ fontSize:"11px", color:"#6B7A99" }}>
-                            {new Date(ev.event_date).toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" })}
-                            {ev.description && ` · ${ev.description}`}
+                            {new Date(ev.event_date).toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})}
+                            {ev.description&&` · ${ev.description}`}
                           </div>
                         </div>
                         <span style={{ fontSize:"10px", fontWeight:700, color:EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99", background:`${EVENT_TYPE_COLORS[ev.event_type]||"#6B7A99"}15`, borderRadius:"20px", padding:"2px 8px", textTransform:"capitalize", whiteSpace:"nowrap" }}>{ev.event_type}</span>
@@ -502,20 +584,16 @@ export default function ParentDashboardPage() {
                     ))}
                   </div>
                 ) : (
-                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px", textAlign:"center", color:"#6B7A99", fontSize:"13px" }}>
-                    No events for {viewMonthName} {viewMonth.year}
-                  </div>
+                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px", textAlign:"center", color:"#6B7A99", fontSize:"13px" }}>No events for {viewMonthName} {viewMonth.year}</div>
                 )}
               </div>
             )}
 
-            {/* PHOTOS TAB */}
+            {/* ══ PHOTOS TAB ══ */}
             {tab === "photos" && (
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"14px", flexWrap:"wrap", gap:"8px" }}>
-                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>
-                    📸 {selectedChild.section_name || "Class"} Photos
-                  </div>
+                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78" }}>📸 {selectedChild.section_name||"Class"} Photos</div>
                   {matchLoading && (
                     <div style={{ display:"flex", alignItems:"center", gap:"5px", fontSize:"11px", color:"#6B7A99" }}>
                       <div style={{ width:"10px", height:"10px", border:"2px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
@@ -523,12 +601,9 @@ export default function ParentDashboardPage() {
                     </div>
                   )}
                   {!matchLoading && matchedPhotos.length > 0 && (
-                    <div style={{ fontSize:"11px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"3px 10px", fontWeight:600 }}>
-                      ✨ {selectedChild.child_name} spotted!
-                    </div>
+                    <div style={{ fontSize:"11px", background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"3px 10px", fontWeight:600 }}>✨ {selectedChild.child_name} spotted!</div>
                   )}
                 </div>
-
                 {!hasSection ? (
                   <div style={{ background:"rgba(245,184,41,0.08)", border:"1px solid rgba(245,184,41,0.25)", borderRadius:"16px", padding:"24px", textAlign:"center" }}>
                     <div style={{ fontSize:"32px", marginBottom:"8px" }}>📸</div>
@@ -542,20 +617,12 @@ export default function ParentDashboardPage() {
                 ) : (
                   <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:"8px" }}>
                     {photos.map((p:any) => {
-                      const isMatch = !matchLoading && matchedPhotos.find((m:any) => m.id === p.id);
+                      const isMatch=!matchLoading&&matchedPhotos.find((m:any)=>m.id===p.id);
                       return (
                         <div key={p.id} style={{ borderRadius:"12px", overflow:"hidden", border:`2px solid ${isMatch?"rgba(23,143,120,0.4)":"#EDE8DF"}`, position:"relative", transition:"border-color 0.4s" }}>
                           <img src={p.photo_url} alt={p.title||"Class photo"} style={{ width:"100%", height:"120px", objectFit:"cover", display:"block" }} />
-                          {isMatch && (
-                            <div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.88)", borderRadius:"20px", padding:"2px 8px", fontSize:"10px", fontWeight:700, color:"white" }}>
-                              ✨ You!
-                            </div>
-                          )}
-                          {(p.title || p.ai_caption) && (
-                            <div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>
-                              {p.title || p.ai_caption}
-                            </div>
-                          )}
+                          {isMatch&&<div style={{ position:"absolute", top:"5px", right:"5px", background:"rgba(23,143,120,0.88)", borderRadius:"20px", padding:"2px 8px", fontSize:"10px", fontWeight:700, color:"white" }}>✨ You!</div>}
+                          {(p.title||p.ai_caption)&&<div style={{ padding:"5px 7px", fontSize:"10px", color:"#6B7A99", fontWeight:600 }}>{p.title||p.ai_caption}</div>}
                         </div>
                       );
                     })}
@@ -564,96 +631,64 @@ export default function ParentDashboardPage() {
               </div>
             )}
 
-            {/* PROFILE TAB */}
+            {/* ══ PROFILE TAB ══ */}
             {tab === "profile" && (
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
-                {/* Profile photo */}
                 <div style={{ textAlign:"center", marginBottom:"20px" }}>
                   <div style={{ position:"relative", width:"90px", margin:"0 auto 10px" }}>
-                    {selectedChild.photo_url ? (
-                      <img src={selectedChild.photo_url} alt={selectedChild.child_name}
-                        style={{ width:"90px", height:"90px", borderRadius:"50%", objectFit:"cover", border:"3px solid #178F78" }} />
-                    ) : (
-                      <div style={{ width:"90px", height:"90px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"36px", border:"3px solid #EDE8DF" }}>
-                        {prog?.icon || "🧒"}
-                      </div>
-                    )}
+                    {selectedChild.photo_url
+                      ? <img src={selectedChild.photo_url} alt={selectedChild.child_name} style={{ width:"90px", height:"90px", borderRadius:"50%", objectFit:"cover", border:"3px solid #178F78" }} />
+                      : <div style={{ width:"90px", height:"90px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"36px", border:"3px solid #EDE8DF" }}>{prog?.icon||"🧒"}</div>
+                    }
                     {profileUploading && (
                       <div style={{ position:"absolute", inset:0, borderRadius:"50%", background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center" }}>
                         <div style={{ width:"24px", height:"24px", border:"3px solid rgba(255,255,255,0.3)", borderTopColor:"white", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} />
                       </div>
                     )}
-                    <label htmlFor="profile-photo-input" style={{ position:"absolute", bottom:0, right:0, width:"28px", height:"28px", borderRadius:"50%", background:profileUploading?"#ccc":"#178F78", border:"2px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:profileUploading?"not-allowed":"pointer", fontSize:"14px" }}>
-                      📷
-                    </label>
-                    <input id="profile-photo-input" type="file" accept="image/*" style={{ display:"none" }}
-                      disabled={profileUploading}
+                    <label htmlFor="profile-photo-input" style={{ position:"absolute", bottom:0, right:0, width:"28px", height:"28px", borderRadius:"50%", background:profileUploading?"#ccc":"#178F78", border:"2px solid white", display:"flex", alignItems:"center", justifyContent:"center", cursor:profileUploading?"not-allowed":"pointer", fontSize:"14px" }}>📷</label>
+                    <input id="profile-photo-input" type="file" accept="image/*" style={{ display:"none" }} disabled={profileUploading}
                       onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setProfileUploading(true);
-                        setProfileError("");
+                        const file=e.target.files?.[0]; if(!file) return;
+                        setProfileUploading(true); setProfileError("");
                         try {
-                          const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-                          const fileName = `profiles/${selectedChild.id}.${ext}`;
-
-                          const sb = await getSb();
-                          const { error: storageErr } = await sb.storage
-                            .from("school-photos")
-                            .upload(fileName, file, { contentType: file.type, upsert: true });
-
-                          if (storageErr) { setProfileError(storageErr.message); setProfileUploading(false); return; }
-
-                          const { data: urlData } = sb.storage.from("school-photos").getPublicUrl(fileName);
-                          const photoUrl = urlData.publicUrl + `?t=${Date.now()}`;
-
-                          // Save URL to DB via API
-                          const res  = await fetch("/api/photos/profile", {
-                            method:"POST", headers:{"Content-Type":"application/json"},
-                            body: JSON.stringify({ enquiryId: selectedChild.id, photoUrl }),
-                          });
-                          const data = await res.json();
-                          if (data.error) { setProfileError(data.error); } else {
-                            setChildren(prev => prev.map(c => c.id === selectedChild.id ? { ...c, photo_url: photoUrl } : c));
-                            setSelected((p: any) => ({ ...p, photo_url: photoUrl }));
+                          const ext=(file.name.split(".").pop()||"jpg").toLowerCase();
+                          const fileName=`profiles/${selectedChild.id}.${ext}`;
+                          const sb=await getSb();
+                          const {error:storageErr}=await sb.storage.from("school-photos").upload(fileName,file,{contentType:file.type,upsert:true});
+                          if(storageErr){setProfileError(storageErr.message);setProfileUploading(false);return;}
+                          const {data:urlData}=sb.storage.from("school-photos").getPublicUrl(fileName);
+                          const photoUrl=urlData.publicUrl+`?t=${Date.now()}`;
+                          const res=await fetch("/api/photos/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enquiryId:selectedChild.id,photoUrl})});
+                          const data=await res.json();
+                          if(data.error){setProfileError(data.error);}else{
+                            setChildren(prev=>prev.map(c=>c.id===selectedChild.id?{...c,photo_url:photoUrl}:c));
+                            setSelected((p:any)=>({...p,photo_url:photoUrl}));
                           }
-                        } catch (err: any) {
-                          setProfileError(err?.message || "Upload failed");
-                        }
-                        setProfileUploading(false);
-                        e.target.value = "";
+                        } catch(err:any){setProfileError(err?.message||"Upload failed");}
+                        setProfileUploading(false); e.target.value="";
                       }} />
                   </div>
                   <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#178F78" }}>{selectedChild.child_name}</div>
-                  <div style={{ fontSize:"12px", color:"#6B7A99" }}>{selectedChild.program_label}{selectedChild.section_name && ` · ${selectedChild.section_name}`}</div>
-                  <div style={{ fontSize:"10px", color:profileUploading?"#F5B829":"#178F78", marginTop:"4px" }}>
-                    {profileUploading ? "⏳ Uploading photo…" : "📷 Tap camera icon to update photo"}
-                  </div>
-                  {profileError && (
-                    <div style={{ marginTop:"8px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"7px 12px", fontSize:"11px", color:"#DC2626" }}>
-                      ❌ {profileError}
-                    </div>
-                  )}
+                  <div style={{ fontSize:"12px", color:"#6B7A99" }}>{selectedChild.program_label}{selectedChild.section_name&&` · ${selectedChild.section_name}`}</div>
+                  <div style={{ fontSize:"10px", color:profileUploading?"#F5B829":"#178F78", marginTop:"4px" }}>{profileUploading?"⏳ Uploading photo…":"📷 Tap camera icon to update photo"}</div>
+                  {profileError&&<div style={{ marginTop:"8px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"7px 12px", fontSize:"11px", color:"#DC2626" }}>❌ {profileError}</div>}
                 </div>
-
-                {/* Info grid */}
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
                   {[
-                    ["🎂","Date of Birth", selectedChild.child_dob ? new Date(selectedChild.child_dob).toLocaleDateString("en-IN") : "—"],
-                    ["📏","Age", selectedChild.child_age_months ? `${Math.floor(selectedChild.child_age_months/12)} yr ${selectedChild.child_age_months%12} mo` : "—"],
-                    ["📚","Programme", selectedChild.program_label || "—"],
-                    ["🏫","Section", selectedChild.section_name || "Not assigned yet"],
-                    ["📊","Status", selectedChild.status || "Enquired"],
-                    ["📞","Parent Phone", session?.phone || "—"],
-                  ].map(([icon, label, value]) => (
-                    <div key={label} style={{ background:"#FAF0E8", borderRadius:"14px", padding:"12px" }}>
+                    ["🎂","Date of Birth",selectedChild.child_dob?new Date(selectedChild.child_dob).toLocaleDateString("en-IN"):"—"],
+                    ["📏","Age",selectedChild.child_age_months?`${Math.floor(selectedChild.child_age_months/12)} yr ${selectedChild.child_age_months%12} mo`:"—"],
+                    ["📚","Programme",selectedChild.program_label||"—"],
+                    ["🏫","Section",selectedChild.section_name||"Not assigned yet"],
+                    ["📊","Status",selectedChild.status||"Enquired"],
+                    ["📞","Parent Phone",session?.phone||"—"],
+                  ].map(([icon,label,value])=>(
+                    <div key={String(label)} style={{ background:"#FAF0E8", borderRadius:"14px", padding:"12px" }}>
                       <div style={{ fontSize:"16px", marginBottom:"4px" }}>{icon}</div>
                       <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase", letterSpacing:"0.06em" }}>{label}</div>
                       <div style={{ fontSize:"13px", fontWeight:700, color:"#1A2F4A", marginTop:"2px", textTransform:"capitalize" }}>{value}</div>
                     </div>
                   ))}
                 </div>
-
                 <button onClick={logout} style={{ width:"100%", marginTop:"20px", padding:"11px", borderRadius:"20px", background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", color:"#DC2626", fontWeight:700, fontSize:"13px", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px" }}>
                   <LogOut style={{ width:"16px", height:"16px" }} /> Logout
                 </button>
@@ -666,4 +701,3 @@ export default function ParentDashboardPage() {
     </div>
   );
 }
-
