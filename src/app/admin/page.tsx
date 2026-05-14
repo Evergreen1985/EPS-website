@@ -67,14 +67,14 @@ export default function AdminPage() {
 
   // ── Auth check ─────────────────────────────────────────
   useEffect(() => {
-    const s = localStorage.getItem("ep_admin_session");
-    if (!s) { router.replace("/admin-login"); return; }
-    const parsed = JSON.parse(s);
-    if (Date.now() - parsed.loginTime > 8 * 60 * 60 * 1000) {
-      localStorage.removeItem("ep_admin_session"); router.replace("/admin-login"); return;
-    }
-    setSession(parsed);
-  }, [router]);
+  fetch("/api/admin/me", { credentials: "include" })
+    .then((r) => {
+      if (!r.ok) { router.replace("/admin-login"); return null; }
+      return r.json();
+    })
+    .then((data) => { if (data) setSession(data); })
+    .catch(() => router.replace("/admin-login"));
+}, [router]);
 
   // ── Load data ───────────────────────────────────────────
   const loadEnquiries = useCallback(async () => {
@@ -111,7 +111,13 @@ export default function AdminPage() {
 
   useEffect(() => { if (session && tab === "fees") loadFees(); }, [session, tab, loadFees]);
 
-  const logout = () => { localStorage.removeItem("ep_admin_session"); router.push("/admin-login"); };
+  const logout = async () => {
+  await fetch("/api/admin/logout", {
+    method: "POST",
+    credentials: "include",
+  });
+  router.push("/admin-login");
+};
 
   // ── Update enquiry ─────────────────────────────────────
   const saveEnquiry = async (id: string, updates: any) => {

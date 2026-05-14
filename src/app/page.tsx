@@ -308,11 +308,11 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                           </div>}
                         </div>
                         {/* Enroll button */}
-                        <button onClick={() => jumpTo(7)}
-                          className="w-full py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5"
-                          style={{ background:c.btn, boxShadow:`0 4px 12px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif" }}>
-                          Enroll in {prog.title} →
-                        </button>
+                        <Link href="/enquiry"
+							className="w-full py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5 text-center block"
+							style={{ background:c.btn, boxShadow:`0 4px 12px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
+								Enquire for {prog.title} →
+						</Link>
                       </div>
                     </div>
                   </div>
