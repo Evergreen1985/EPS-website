@@ -14,61 +14,36 @@ export async function POST(req: NextRequest) {
     if (!base64 || !mediaType)
       return NextResponse.json({ error: "base64 and mediaType required" }, { status: 400 });
 
-    let imageBase64 = base64;
-    let imageMediaType: "image/jpeg" | "image/png" | "image/gif" | "image/webp" = "image/jpeg";
-
+    // PDF — send natively as document type (Claude supports PDFs directly)
     if (mediaType === "application/pdf") {
-      // Convert PDF first page to image using canvas/sharp
-      // Since we're in Next.js API route (Node.js), use pdf-to-img package
-      try {
-        const { pdf } = await import("pdf-to-img");
-        const pdfBuffer = Buffer.from(base64, "base64");
-        const pages = await pdf(pdfBuffer, { scale: 2 });
-        // Get first page
-        let firstPage: Buffer | null = null;
-        for await (const page of pages) {
-          firstPage = page;
-          break; // only first page
-        }
-        if (!firstPage) throw new Error("Could not extract page from PDF");
-        imageBase64    = firstPage.toString("base64");
-        imageMediaType = "image/png";
-      } catch (pdfErr: any) {
-        // If pdf-to-img fails, try sending PDF directly as document type
-        // Claude supports PDF documents natively via document type
-        const response = await anthropic.messages.create({
-          model: "claude-opus-4-5-20251101",
-          max_tokens: 1024,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type: "document" as any,
-                source: {
-                  type: "base64",
-                  media_type: "application/pdf",
-                  data: base64,
-                },
-              },
-              { type: "text", text: getPrompt() },
-            ],
-          }],
-        });
-        const text  = response.content[0].type === "text" ? response.content[0].text.trim() : "";
-        const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-        return NextResponse.json({ success: true, data: JSON.parse(clean) });
-      }
-    } else {
-      // Regular image
-      const supported: Record<string, "image/jpeg" | "image/png" | "image/gif" | "image/webp"> = {
-        "image/jpeg": "image/jpeg",
-        "image/jpg":  "image/jpeg",
-        "image/png":  "image/png",
-        "image/gif":  "image/gif",
-        "image/webp": "image/webp",
-      };
-      imageMediaType = supported[mediaType] || "image/jpeg";
+      const response = await anthropic.messages.create({
+        model: "claude-opus-4-5-20251101",
+        max_tokens: 1024,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "document" as any,
+              source: { type: "base64", media_type: "application/pdf", data: base64 },
+            },
+            { type: "text", text: getPrompt() },
+          ],
+        }],
+      });
+      const text  = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+      const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+      return NextResponse.json({ success: true, data: JSON.parse(clean) });
     }
+
+    // Image (JPG, PNG, WebP, GIF)
+    const supported: Record<string, "image/jpeg" | "image/png" | "image/gif" | "image/webp"> = {
+      "image/jpeg": "image/jpeg",
+      "image/jpg":  "image/jpeg",
+      "image/png":  "image/png",
+      "image/gif":  "image/gif",
+      "image/webp": "image/webp",
+    };
+    const imageMediaType = supported[mediaType] || "image/jpeg";
 
     const response = await anthropic.messages.create({
       model: "claude-opus-4-5-20251101",
@@ -78,7 +53,7 @@ export async function POST(req: NextRequest) {
         content: [
           {
             type: "image",
-            source: { type: "base64", media_type: imageMediaType, data: imageBase64 },
+            source: { type: "base64", media_type: imageMediaType, data: base64 },
           },
           { type: "text", text: getPrompt() },
         ],
@@ -87,8 +62,7 @@ export async function POST(req: NextRequest) {
 
     const text  = response.content[0].type === "text" ? response.content[0].text.trim() : "";
     const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    const parsed = JSON.parse(clean);
-    return NextResponse.json({ success: true, data: parsed });
+    return NextResponse.json({ success: true, data: JSON.parse(clean) });
 
   } catch (err: any) {
     console.error("OCR error:", err);
