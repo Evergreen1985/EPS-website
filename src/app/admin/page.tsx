@@ -9,6 +9,7 @@ import SchoolSettingsTab from "@/components/SchoolSettingsTab";
 import StaffTab          from "@/components/StaffTab";
 import ChildEditModal      from "@/components/ChildEditModal";
 import AcademicYearTab    from "@/components/AcademicYearTab";
+import ExcelImport        from "@/components/ExcelImport";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -24,7 +25,7 @@ async function getSb() {
 }
 
 // ✅ FIXED: added "staff" and "settings" to the type
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -45,8 +46,17 @@ export default function AdminPage() {
   const [session, setSession]       = useState<any>(null);
   const [tab, setTab]               = useState<AdminTab>("enquiries");
   const [editingChild, setEditingChild]   = useState<any>(null);
-  const [yearFilter, setYearFilter]       = useState<string>("current");
   const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [staffList, setStaffList]         = useState<any[]>([]);
+
+  // Bulk selection state
+  const [bulkMode, setBulkMode]           = useState(false);
+  const [selectedIds, setSelectedIds]     = useState<Set<string>>(new Set());
+  const [rolloverModal, setRolloverModal] = useState(false);
+  const [rolloverTargetYear, setRolloverTargetYear] = useState("");
+  const [bulkActionMsg, setBulkActionMsg] = useState("");
+  const [bulkWorking, setBulkWorking]     = useState(false);
+  const [yearFilter, setYearFilter]       = useState("all");
 
   // Enquiries state
   const [enquiries, setEnquiries]   = useState<any[]>([]);
@@ -108,6 +118,13 @@ export default function AdminPage() {
     }
   }, [session, loadEnquiries, loadSections]);
   useEffect(() => { if (session && tab === "calendar") loadEvents(); }, [session, tab, calMonth, loadEvents]);
+  useEffect(() => {
+    if (session && tab === "sections" && staffList.length === 0) {
+      fetch("/api/staff").then(r => r.json()).then(d => {
+        if (Array.isArray(d)) setStaffList(d);
+      });
+    }
+  }, [session, tab, staffList.length]);
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
@@ -154,11 +171,85 @@ export default function AdminPage() {
   };
 
   // ── Filtered enquiries ─────────────────────────────────
+  const currentYear = academicYears.find(y => y.is_current);
+
   const filtered = enquiries.filter(e => {
-    const matchS = filterStatus === "all" || e.status === filterStatus;
-    const matchQ = !search || e.child_name?.toLowerCase().includes(search.toLowerCase()) || e.phone?.includes(search);
-    return matchS && matchQ;
+    const matchS  = filterStatus === "all" || e.status === filterStatus;
+    const matchQ  = !search || e.child_name?.toLowerCase().includes(search.toLowerCase()) || e.phone?.includes(search);
+    const matchY  = yearFilter === "all"
+      ? true
+      : yearFilter === "current"
+      ? e.academic_year_id === currentYear?.id || (!e.academic_year_id && currentYear)
+      : e.academic_year_id === yearFilter;
+    return matchS && matchQ && matchY;
   });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(e => e.id)));
+    }
+  };
+
+  const clearBulk = () => {
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    setBulkActionMsg("");
+    setRolloverModal(false);
+    setRolloverTargetYear("");
+  };
+
+  const doBulkRollover = async () => {
+    if (!rolloverTargetYear || selectedIds.size === 0) return;
+    setBulkWorking(true);
+    setBulkActionMsg("");
+    const res  = await fetch("/api/academic-years", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "rollover_selected", enquiry_ids: Array.from(selectedIds), to_year_id: rolloverTargetYear }),
+    });
+    const data = await res.json();
+    setBulkWorking(false);
+    if (data.success) {
+      setBulkActionMsg(`✅ ${data.count} children rolled over successfully!`);
+      loadEnquiries();
+      setTimeout(() => { clearBulk(); setRolloverModal(false); }, 1800);
+    } else {
+      setBulkActionMsg("❌ " + (data.error || "Failed"));
+    }
+  };
+
+  const doBulkStatus = async (status: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkWorking(true);
+    const res  = await fetch("/api/academic-years", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "bulk_status", enquiry_ids: Array.from(selectedIds), status }),
+    });
+    const data = await res.json();
+    setBulkWorking(false);
+    if (data.success) { loadEnquiries(); clearBulk(); }
+  };
+
+  const doBulkSection = async (sectionId: string, sectionName: string) => {
+    if (selectedIds.size === 0) return;
+    setBulkWorking(true);
+    const res  = await fetch("/api/academic-years", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "bulk_section", enquiry_ids: Array.from(selectedIds), section_id: sectionId, section_name: sectionName }),
+    });
+    const data = await res.json();
+    setBulkWorking(false);
+    if (data.success) { loadEnquiries(); clearBulk(); }
+  };
 
   const inp = (style: any = {}) => ({
     border:"1px solid #EDE8DF", borderRadius:"10px", padding:"8px 12px", fontSize:"12px", outline:"none",
@@ -190,6 +281,7 @@ export default function AdminPage() {
           { key:"staff",     label:"👩‍🏫 Staff",    count: 0                },
           { key:"settings",  label:"⚙️ Settings",  count: 0                },
           { key:"academic",  label:"🎓 Academic Year", count: 0             },
+          { key:"import",    label:"📥 Import Data",   count: 0             },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -206,9 +298,9 @@ export default function AdminPage() {
         {/* ══ ENQUIRIES TAB ══ */}
         {tab === "enquiries" && (
           <div>
-            {/* Filters */}
-            <div style={{ display:"flex", gap:"10px", marginBottom:"16px", flexWrap:"wrap" }}>
-              <div style={{ position:"relative", flex:1, minWidth:"200px" }}>
+            {/* Filters row */}
+            <div style={{ display:"flex", gap:"10px", marginBottom:"12px", flexWrap:"wrap" }}>
+              <div style={{ position:"relative", flex:1, minWidth:"180px" }}>
                 <Search style={{ position:"absolute", left:"10px", top:"50%", transform:"translateY(-50%)", width:"14px", height:"14px", color:"#6B7A99" }} />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone..."
                   style={{ ...inp(), paddingLeft:"32px" }} />
@@ -217,10 +309,71 @@ export default function AdminPage() {
                 <option value="all">All Status</option>
                 {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
               </select>
+              {/* Academic Year filter */}
+              <select value={yearFilter} onChange={e => setYearFilter(e.target.value)} style={inp({ width:"auto" })}>
+                <option value="all">All Years</option>
+                <option value="current">Current Year</option>
+                {academicYears.map(y => <option key={y.id} value={y.id}>{y.label}{y.is_current ? " ★" : ""}</option>)}
+              </select>
               <div style={{ background:"rgba(23,143,120,0.1)", borderRadius:"10px", padding:"8px 14px", fontSize:"12px", fontWeight:700, color:"#178F78" }}>
                 {filtered.length} records
               </div>
+              {/* Bulk select toggle */}
+              <button onClick={() => { setBulkMode(m => !m); setSelectedIds(new Set()); }}
+                style={{ background: bulkMode ? "#1A2F4A" : "rgba(26,47,74,0.08)", color: bulkMode ? "white" : "#1A2F4A", border:"none", borderRadius:"10px", padding:"8px 14px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                {bulkMode ? "✕ Cancel Select" : "☑ Bulk Select"}
+              </button>
             </div>
+
+            {/* Bulk action bar — appears when items selected */}
+            {bulkMode && selectedIds.size > 0 && (
+              <div style={{ background:"#1A2F4A", borderRadius:"14px", padding:"12px 16px", marginBottom:"12px", display:"flex", alignItems:"center", gap:"10px", flexWrap:"wrap" }}>
+                <div style={{ color:"white", fontWeight:700, fontSize:"13px", marginRight:"4px" }}>
+                  {selectedIds.size} selected
+                </div>
+
+                {/* Rollover */}
+                <button onClick={() => setRolloverModal(true)}
+                  style={{ background:"#F5B829", color:"#1A2F4A", border:"none", borderRadius:"8px", padding:"7px 14px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  🎓 Roll Over to Next Year
+                </button>
+
+                {/* Bulk status */}
+                <select onChange={e => { if (e.target.value) { doBulkStatus(e.target.value); e.target.value = ""; } }}
+                  style={{ ...inp({ width:"auto", fontSize:"12px" }), background:"rgba(255,255,255,0.1)", color:"white", border:"1px solid rgba(255,255,255,0.2)" }}
+                  defaultValue="">
+                  <option value="" disabled>📋 Change Status…</option>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s} style={{ color:"#1A2F4A" }}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                </select>
+
+                {/* Bulk section assign */}
+                <select onChange={e => {
+                  const sec = sections.find(s => s.id === e.target.value);
+                  if (sec) { doBulkSection(sec.id, sec.name); e.target.value = ""; }
+                }} style={{ ...inp({ width:"auto", fontSize:"12px" }), background:"rgba(255,255,255,0.1)", color:"white", border:"1px solid rgba(255,255,255,0.2)" }}
+                  defaultValue="">
+                  <option value="" disabled>🏫 Assign Section…</option>
+                  {sections.map(s => <option key={s.id} value={s.id} style={{ color:"#1A2F4A" }}>{s.name} ({s.program_label})</option>)}
+                </select>
+
+                {bulkWorking && <div style={{ color:"rgba(255,255,255,0.7)", fontSize:"12px" }}>Working…</div>}
+
+                {/* Select all / deselect */}
+                <button onClick={toggleAll}
+                  style={{ background:"rgba(255,255,255,0.1)", color:"white", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"8px", padding:"7px 12px", fontSize:"12px", cursor:"pointer", marginLeft:"auto" }}>
+                  {selectedIds.size === filtered.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            )}
+
+            {/* Bulk mode header row */}
+            {bulkMode && (
+              <div style={{ display:"flex", alignItems:"center", gap:"10px", padding:"6px 16px", marginBottom:"6px" }}>
+                <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onChange={toggleAll} style={{ width:"16px", height:"16px", cursor:"pointer" }} />
+                <span style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99" }}>SELECT ALL {filtered.length} CHILDREN</span>
+              </div>
+            )}
 
             {/* Stats row */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:"10px", marginBottom:"16px" }}>
@@ -239,7 +392,9 @@ export default function AdminPage() {
             {/* Enquiry list */}
             <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
               {filtered.map(e => (
-                <div key={e.id} style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"14px 16px" }}>
+                <div key={e.id}
+                  onClick={() => { if (bulkMode && editingEnquiry?.id !== e.id) toggleSelect(e.id); }}
+                  style={{ background: selectedIds.has(e.id) ? "rgba(23,143,120,0.05)" : "white", borderRadius:"16px", border:`1px solid ${selectedIds.has(e.id) ? "#178F78" : "#EDE8DF"}`, padding:"14px 16px", cursor: bulkMode ? "pointer" : "default", transition:"all 0.15s" }}>
                   {editingEnquiry?.id === e.id ? (
                     /* ── Quick Edit mode (status / section / notes) ── */
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:"10px", alignItems:"end" }}>
@@ -276,6 +431,12 @@ export default function AdminPage() {
                   ) : (
                     /* ── View mode ── */
                     <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
+                      {/* Bulk select checkbox */}
+                      {bulkMode && (
+                        <input type="checkbox" checked={selectedIds.has(e.id)}
+                          onChange={() => toggleSelect(e.id)}
+                          style={{ width:"18px", height:"18px", cursor:"pointer", flexShrink:0 }} />
+                      )}
                       {/* Profile photo */}
                       <div style={{ position:"relative", flexShrink:0 }}>
                         {e.photo_url ? (
@@ -340,6 +501,15 @@ export default function AdminPage() {
                       {e.section_name && (
                         <span style={{ background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"3px 10px", fontSize:"10px", fontWeight:700 }}>📚 {e.section_name}</span>
                       )}
+                      {/* Academic year badge */}
+                      {(() => {
+                        const yr = academicYears.find(y => y.id === e.academic_year_id);
+                        return yr ? (
+                          <span style={{ background: yr.is_current ? "rgba(245,184,41,0.12)" : "rgba(107,114,128,0.1)", color: yr.is_current ? "#B08000" : "#6B7280", borderRadius:"20px", padding:"3px 8px", fontSize:"9px", fontWeight:700 }}>
+                            🎓 {yr.label}
+                          </span>
+                        ) : null;
+                      })()}
 
                       {e.notes && <div style={{ fontSize:"10px", color:"#6B7A99", fontStyle:"italic" }}>"{e.notes}"</div>}
 
@@ -405,7 +575,27 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>CLASS TEACHER</label>
-                    <input value={editingSection.class_teacher || ""} onChange={e => setEditSec((p:any) => ({ ...p, class_teacher: e.target.value }))} style={inp()} placeholder="Ms. Priya" />
+                    <select value={editingSection.class_teacher_id || ""} onChange={e => {
+                      const teacher = staffList.find(s => s.id === e.target.value);
+                      setEditSec((p:any) => ({
+                        ...p,
+                        class_teacher_id: e.target.value || null,
+                        class_teacher: teacher?.name || "",
+                      }));
+                    }} style={inp()}>
+                      <option value="">— No teacher assigned —</option>
+                      {staffList
+                        .filter(s => {
+                          // Only show active teachers (no last_working_day or future last_working_day)
+                          if (!s.last_working_day) return true;
+                          return new Date(s.last_working_day) >= new Date();
+                        })
+                        .filter(s => ["Teacher", "Class Teacher"].includes(s.role))
+                        .map(s => (
+                          <option key={s.id} value={s.id}>{s.name} — {s.role}</option>
+                        ))
+                      }
+                    </select>
                   </div>
                   <div>
                     <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>STRENGTH</label>
@@ -612,6 +802,9 @@ export default function AdminPage() {
       {/* ══ ACADEMIC YEAR TAB ══ */}
       {tab === "academic" && <AcademicYearTab onYearChange={loadEnquiries} />}
 
+      {/* ══ IMPORT TAB ══ */}
+      {tab === "import" && <ExcelImport onImported={() => { loadEnquiries(); }} />}
+
       {/* ══ CHILD PROFILE MODAL ══ */}
       {editingChild && (
         <ChildEditModal
@@ -619,6 +812,76 @@ export default function AdminPage() {
           onClose={() => setEditingChild(null)}
           onSaved={() => { setEditingChild(null); loadEnquiries(); }}
         />
+      )}
+
+      {/* ══ ROLLOVER MODAL ══ */}
+      {rolloverModal && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:"16px" }}>
+          <div style={{ background:"white", borderRadius:"24px", padding:"28px", width:"100%", maxWidth:"560px", maxHeight:"88vh", overflowY:"auto" }}>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#1A2F4A", marginBottom:"4px" }}>
+              🎓 Roll Over Selected Children
+            </div>
+            <div style={{ fontSize:"13px", color:"#6B7A99", marginBottom:"20px" }}>
+              {selectedIds.size} children selected. Choose the academic year to move them to.
+              Their section assignments will be cleared so you can re-assign them in the new year.
+            </div>
+
+            {/* Selected children preview */}
+            <div style={{ background:"#FAF0E8", borderRadius:"12px", padding:"12px", marginBottom:"16px", maxHeight:"180px", overflowY:"auto" }}>
+              <div style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", marginBottom:"8px", letterSpacing:"0.5px" }}>CHILDREN TO BE ROLLED OVER</div>
+              {enquiries.filter(e => selectedIds.has(e.id)).map(e => {
+                const yr = academicYears.find(y => y.id === e.academic_year_id);
+                return (
+                  <div key={e.id} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"5px 0", borderBottom:"1px solid #EDE8DF" }}>
+                    <div style={{ width:"28px", height:"28px", borderRadius:"50%", background:"rgba(23,143,120,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"14px", flexShrink:0 }}>🧒</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{e.child_name}</div>
+                      <div style={{ fontSize:"10px", color:"#6B7A99" }}>{e.program_label} · {e.status}
+                        {yr && <span style={{ marginLeft:"6px", color:"#B08000" }}>from {yr.label}</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => toggleSelect(e.id)}
+                      style={{ background:"rgba(220,38,38,0.08)", color:"#DC2626", border:"none", borderRadius:"6px", padding:"3px 8px", fontSize:"11px", cursor:"pointer" }}>✕</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Target year */}
+            <div style={{ marginBottom:"16px" }}>
+              <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"6px" }}>ROLL OVER TO ACADEMIC YEAR *</label>
+              <select value={rolloverTargetYear} onChange={e => setRolloverTargetYear(e.target.value)}
+                style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"10px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"100%" }}>
+                <option value="">— Select target year —</option>
+                {academicYears.map(y => (
+                  <option key={y.id} value={y.id}>{y.label}{y.is_current ? " ★ (Current)" : ""}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Warning */}
+            <div style={{ background:"rgba(245,184,41,0.1)", border:"1px solid rgba(245,184,41,0.3)", borderRadius:"10px", padding:"10px 14px", fontSize:"12px", color:"#B08000", marginBottom:"20px" }}>
+              ⚠️ Section assignments will be cleared. You'll need to re-assign children to sections in the new year.
+            </div>
+
+            {bulkActionMsg && (
+              <div style={{ background: bulkActionMsg.startsWith("✅") ? "rgba(23,143,120,0.1)" : "rgba(220,38,38,0.1)", borderRadius:"10px", padding:"10px 14px", fontSize:"13px", fontWeight:600, color: bulkActionMsg.startsWith("✅") ? "#178F78" : "#DC2626", marginBottom:"14px" }}>
+                {bulkActionMsg}
+              </div>
+            )}
+
+            <div style={{ display:"flex", gap:"10px" }}>
+              <button onClick={doBulkRollover} disabled={bulkWorking || !rolloverTargetYear || selectedIds.size === 0}
+                style={{ flex:1, background: !rolloverTargetYear ? "#ccc" : "#F5B829", color:"#1A2F4A", border:"none", borderRadius:"12px", padding:"12px", fontSize:"14px", fontWeight:700, cursor: !rolloverTargetYear ? "not-allowed" : "pointer", fontFamily:"'Quicksand',sans-serif" }}>
+                {bulkWorking ? "Rolling over…" : `🎓 Confirm Rollover (${selectedIds.size} children)`}
+              </button>
+              <button onClick={() => { setRolloverModal(false); setBulkActionMsg(""); }}
+                style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"12px", padding:"12px 16px", fontSize:"13px", cursor:"pointer" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

@@ -277,7 +277,7 @@ const blankPayForm = () => ({
   paidByName: "", paidByRelation: "Father",
 });
 
-const blankGenForm = () => ({
+const blankGenForm = (settings: any = {}) => ({
   enquiryId: "", childName: "", programme: "", description: "",
   amount: "", dueDate: "",
   paymentDate: new Date().toISOString().split("T")[0],
@@ -285,6 +285,8 @@ const blankGenForm = () => ({
   paidByName: "", paidByRelation: "Father",
   discountAmount: "", discountReason: "",
   receiptNumber: `EPS-RCP-${new Date().getFullYear()}-${String(Date.now()).slice(-4)}`,
+  panNumber: settings.pan_number || "",   // pre-filled from settings, editable
+  gstNumber: settings.gst_number || "",   // pre-filled from settings, editable
 });
 
 // ─── Shared input style (outside component so it's stable across renders) ────
@@ -336,7 +338,16 @@ export default function FeesTab({ enquiries }: Props) {
   const [settings, setSettings]     = useState<any>({});
 
   useEffect(() => {
-    fetch("/api/settings").then(r => r.json()).then(d => setSettings(d || {})).catch(() => {});
+    fetch("/api/settings").then(r => r.json()).then(d => {
+      const s = d || {};
+      setSettings(s);
+      // Pre-fill PAN/GST in generator form from settings
+      setGenForm(p => ({
+        ...p,
+        panNumber: p.panNumber || s.pan_number || "",
+        gstNumber: p.gstNumber || s.gst_number || "",
+      }));
+    }).catch(() => {});
   }, []);
 
   const loadFees = useCallback(async () => {
@@ -403,6 +414,13 @@ export default function FeesTab({ enquiries }: Props) {
     received_by: genForm.receivedBy, paid_by_name: genForm.paidByName,
     paid_by_relation: genForm.paidByRelation, discount_amount: parseFloat(genForm.discountAmount || "0"),
     discount_reason: genForm.discountReason, receipt_number: genForm.receiptNumber,
+  });
+
+  // Settings merged with generator overrides for printing
+  const genSettings = () => ({
+    ...settings,
+    pan_number: genForm.panNumber,  // use generator override (may differ from settings)
+    gst_number: genForm.gstNumber,
   });
 
   const canPrint = !!genForm.childName && !!genForm.amount && !!genForm.description;
@@ -811,19 +829,51 @@ export default function FeesTab({ enquiries }: Props) {
               <label style={{ fontSize: "11px", fontWeight: 700, color: "#6B7A99", display: "block", marginBottom: "6px" }}>RECEIPT NUMBER</label>
               <input value={genForm.receiptNumber} onChange={e => setGenForm(p => ({ ...p, receiptNumber: e.target.value }))} style={inp} placeholder="EPS-RCP-2026-0001" />
             </div>
+
+            {/* PAN and GST overrides */}
+            <div style={{ gridColumn: "1 / -1", background: "#FAF0E8", borderRadius: "12px", padding: "14px 16px", border: "1px solid #EDE8DF" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#178F78", marginBottom: "10px" }}>
+                🧾 PAN & GST — pre-filled from Settings, edit here for this receipt only
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "#6B7A99", display: "block", marginBottom: "5px" }}>
+                    PAN NUMBER <span style={{ fontWeight: 400, color: "#9CA3AF" }}>— blank to hide</span>
+                  </label>
+                  <input value={genForm.panNumber} onChange={e => setGenForm(p => ({ ...p, panNumber: e.target.value }))}
+                    style={{ ...inp, background: "white" }} placeholder="e.g. AADTJ3659H" maxLength={10} />
+                  {genForm.panNumber
+                    ? <div style={{ fontSize: "10px", color: "#178F78", marginTop: "3px" }}>✓ Will appear on receipt</div>
+                    : <div style={{ fontSize: "10px", color: "#E8694A", marginTop: "3px" }}>✗ Hidden from receipt</div>}
+                </div>
+                <div>
+                  <label style={{ fontSize: "11px", fontWeight: 700, color: "#6B7A99", display: "block", marginBottom: "5px" }}>
+                    GST NUMBER <span style={{ fontWeight: 400, color: "#9CA3AF" }}>— blank to hide</span>
+                  </label>
+                  <input value={genForm.gstNumber} onChange={e => setGenForm(p => ({ ...p, gstNumber: e.target.value }))}
+                    style={{ ...inp, background: "white" }} placeholder="e.g. 29AADTJ3659H1ZR" maxLength={15} />
+                  {genForm.gstNumber
+                    ? <div style={{ fontSize: "10px", color: "#178F78", marginTop: "3px" }}>✓ Will appear on GST invoice</div>
+                    : <div style={{ fontSize: "10px", color: "#E8694A", marginTop: "3px" }}>✗ Hidden from GST invoice</div>}
+                </div>
+              </div>
+              <div style={{ fontSize: "10px", color: "#9CA3AF", marginTop: "8px" }}>
+                Changes here only affect this receipt. To update permanently, go to Settings tab.
+              </div>
+            </div>
           </div>
 
           {/* Buttons */}
           <div style={{ display: "flex", gap: "10px", marginTop: "20px", flexWrap: "wrap" }}>
-            <button disabled={!canPrint} onClick={() => printReceipt(genFeeData())}
+            <button disabled={!canPrint} onClick={() => { const w = window.open("","_blank"); if (w) { w.document.write(buildReceiptHTML(genFeeData(), genSettings())); w.document.close(); } }}
               style={{ background: canPrint ? "#178F78" : "#ccc", color: "white", border: "none", borderRadius: "12px", padding: "11px 22px", fontSize: "13px", fontWeight: 700, cursor: canPrint ? "pointer" : "not-allowed", fontFamily: "'Quicksand', sans-serif", boxShadow: canPrint ? "0 4px 14px rgba(23,143,120,0.3)" : "none" }}>
               🖨️ Print Receipt
             </button>
-            <button disabled={!canPrint} onClick={() => printGSTInvoice(genFeeData())}
+            <button disabled={!canPrint} onClick={() => { const w = window.open("","_blank"); if (w) { w.document.write(buildGSTInvoiceHTML(genFeeData(), genSettings())); w.document.close(); } }}
               style={{ background: canPrint ? "#6366F1" : "#ccc", color: "white", border: "none", borderRadius: "12px", padding: "11px 22px", fontSize: "13px", fontWeight: 700, cursor: canPrint ? "pointer" : "not-allowed", fontFamily: "'Quicksand', sans-serif" }}>
               🧾 Print GST Invoice
             </button>
-            <button onClick={() => setGenForm(blankGenForm())}
+            <button onClick={() => setGenForm(blankGenForm(settings))}
               style={{ background: "#EDE8DF", color: "#6B7A99", border: "none", borderRadius: "12px", padding: "11px 16px", fontSize: "13px", cursor: "pointer", fontFamily: "'Quicksand', sans-serif" }}>
               ↺ Reset
             </button>

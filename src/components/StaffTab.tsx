@@ -36,6 +36,7 @@ const ROLE_COLORS: Record<string, string> = {
 const blankForm = () => ({
   name: "", role: "Teacher", phone: "", email: "",
   address: "", join_date: "", dob: "", notes: "",
+  last_working_day: "",
 });
 
 export default function StaffTab() {
@@ -46,7 +47,6 @@ export default function StaffTab() {
   const [form, setForm]             = useState(blankForm());
   const [saving, setSaving]         = useState(false);
   const [filterRole, setFilterRole] = useState("All");
-  const [saveError, setSaveError]   = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,33 +80,22 @@ export default function StaffTab() {
       join_date: s.join_date || "",
       dob:       s.dob       || "",
       notes:     s.notes     || "",
+      last_working_day: s.last_working_day || "",
     });
     setModal(s);
   };
 
- const save = async () => {
-  setSaving(true);
-  setSaveError("");
-  try {
+  const save = async () => {
+    setSaving(true);
     const payload = modal?.id ? { id: modal.id, ...form } : form;
-    const res  = await fetch("/api/staff", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const res     = await fetch("/api/staff", {
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    if (data.success) {
-      setModal(null);
-      load();
-    } else {
-      setSaveError(data.error || "Save failed");
-    }
-  } catch (err: any) {
-    setSaveError("Network error: " + err.message);
-  } finally {
+    if (data.success) { setModal(null); load(); }
     setSaving(false);
-  }
-};
+  };
 
   const remove = async (id: string, name: string) => {
     if (!confirm(`Remove ${name} from staff?`)) return;
@@ -221,6 +210,19 @@ export default function StaffTab() {
                 <input type="date" style={inp} value={form.join_date} onChange={set("join_date")} />
               </div>
               <div style={{ gridColumn: "1 / -1" }}>
+                <label style={lbl}>
+                  LAST WORKING DAY
+                  <span style={{ fontWeight: 400, color: "#9CA3AF", marginLeft: "6px" }}>— fill only if teacher has left</span>
+                </label>
+                <input type="date" style={{ ...inp, borderColor: form.last_working_day ? "#E8694A" : "#EDE8DF" }}
+                  value={form.last_working_day} onChange={set("last_working_day")} />
+                {form.last_working_day && (
+                  <div style={{ fontSize: "11px", color: "#E8694A", marginTop: "4px", fontWeight: 600 }}>
+                    ⚠️ This teacher will be marked as inactive and removed from section dropdowns after this date.
+                  </div>
+                )}
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
                 <label style={lbl}>ADDRESS</label>
                 <textarea style={{ ...inp, minHeight: "56px", resize: "vertical" }} value={form.address} onChange={set("address")} placeholder="Home address" />
               </div>
@@ -244,12 +246,7 @@ export default function StaffTab() {
                 </div>
               )}
             </div>
-            
-              {saveError && (
-  <div style={{ color: "#DC2626", fontSize: "12px", marginBottom: "8px", fontWeight: 600 }}>
-    ⚠️ {saveError}
-  </div>
-)}
+
             <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
               <button onClick={save} disabled={saving || !form.name}
                 style={{ flex: 1, background: saving || !form.name ? "#ccc" : "#178F78", color: "white", border: "none", borderRadius: "12px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: saving || !form.name ? "not-allowed" : "pointer", fontFamily: "'Quicksand', sans-serif", boxShadow: "0 4px 14px rgba(23,143,120,0.3)" }}>
@@ -269,18 +266,30 @@ export default function StaffTab() {
 
 // ── Staff Card ────────────────────────────────────────────────────────────────
 function StaffCard({ staff: s, onEdit, onRemove }: { staff: any; onEdit: () => void; onRemove: () => void }) {
-  const color   = ROLE_COLORS[s.role] || "#178F78";
+  const color    = ROLE_COLORS[s.role] || "#178F78";
   const initials = s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
+  const hasLeft  = s.last_working_day && new Date(s.last_working_day) < new Date();
+  const leftDate = s.last_working_day
+    ? new Date(s.last_working_day).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : null;
+
   return (
-    <div style={{ background: "white", borderRadius: "16px", border: "1px solid #EDE8DF", padding: "16px" }}>
+    <div style={{ background: "white", borderRadius: "16px", border: `1px solid ${hasLeft ? "rgba(220,38,38,0.2)" : "#EDE8DF"}`, padding: "16px", opacity: hasLeft ? 0.85 : 1 }}>
       <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
         {/* Avatar */}
-        <div style={{ width: "44px", height: "44px", borderRadius: "50%", background: `${color}20`, color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "15px", flexShrink: 0, fontFamily: "'Fredoka', sans-serif" }}>
+        <div style={{ width: "44px", height: "44px", borderRadius: "50%", background: hasLeft ? "#f3f4f6" : `${color}20`, color: hasLeft ? "#9CA3AF" : color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "15px", flexShrink: 0, fontFamily: "'Fredoka', sans-serif" }}>
           {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: "14px", color: "#1A2F4A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
-          <span style={{ background: `${color}15`, color, borderRadius: "20px", padding: "2px 8px", fontSize: "10px", fontWeight: 700 }}>{s.role}</span>
+          <div style={{ fontWeight: 700, fontSize: "14px", color: hasLeft ? "#9CA3AF" : "#1A2F4A", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</div>
+          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "2px" }}>
+            <span style={{ background: hasLeft ? "#f3f4f6" : `${color}15`, color: hasLeft ? "#9CA3AF" : color, borderRadius: "20px", padding: "2px 8px", fontSize: "10px", fontWeight: 700 }}>{s.role}</span>
+            {hasLeft && (
+              <span style={{ background: "rgba(220,38,38,0.08)", color: "#DC2626", borderRadius: "20px", padding: "2px 8px", fontSize: "10px", fontWeight: 700 }}>
+                LEFT
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -289,12 +298,15 @@ function StaffCard({ staff: s, onEdit, onRemove }: { staff: any; onEdit: () => v
         {s.phone && <div style={{ fontSize: "12px", color: "#6B7A99" }}>📞 {s.phone}</div>}
         {s.email && <div style={{ fontSize: "12px", color: "#6B7A99", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>✉️ {s.email}</div>}
         {s.join_date && <div style={{ fontSize: "11px", color: "#9CA3AF" }}>Joined: {new Date(s.join_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</div>}
+        {hasLeft && leftDate && (
+          <div style={{ fontSize: "11px", color: "#DC2626", fontWeight: 600 }}>Left on: {leftDate}</div>
+        )}
       </div>
 
       {/* Actions */}
       <div style={{ display: "flex", gap: "6px", marginTop: "12px" }}>
         <button onClick={onEdit}
-          style={{ flex: 1, background: `${color}15`, color, border: "none", borderRadius: "8px", padding: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>
+          style={{ flex: 1, background: hasLeft ? "#f3f4f6" : `${color}15`, color: hasLeft ? "#6B7A99" : color, border: "none", borderRadius: "8px", padding: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>
           ✏️ Edit
         </button>
         <button onClick={onRemove}

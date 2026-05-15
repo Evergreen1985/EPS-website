@@ -36,8 +36,9 @@ export default function DocumentOCR({ onExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
-    if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
-      setError("Please upload an image file (JPG, PNG) or PDF.");
+    const supported = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
+    if (!supported.includes(file.type)) {
+      setError("Please upload an image (JPG, PNG) or PDF file.");
       return;
     }
 
@@ -61,7 +62,7 @@ export default function DocumentOCR({ onExtracted }: Props) {
         reader.readAsDataURL(file);
       });
 
-      const mediaType = file.type === "application/pdf" ? "image/jpeg" : file.type as any;
+      const mediaType = file.type; // always a valid image type at this point
 
       const res  = await fetch("/api/ocr", {
         method: "POST",
@@ -127,8 +128,8 @@ export default function DocumentOCR({ onExtracted }: Props) {
               style={{ border: "2px dashed #6366F1", borderRadius: "12px", padding: "28px", textAlign: "center", cursor: "pointer", background: "white", transition: "all 0.2s" }}>
               <div style={{ fontSize: "36px", marginBottom: "8px" }}>📄</div>
               <div style={{ fontWeight: 700, color: "#6366F1", fontSize: "14px" }}>Upload Aadhaar or Birth Certificate</div>
-              <div style={{ fontSize: "12px", color: "#6B7A99", marginTop: "4px" }}>Click to browse or drag & drop — JPG, PNG supported</div>
-              <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }}
+              <div style={{ fontSize: "12px", color: "#6B7A99", marginTop: "4px" }}>Click to browse or drag & drop — JPG, PNG, PDF supported</div>
+              <input ref={inputRef} type="file" accept="image/*,application/pdf" style={{ display: "none" }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
             </div>
           )}

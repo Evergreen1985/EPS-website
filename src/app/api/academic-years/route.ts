@@ -58,7 +58,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Rollover: move enrolled children from old year → new year
+    // Rollover: move enrolled children from old year → new year (all)
     if (body.action === "rollover") {
       const { from_year_id, to_year_id } = body;
       const { error } = await sb.from("enquiries")
@@ -67,6 +67,42 @@ export async function PATCH(req: NextRequest) {
         .eq("status", "enrolled");
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ success: true });
+    }
+
+    // Rollover selected: move specific children by IDs to a new year
+    if (body.action === "rollover_selected") {
+      const { enquiry_ids, to_year_id } = body;
+      if (!enquiry_ids?.length || !to_year_id)
+        return NextResponse.json({ error: "enquiry_ids and to_year_id required" }, { status: 400 });
+      const { error } = await sb.from("enquiries")
+        .update({ academic_year_id: to_year_id, section_id: null, section_name: null })
+        .in("id", enquiry_ids);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, count: enquiry_ids.length });
+    }
+
+    // Bulk status update
+    if (body.action === "bulk_status") {
+      const { enquiry_ids, status } = body;
+      if (!enquiry_ids?.length || !status)
+        return NextResponse.json({ error: "enquiry_ids and status required" }, { status: 400 });
+      const { error } = await sb.from("enquiries")
+        .update({ status })
+        .in("id", enquiry_ids);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, count: enquiry_ids.length });
+    }
+
+    // Bulk section assign
+    if (body.action === "bulk_section") {
+      const { enquiry_ids, section_id, section_name } = body;
+      if (!enquiry_ids?.length)
+        return NextResponse.json({ error: "enquiry_ids required" }, { status: 400 });
+      const { error } = await sb.from("enquiries")
+        .update({ section_id: section_id || null, section_name: section_name || null })
+        .in("id", enquiry_ids);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ success: true, count: enquiry_ids.length });
     }
 
     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
