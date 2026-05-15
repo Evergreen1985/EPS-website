@@ -14,7 +14,11 @@ export async function GET(req: Request) {
   const enquiryId = searchParams.get("enquiryId");
   const status    = searchParams.get("status");
 
-  let query = sb().from("fee_assignments").select("*, fee_structures(name, fee_type)").order("due_date", { ascending: false });
+  let query = sb()
+    .from("fee_assignments")
+    .select("*, fee_structures(name, fee_type)")
+    .order("due_date", { ascending: false });
+
   if (enquiryId) query = query.eq("enquiry_id", enquiryId);
   if (status)    query = query.eq("status", status);
 
@@ -26,28 +30,64 @@ export async function GET(req: Request) {
 // POST: assign fee to a child
 export async function POST(req: Request) {
   const body = await req.json();
-  const { enquiryId, childName, feeStructureId, feeType, amount, dueDate, periodLabel, notes } = body;
-  if (!enquiryId || !amount || !dueDate) return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  const {
+    enquiryId, childName, feeStructureId, feeType,
+    amount, dueDate, periodLabel, notes,
+  } = body;
+
+  if (!enquiryId || !amount || !dueDate) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
 
   const receiptNo = `EPS-${Date.now().toString().slice(-8)}`;
-  const { data, error } = await sb().from("fee_assignments").insert({
-    enquiry_id: enquiryId, child_name: childName,
-    fee_structure_id: feeStructureId, fee_type: feeType,
-    amount, due_date: dueDate, period_label: periodLabel,
-    status: "pending", receipt_no: receiptNo, notes,
-  }).select().single();
+
+  const { data, error } = await sb()
+    .from("fee_assignments")
+    .insert({
+      enquiry_id:       enquiryId,
+      child_name:       childName,
+      fee_structure_id: feeStructureId,
+      fee_type:         feeType,
+      amount,
+      due_date:         dueDate,
+      period_label:     periodLabel,
+      status:           "pending",
+      receipt_no:       receiptNo,
+      notes,
+      discount_amount:  0,
+      paid_amount:      null,
+    })
+    .select()
+    .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true, data });
 }
 
-// PATCH: update fee status (mark paid, waived etc)
+// PATCH: update fee — mark paid, apply discount, waive, update status
 export async function PATCH(req: Request) {
-  const { id, status, paymentId, paidAt, notes } = await req.json();
-  const updates: any = { status };
-  if (paymentId) updates.payment_id = paymentId;
-  if (paidAt)    updates.paid_at    = paidAt;
-  if (notes)     updates.notes      = notes;
+  const body = await req.json();
+  const {
+    id, status, paymentId, paidAt, notes,
+    discountAmount, discountReason,
+  } = body;
+
+  const updates: Record<string, any> = {};
+
+  if (status)         updates.status      = status;
+  if (paymentId)      updates.payment_id  = paymentId;
+  if (paidAt)         updates.paid_at     = paidAt;
+  if (notes)          updates.notes       = notes;
+
+  if (status === "paid" && !updates.payment_mode) {
+    updates.payment_mode = "online";
+    updates.paid_amount  = body.amount;
+  }
+
+  if (discountAmount !== undefined) {
+    updates.discount_amount = discountAmount;
+    updates.discount_reason = discountReason || null;
+  }
 
   const { error } = await sb().from("fee_assignments").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

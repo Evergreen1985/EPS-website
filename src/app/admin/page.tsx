@@ -4,6 +4,11 @@ import { useRouter } from "next/navigation";
 import { LogOut, Plus, Trash2, Edit2, Save, X, Search } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import FeesTab from "@/components/FeesTab";
+import SchoolSettingsTab from "@/components/SchoolSettingsTab";
+import StaffTab          from "@/components/StaffTab";
+import ChildEditModal      from "@/components/ChildEditModal";
+import AcademicYearTab    from "@/components/AcademicYearTab";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -18,7 +23,8 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees";
+// ✅ FIXED: added "staff" and "settings" to the type
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -38,14 +44,9 @@ export default function AdminPage() {
   const router = useRouter();
   const [session, setSession]       = useState<any>(null);
   const [tab, setTab]               = useState<AdminTab>("enquiries");
-  const [feeStructures, setFeeStructures] = useState<any[]>([]);
-  const [feeAssignments, setFeeAssignments] = useState<any[]>([]);
-  const [feeTab, setFeeTab]               = useState<"assignments"|"structures">("assignments");
-  const [showFeeForm, setShowFeeForm]     = useState(false);
-  const [showStructForm, setShowStructForm] = useState(false);
-  const [selectedChild, setSelectedChild] = useState<any>(null);
-  const [feeForm, setFeeForm]             = useState({ feeStructureId:"", feeType:"monthly", amount:"", dueDate:"", periodLabel:"", notes:"" });
-  const [structForm, setStructForm]       = useState({ name:"", programme_id:"", fee_type:"monthly", amount:"", description:"" });
+  const [editingChild, setEditingChild]   = useState<any>(null);
+  const [yearFilter, setYearFilter]       = useState<string>("current");
+  const [academicYears, setAcademicYears] = useState<any[]>([]);
 
   // Enquiries state
   const [enquiries, setEnquiries]   = useState<any[]>([]);
@@ -67,14 +68,14 @@ export default function AdminPage() {
 
   // ── Auth check ─────────────────────────────────────────
   useEffect(() => {
-  fetch("/api/admin/me", { credentials: "include" })
-    .then((r) => {
-      if (!r.ok) { router.replace("/admin-login"); return null; }
-      return r.json();
-    })
-    .then((data) => { if (data) setSession(data); })
-    .catch(() => router.replace("/admin-login"));
-}, [router]);
+    fetch("/api/admin/me", { credentials: "include" })
+      .then((r) => {
+        if (!r.ok) { router.replace("/admin-login"); return null; }
+        return r.json();
+      })
+      .then((data) => { if (data) setSession(data); })
+      .catch(() => router.replace("/admin-login"));
+  }, [router]);
 
   // ── Load data ───────────────────────────────────────────
   const loadEnquiries = useCallback(async () => {
@@ -97,27 +98,21 @@ export default function AdminPage() {
     setEvents(d.events || []);
   }, [calMonth]);
 
-  useEffect(() => { if (session) { loadEnquiries(); loadSections(); } }, [session, loadEnquiries, loadSections]);
+  useEffect(() => {
+    if (session) {
+      loadEnquiries();
+      loadSections();
+      fetch("/api/academic-years").then(r => r.json()).then(d => {
+        if (Array.isArray(d)) setAcademicYears(d);
+      });
+    }
+  }, [session, loadEnquiries, loadSections]);
   useEffect(() => { if (session && tab === "calendar") loadEvents(); }, [session, tab, calMonth, loadEvents]);
 
-  const loadFees = useCallback(async () => {
-    const [structs, assigns] = await Promise.all([
-      fetch("/api/fees/structures").then(r => r.json()),
-      fetch("/api/fees/assignments").then(r => r.json()),
-    ]);
-    setFeeStructures(Array.isArray(structs) ? structs : []);
-    setFeeAssignments(Array.isArray(assigns) ? assigns : []);
-  }, []);
-
-  useEffect(() => { if (session && tab === "fees") loadFees(); }, [session, tab, loadFees]);
-
   const logout = async () => {
-  await fetch("/api/admin/logout", {
-    method: "POST",
-    credentials: "include",
-  });
-  router.push("/admin-login");
-};
+    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+    router.push("/admin-login");
+  };
 
   // ── Update enquiry ─────────────────────────────────────
   const saveEnquiry = async (id: string, updates: any) => {
@@ -185,18 +180,23 @@ export default function AdminPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ background:"white", borderBottom:"1px solid #EDE8DF", padding:"0 24px", display:"flex", gap:"0" }}>
+      <div style={{ background:"white", borderBottom:"1px solid #EDE8DF", padding:"0 24px", display:"flex", gap:"0", overflowX:"auto" }}>
         {([
           { key:"enquiries", label:"📋 Enquiries", count: enquiries.length },
-          { key:"sections",  label:"🏫 Sections",  count: sections.length },
-          { key:"calendar",  label:"📅 Calendar",  count: events.length },
-          { key:"photos",    label:"📸 Photos",    count: 0 },
-          { key:"fees",      label:"💳 Fees",      count: 0 },
+          { key:"sections",  label:"🏫 Sections",  count: sections.length  },
+          { key:"calendar",  label:"📅 Calendar",  count: events.length    },
+          { key:"photos",    label:"📸 Photos",    count: 0                },
+          { key:"fees",      label:"💳 Fees",      count: 0                },
+          { key:"staff",     label:"👩‍🏫 Staff",    count: 0                },
+          { key:"settings",  label:"⚙️ Settings",  count: 0                },
+          { key:"academic",  label:"🎓 Academic Year", count: 0             },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            style={{ padding:"14px 20px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"13px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}>
+            style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
             {t.label}
-            <span style={{ background:tab===t.key ? "#178F78" : "#EDE8DF", color:tab===t.key ? "white" : "#6B7A99", borderRadius:"20px", padding:"1px 7px", fontSize:"10px" }}>{t.count}</span>
+            {t.count > 0 && (
+              <span style={{ background:tab===t.key ? "#178F78" : "#EDE8DF", color:tab===t.key ? "white" : "#6B7A99", borderRadius:"20px", padding:"1px 7px", fontSize:"10px" }}>{t.count}</span>
+            )}
           </button>
         ))}
       </div>
@@ -241,7 +241,7 @@ export default function AdminPage() {
               {filtered.map(e => (
                 <div key={e.id} style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"14px 16px" }}>
                   {editingEnquiry?.id === e.id ? (
-                    /* Edit mode */
+                    /* ── Quick Edit mode (status / section / notes) ── */
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr auto", gap:"10px", alignItems:"end" }}>
                       <div>
                         <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>STATUS</label>
@@ -274,7 +274,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ) : (
-                    /* View mode */
+                    /* ── View mode ── */
                     <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
                       {/* Profile photo */}
                       <div style={{ position:"relative", flexShrink:0 }}>
@@ -310,24 +310,58 @@ export default function AdminPage() {
                             ev.target.value = "";
                           }} />
                       </div>
+
+                      {/* Name + phone */}
                       <div style={{ flex:1, minWidth:"150px" }}>
                         <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{e.child_name}</div>
-                        <div style={{ fontSize:"11px", color:"#6B7A99" }}>📞 {e.phone} · {e.program_label || "No programme"}</div>
+                        <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+                          📞 {e.phone} · {e.program_label || "No programme"}
+                          {/* Parent names if filled */}
+                          {(e.father_name || e.mother_name) && (
+                            <span style={{ marginLeft:"6px" }}>
+                              · 👤 {e.father_name || e.mother_name}
+                            </span>
+                          )}
+                        </div>
+                        {/* Health info if filled */}
+                        {(e.blood_group || e.allergies) && (
+                          <div style={{ fontSize:"10px", color:"#E8694A", marginTop:"2px" }}>
+                            {e.blood_group && `🩸 ${e.blood_group}`}
+                            {e.blood_group && e.allergies && "  "}
+                            {e.allergies && `⚠️ ${e.allergies}`}
+                          </div>
+                        )}
                       </div>
+
                       <div style={{ fontSize:"11px", color:"#6B7A99" }}>
                         {e.child_dob ? `Age: ${Math.floor((e.child_age_months||0)/12)}y ${(e.child_age_months||0)%12}m` : "DOB not provided"}
                       </div>
+
                       {e.section_name && (
                         <span style={{ background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"3px 10px", fontSize:"10px", fontWeight:700 }}>📚 {e.section_name}</span>
                       )}
+
                       {e.notes && <div style={{ fontSize:"10px", color:"#6B7A99", fontStyle:"italic" }}>"{e.notes}"</div>}
+
                       <span style={{ background:`${STATUS_COLORS[e.status]||"#6B7A99"}15`, color:STATUS_COLORS[e.status]||"#6B7A99", border:`1px solid ${STATUS_COLORS[e.status]||"#6B7A99"}40`, borderRadius:"20px", padding:"3px 10px", fontSize:"10px", fontWeight:700, textTransform:"capitalize" }}>
                         {e.status}
                       </span>
+
                       <div style={{ fontSize:"10px", color:"#6B7A99" }}>{new Date(e.created_at).toLocaleDateString("en-IN")}</div>
-                      <button onClick={() => setEditEnq({ ...e })} style={{ background:"rgba(23,143,120,0.08)", border:"none", borderRadius:"10px", padding:"6px 12px", fontSize:"11px", fontWeight:700, color:"#178F78", cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}>
-                        <Edit2 style={{ width:"12px", height:"12px" }} /> Edit
-                      </button>
+
+                      {/* Action buttons */}
+                      <div style={{ display:"flex", gap:"6px" }}>
+                        {/* Quick edit — status/section/notes */}
+                        <button onClick={() => setEditEnq({ ...e })}
+                          style={{ background:"rgba(23,143,120,0.08)", border:"none", borderRadius:"10px", padding:"6px 12px", fontSize:"11px", fontWeight:700, color:"#178F78", cursor:"pointer", display:"flex", alignItems:"center", gap:"4px" }}>
+                          <Edit2 style={{ width:"12px", height:"12px" }} /> Edit
+                        </button>
+                        {/* Full child profile editor */}
+                        <button onClick={() => setEditingChild(e)}
+                          style={{ background:"rgba(99,102,241,0.08)", border:"none", borderRadius:"10px", padding:"6px 12px", fontSize:"11px", fontWeight:700, color:"#6366F1", cursor:"pointer" }}>
+                          👶 Profile
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -352,7 +386,6 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {/* Add / edit section form */}
             {(newSection || editingSection) && editingSection && (
               <div style={{ background:"white", borderRadius:"16px", border:"2px solid #178F78", padding:"18px", marginBottom:"14px" }}>
                 <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78", marginBottom:"14px" }}>{newSection ? "Add New Section" : "Edit Section"}</div>
@@ -390,7 +423,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Sections grid by programme */}
             {PROGRAM_OPTIONS.map(prog => {
               const progSections = sections.filter(s => s.program_id === prog.id);
               if (progSections.length === 0) return null;
@@ -418,7 +450,7 @@ export default function AdminPage() {
                           <div style={{ fontSize:"11px", color:"#6B7A99" }}>👩‍🏫 {s.class_teacher || "No teacher assigned"}</div>
                           <div style={{ fontSize:"11px", color:"#6B7A99" }}>👶 {childCount} children · Max {s.strength}</div>
                           <div style={{ marginTop:"8px", background:"#FAF0E8", borderRadius:"8px", height:"4px", overflow:"hidden" }}>
-                            <div style={{ background:"#178F78", height:"100%", width:`${Math.min(100, (childCount/s.strength)*100)}%`, borderRadius:"8px", transition:"width 0.3s" }} />
+                            <div style={{ background:"#178F78", height:"100%", width:`${Math.min(100,(childCount/s.strength)*100)}%`, borderRadius:"8px", transition:"width 0.3s" }} />
                           </div>
                         </div>
                       );
@@ -438,14 +470,13 @@ export default function AdminPage() {
               <div style={{ display:"flex", gap:"10px" }}>
                 <input type="month" value={calMonth} onChange={e => setCalMonth(e.target.value)}
                   style={{ ...inp({ width:"auto" }), padding:"7px 12px" }} />
-                <button onClick={() => { setNewEvt(true); setEditEvt({ title:"", event_date: `${calMonth}-01`, event_type:"activity", icon:"📅", color:"#178F78", is_holiday:false, description:"", affects:"all" }); }}
+                <button onClick={() => { setNewEvt(true); setEditEvt({ title:"", event_date:`${calMonth}-01`, event_type:"activity", icon:"📅", color:"#178F78", is_holiday:false, description:"", affects:"all" }); }}
                   style={{ display:"flex", alignItems:"center", gap:"6px", background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"8px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
                   <Plus style={{ width:"14px", height:"14px" }} /> Add Event
                 </button>
               </div>
             </div>
 
-            {/* Add/Edit event form */}
             {(newEvent || editingEvent) && editingEvent && (
               <div style={{ background:"white", borderRadius:"16px", border:"2px solid #178F78", padding:"18px", marginBottom:"14px" }}>
                 <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78", marginBottom:"14px" }}>{newEvent ? "Add Event" : "Edit Event"}</div>
@@ -486,7 +517,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:"2px" }}>
                     <label style={{ display:"flex", alignItems:"center", gap:"8px", cursor:"pointer", fontSize:"12px", fontWeight:700, color:"#E8694A" }}>
-                      <input type="checkbox" checked={editingEvent.is_holiday} onChange={e => setEditEvt((p:any) => ({ ...p, is_holiday: e.target.checked })) } />
+                      <input type="checkbox" checked={editingEvent.is_holiday} onChange={e => setEditEvt((p:any) => ({ ...p, is_holiday: e.target.checked }))} />
                       School Holiday
                     </label>
                   </div>
@@ -502,7 +533,6 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Events list */}
             {events.length === 0 ? (
               <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
                 No events for {calMonth}. Click "Add Event" to add one!
@@ -537,236 +567,17 @@ export default function AdminPage() {
             )}
           </div>
         )}
+
         {/* ══ FEES TAB ══ */}
-        {tab === "fees" && (
-          <div>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
-              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>💳 Fee Management</div>
-              <div style={{ display:"flex", gap:"8px" }}>
-                <button onClick={() => { setFeeTab("assignments"); }}
-                  style={{ padding:"6px 14px", borderRadius:"20px", border:"none", background:feeTab==="assignments"?"#178F78":"#EDE8DF", color:feeTab==="assignments"?"white":"#6B7A99", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
-                  📋 Fee Records
-                </button>
-                <button onClick={() => { setFeeTab("structures"); }}
-                  style={{ padding:"6px 14px", borderRadius:"20px", border:"none", background:feeTab==="structures"?"#178F78":"#EDE8DF", color:feeTab==="structures"?"white":"#6B7A99", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
-                  ⚙️ Fee Structures
-                </button>
-              </div>
-            </div>
+        {tab === "fees" && <FeesTab enquiries={enquiries} />}
 
-            {/* ── Fee Records ── */}
-            {feeTab === "assignments" && (
-              <div>
-                {/* Assign fee form */}
-                <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"14px" }}>
-                  <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"12px" }}>Assign Fee to Child</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr", gap:"10px", marginBottom:"10px" }}>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>SELECT CHILD *</label>
-                      <select onChange={e => {
-                        const child = enquiries.find(enq => enq.id === e.target.value);
-                        setSelectedChild(child || null);
-                        if (child) {
-                          const struct = feeStructures.find(s => s.programme_id === child.program_id);
-                          if (struct) setFeeForm(p => ({ ...p, feeStructureId: struct.id, feeType: struct.fee_type, amount: struct.amount.toString() }));
-                        }
-                      }} style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
-                        <option value="">— Select child —</option>
-                        {enquiries.filter(e => e.status === "enrolled" || e.status === "visited").map(e => (
-                          <option key={e.id} value={e.id}>{e.child_name} — {e.program_label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>FEE STRUCTURE</label>
-                      <select value={feeForm.feeStructureId} onChange={e => {
-                        const struct = feeStructures.find(s => s.id === e.target.value);
-                        setFeeForm(p => ({ ...p, feeStructureId: e.target.value, feeType: struct?.fee_type || p.feeType, amount: struct?.amount?.toString() || p.amount }));
-                      }} style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
-                        <option value="">— Select structure —</option>
-                        {feeStructures.map(s => <option key={s.id} value={s.id}>{s.name} — ₹{s.amount}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>AMOUNT (₹) *</label>
-                      <input value={feeForm.amount} onChange={e => setFeeForm(p => ({...p, amount: e.target.value}))}
-                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="5000" type="number" />
-                    </div>
-                  </div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"10px", marginBottom:"12px" }}>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>FEE TYPE</label>
-                      <select value={feeForm.feeType} onChange={e => setFeeForm(p => ({...p, feeType: e.target.value}))}
-                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
-                        <option value="monthly">Monthly</option>
-                        <option value="quarterly">Quarterly</option>
-                        <option value="annual">Annual</option>
-                        <option value="one-time">One-time</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>PERIOD LABEL</label>
-                      <input value={feeForm.periodLabel} onChange={e => setFeeForm(p => ({...p, periodLabel: e.target.value}))}
-                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="e.g. June 2025, Q1 2025-26" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>DUE DATE *</label>
-                      <input type="date" value={feeForm.dueDate} onChange={e => setFeeForm(p => ({...p, dueDate: e.target.value}))}
-                        style={{ width:"100%", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }} />
-                    </div>
-                  </div>
-                  <button
-                    disabled={!selectedChild || !feeForm.amount || !feeForm.dueDate}
-                    onClick={async () => {
-                      if (!selectedChild) return;
-                      await fetch("/api/fees/assignments", {
-                        method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          enquiryId: selectedChild.id, childName: selectedChild.child_name,
-                          feeStructureId: feeForm.feeStructureId || null,
-                          feeType: feeForm.feeType, amount: parseFloat(feeForm.amount),
-                          dueDate: feeForm.dueDate, periodLabel: feeForm.periodLabel, notes: feeForm.notes,
-                        }),
-                      });
-                      setFeeForm({ feeStructureId:"", feeType:"monthly", amount:"", dueDate:"", periodLabel:"", notes:"" });
-                      setSelectedChild(null);
-                      loadFees();
-                    }}
-                    style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor:"pointer", opacity: (!selectedChild || !feeForm.amount || !feeForm.dueDate) ? 0.5 : 1 }}>
-                    + Assign Fee
-                  </button>
-                </div>
+        {/* ══ STAFF TAB ══ */}
+        {tab === "staff" && <StaffTab />}
 
-                {/* Fee records list */}
-                {feeAssignments.length === 0 ? (
-                  <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
-                    <div style={{ fontSize:"32px", marginBottom:"8px" }}>💳</div>
-                    No fee records yet. Assign fees to children above.
-                  </div>
-                ) : (
-                  <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
-                    {feeAssignments.map((fee: any) => {
-                      const isOverdue = fee.status === "pending" && new Date(fee.due_date) < new Date();
-                      const statusColor = fee.status === "paid" ? "#178F78" : isOverdue ? "#DC2626" : "#F5B829";
-                      const phone = enquiries.find(e => e.id === fee.enquiry_id)?.phone;
-                      return (
-                        <div key={fee.id} style={{ background:"white", borderRadius:"14px", border:`1px solid ${isOverdue?"rgba(220,38,38,0.2)":fee.status==="paid"?"rgba(23,143,120,0.2)":"#EDE8DF"}`, padding:"14px 16px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:"12px", flexWrap:"wrap" }}>
-                            <div style={{ flex:1, minWidth:"150px" }}>
-                              <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{fee.child_name}</div>
-                              <div style={{ fontSize:"11px", color:"#6B7A99" }}>
-                                {fee.period_label && <span>{fee.period_label} · </span>}
-                                <span style={{ textTransform:"capitalize" }}>{fee.fee_type}</span>
-                                {fee.due_date && <span> · Due: {new Date(fee.due_date).toLocaleDateString("en-IN")}</span>}
-                              </div>
-                            </div>
-                            <div style={{ fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>₹{fee.amount?.toLocaleString("en-IN")}</div>
-                            <span style={{ background:`${statusColor}15`, color:statusColor, border:`1px solid ${statusColor}40`, borderRadius:"20px", padding:"3px 10px", fontSize:"10px", fontWeight:700, textTransform:"capitalize" }}>
-                              {isOverdue ? "Overdue" : fee.status}
-                            </span>
-                            {fee.status !== "paid" && (
-                              <div style={{ display:"flex", gap:"6px" }}>
-                                <button onClick={async () => {
-                                  await fetch("/api/fees/assignments", {
-                                    method:"PATCH", headers:{"Content-Type":"application/json"},
-                                    body: JSON.stringify({ id: fee.id, status:"paid", paidAt: new Date().toISOString() }),
-                                  });
-                                  loadFees();
-                                }} style={{ background:"rgba(23,143,120,0.1)", color:"#178F78", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
-                                  ✅ Mark Paid
-                                </button>
-                                {phone && (
-                                  <button onClick={async () => {
-                                    const res  = await fetch("/api/fees/reminder", {
-                                      method:"POST", headers:{"Content-Type":"application/json"},
-                                      body: JSON.stringify({ feeId: fee.id, phone, childName: fee.child_name, amount: fee.amount, dueDate: fee.due_date, periodLabel: fee.period_label }),
-                                    });
-                                    const data = await res.json();
-                                    window.open(data.waLink, "_blank");
-                                  }} style={{ background:"rgba(37,211,102,0.1)", color:"#128C7E", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
-                                    💬 Remind
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                            {fee.status === "paid" && fee.paid_at && (
-                              <div style={{ fontSize:"10px", color:"#6B7A99" }}>Paid: {new Date(fee.paid_at).toLocaleDateString("en-IN")}</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
+        {/* ══ SETTINGS TAB ══ */}
+        {tab === "settings" && <SchoolSettingsTab />}
 
-            {/* ── Fee Structures ── */}
-            {feeTab === "structures" && (
-              <div>
-                <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"14px" }}>
-                  <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"12px" }}>Add Fee Structure</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr", gap:"10px", marginBottom:"10px" }}>
-                    <input value={structForm.name} onChange={e => setStructForm(p=>({...p,name:e.target.value}))}
-                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      placeholder="e.g. Nursery Monthly 2025-26" />
-                    <select value={structForm.programme_id} onChange={e => setStructForm(p=>({...p,programme_id:e.target.value}))}
-                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
-                      <option value="">All Programmes</option>
-                      <option value="infant">Infant Care</option>
-                      <option value="playgroup">Playgroup</option>
-                      <option value="nursery">Nursery</option>
-                      <option value="jrkg">Junior KG</option>
-                      <option value="srkg">Senior KG</option>
-                    </select>
-                    <select value={structForm.fee_type} onChange={e => setStructForm(p=>({...p,fee_type:e.target.value}))}
-                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}>
-                      <option value="monthly">Monthly</option>
-                      <option value="quarterly">Quarterly</option>
-                      <option value="annual">Annual</option>
-                      <option value="one-time">One-time</option>
-                    </select>
-                    <input value={structForm.amount} onChange={e => setStructForm(p=>({...p,amount:e.target.value}))}
-                      style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      placeholder="Amount ₹" type="number" />
-                  </div>
-                  <button onClick={async () => {
-                    if (!structForm.name || !structForm.amount) return;
-                    await fetch("/api/fees/structures", {
-                      method:"POST", headers:{"Content-Type":"application/json"},
-                      body: JSON.stringify({ ...structForm, amount: parseFloat(structForm.amount) }),
-                    });
-                    setStructForm({ name:"", programme_id:"", fee_type:"monthly", amount:"", description:"" });
-                    loadFees();
-                  }} style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor:"pointer" }}>
-                    + Add Structure
-                  </button>
-                </div>
-
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:"10px" }}>
-                  {feeStructures.map((s: any) => (
-                    <div key={s.id} style={{ background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", padding:"14px" }}>
-                      <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A", marginBottom:"4px" }}>{s.name}</div>
-                      <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"8px" }}>
-                        {s.programme_id || "All"} · <span style={{ textTransform:"capitalize" }}>{s.fee_type}</span>
-                      </div>
-                      <div style={{ fontSize:"20px", fontWeight:700, color:"#178F78" }}>₹{s.amount?.toLocaleString("en-IN")}</div>
-                      <button onClick={async () => {
-                        if (!confirm(`Delete "${s.name}"?`)) return;
-                        await fetch("/api/fees/structures", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id: s.id }) });
-                        loadFees();
-                      }} style={{ marginTop:"8px", background:"rgba(220,38,38,0.08)", border:"none", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", color:"#DC2626", cursor:"pointer", fontWeight:600 }}>
-                        🗑 Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* ══ PHOTOS TAB ══ */}
         {tab === "photos" && (
           <div>
             <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>📸 Upload Class Photos</div>
@@ -797,6 +608,19 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* ══ ACADEMIC YEAR TAB ══ */}
+      {tab === "academic" && <AcademicYearTab onYearChange={loadEnquiries} />}
+
+      {/* ══ CHILD PROFILE MODAL ══ */}
+      {editingChild && (
+        <ChildEditModal
+          enquiry={editingChild}
+          onClose={() => setEditingChild(null)}
+          onSaved={() => { setEditingChild(null); loadEnquiries(); }}
+        />
+      )}
+
     </div>
   );
 }
