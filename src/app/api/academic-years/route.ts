@@ -61,11 +61,20 @@ export async function PATCH(req: NextRequest) {
     // Rollover: move enrolled children from old year → new year (all)
     if (body.action === "rollover") {
       const { from_year_id, to_year_id } = body;
+      // Get the IDs of children being rolled over so we can clear their kit
+      const { data: toRollover } = await sb.from("enquiries")
+        .select("id")
+        .eq("academic_year_id", from_year_id)
+        .eq("status", "enrolled");
       const { error } = await sb.from("enquiries")
         .update({ academic_year_id: to_year_id, section_id: null, section_name: null })
         .eq("academic_year_id", from_year_id)
         .eq("status", "enrolled");
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      // Clear kit so they appear as "No Kit" in new year
+      if (toRollover?.length) {
+        await sb.from("child_kit").delete().in("enquiry_id", toRollover.map((r:any) => r.id));
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -74,10 +83,13 @@ export async function PATCH(req: NextRequest) {
       const { enquiry_ids, to_year_id } = body;
       if (!enquiry_ids?.length || !to_year_id)
         return NextResponse.json({ error: "enquiry_ids and to_year_id required" }, { status: 400 });
+      // Move children to new year, clear section
       const { error } = await sb.from("enquiries")
         .update({ academic_year_id: to_year_id, section_id: null, section_name: null })
         .in("id", enquiry_ids);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      // Clear kit items so children appear as "No Kit" in new year
+      await sb.from("child_kit").delete().in("enquiry_id", enquiry_ids);
       return NextResponse.json({ success: true, count: enquiry_ids.length });
     }
 

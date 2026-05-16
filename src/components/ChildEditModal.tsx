@@ -4,8 +4,21 @@
  * src/components/ChildEditModal.tsx
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+let _sb: any = null;
+async function getSb() {
+  if (_sb) return _sb;
+  const cfg = await fetch("/api/config").then(r => r.json()).catch(() => ({}));
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || cfg.supabaseUrl || "";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || cfg.supabaseKey || "";
+  _sb = createClient(url, key);
+  return _sb;
+}
 import DocumentOCR from "@/components/DocumentOCR";
+import DocumentManager from "@/components/DocumentManager";
+import KitChecklist from "@/components/KitChecklist";
 
 const inp: React.CSSProperties = {
   border: "1px solid #EDE8DF", borderRadius: "10px", padding: "8px 12px",
@@ -49,7 +62,11 @@ export default function ChildEditModal({ enquiry, onClose, onSaved }: Props) {
     notes:             enquiry.notes              || "",
   });
 
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [sb, setSb]           = useState<any>(null);
+
+  // Load supabase client
+  useState(() => { getSb().then(setSb); });
   const [error, setError]   = useState("");
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -196,6 +213,36 @@ export default function ChildEditModal({ enquiry, onClose, onSaved }: Props) {
             ⚠️ {error}
           </div>
         )}
+
+        {/* ── Documents ── */}
+        {sb && (
+          <div style={{ marginTop: "16px" }}>
+            <div style={{ height: "1px", background: "#EDE8DF", margin: "16px 0" }} />
+            <DocumentManager
+              enquiryId={enquiry.id}
+              childName={form.child_name || enquiry.child_name}
+              mode="admin"
+              uploadedBy="Admin"
+              supabase={sb}
+              onOcrApply={fields => setForm(p => ({ ...p, ...fields }))}
+            />
+          </div>
+        )}
+
+        {/* ── Kit & Books Checklist ── */}
+        <div style={{ marginTop: "16px" }}>
+          <div style={{ height: "1px", background: "#EDE8DF", margin: "16px 0" }} />
+          <div style={{ fontFamily: "'Fredoka',sans-serif", fontSize: "15px", fontWeight: 700, color: "#178F78", marginBottom: "12px" }}>
+            🎒 Kit & Books Checklist
+          </div>
+          <KitChecklist
+            enquiryId={enquiry.id}
+            childName={form.child_name || enquiry.child_name}
+            programmeId={enquiry.program_id || form.program_label?.toLowerCase() || "nursery"}
+            mode="admin"
+            issuedBy="Admin"
+          />
+        </div>
 
         {/* Actions */}
         <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>

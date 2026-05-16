@@ -10,6 +10,7 @@ import StaffTab          from "@/components/StaffTab";
 import ChildEditModal      from "@/components/ChildEditModal";
 import AcademicYearTab    from "@/components/AcademicYearTab";
 import ExcelImport        from "@/components/ExcelImport";
+import KitBulkManager     from "@/components/KitBulkManager";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -25,7 +26,7 @@ async function getSb() {
 }
 
 // ✅ FIXED: added "staff" and "settings" to the type
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import" | "kit";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -282,6 +283,7 @@ export default function AdminPage() {
           { key:"settings",  label:"⚙️ Settings",  count: 0                },
           { key:"academic",  label:"🎓 Academic Year", count: 0             },
           { key:"import",    label:"📥 Import Data",   count: 0             },
+          { key:"kit",      label:"🎒 Kit Manager",    count: 0             },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -804,6 +806,9 @@ export default function AdminPage() {
 
       {/* ══ IMPORT TAB ══ */}
       {tab === "import" && <ExcelImport onImported={() => { loadEnquiries(); }} />}
+
+      {/* ══ KIT MANAGER TAB ══ */}
+      {tab === "kit" && <KitBulkManager enquiries={enquiries} />}
 
       {/* ══ CHILD PROFILE MODAL ══ */}
       {editingChild && (

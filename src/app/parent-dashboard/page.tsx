@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
+import ParentDocumentsTab from "@/components/ParentDocumentsTab";
+import KitChecklist from "@/components/KitChecklist";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -236,7 +238,10 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit">("home");
+  const [sbClient, setSbClient]       = useState<any>(null);
+  // Load supabase client for DocumentManager
+  useEffect(() => { getSb().then(setSbClient); }, []);
   const [profileUploading, setProfileUploading] = useState(false);
   const [profileError, setProfileError]         = useState("");
 
@@ -380,7 +385,7 @@ export default function ParentDashboardPage() {
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"documents",icon:"📁",label:"Documents"},{key:"kit",icon:"🎒",label:"Kit & Books"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -628,6 +633,32 @@ export default function ParentDashboardPage() {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ══ DOCUMENTS TAB ══ */}
+            {tab === "documents" && sbClient && (
+              <ParentDocumentsTab
+                child={selectedChild}
+                supabase={sbClient}
+                parentName={session?.childName ? `${selectedChild.child_name}'s Parent` : (session?.phone || "Parent")}
+              />
+            )}
+
+            {/* ══ KIT & BOOKS TAB ══ */}
+            {tab === "kit" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🎒 Kit & Books</div>
+                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>
+                  Track what books, uniform and items have been issued to {selectedChild.child_name}. Add a comment if anything is missing.
+                </div>
+                <KitChecklist
+                  enquiryId={selectedChild.id}
+                  childName={selectedChild.child_name}
+                  programmeId={selectedChild.program_id || "nursery"}
+                  mode="parent"
+                  issuedBy={session?.phone || "Parent"}
+                />
               </div>
             )}
 
