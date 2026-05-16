@@ -8,6 +8,38 @@ function sb() {
   );
 }
 
+// Get attendance history for a section
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const sectionId = searchParams.get("sectionId");
+  const from      = searchParams.get("from");
+  const to        = searchParams.get("to");
+
+  if (!sectionId) return NextResponse.json({ error: "sectionId required" }, { status: 400 });
+
+  const { data: children } = await sb()
+    .from("enquiries")
+    .select("id, child_name")
+    .eq("section_id", sectionId);
+
+  const childIds = (children || []).map((c: any) => c.id);
+  if (childIds.length === 0) return NextResponse.json({ attendance: [], children: [] });
+
+  let query = sb()
+    .from("attendance")
+    .select("*")
+    .in("student_id", childIds)
+    .order("date", { ascending: false });
+
+  if (from) query = (query as any).gte("date", from);
+  if (to)   query = (query as any).lte("date", to);
+
+  const { data, error } = await (query as any).limit(500);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ attendance: data || [], children: children || [] });
+}
+
 // Mark/update attendance for a student
 export async function POST(req: Request) {
   try {

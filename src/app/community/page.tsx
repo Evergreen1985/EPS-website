@@ -18,11 +18,11 @@ const catColors: Record<string, { bg: string; color: string }> = {
 };
 
 const portals = [
-  { icon: "👨‍👩‍👧", title: "For Parents",    desc: "Access resources, view curriculum updates, track your child's progress, and communicate with teachers.", cta: "Parent Portal",   href: "#", bg: "#EFF6FF", color: "#1E3A8A" },
-  { icon: "👩‍🏫", title: "For Teachers",   desc: "Access teaching resources, lesson plans, professional development opportunities and classroom tools.",   cta: "Teacher Hub",    href: "#", bg: "#F0FDF4", color: "#14532D" },
-  { icon: "🧒",   title: "For Students",   desc: "Interactive learning activities, educational games, and resources to support learning at home.",           cta: "Student Corner", href: "#", bg: "#FEFCE8", color: "#78350F" },
-  { icon: "🏫",   title: "For Admins",     desc: "School management tools, administrative resources, operational guidelines and reporting dashboards.",     cta: "Admin Login",    href: "#", bg: "#FDF2F8", color: "#9D174D" },
-  { icon: "💼",   title: "Consultants",    desc: "Partnership opportunities, curriculum collaboration, professional networking and consultancy resources.",  cta: "Consultant Hub", href: "#", bg: "#F0FDFA", color: "#134E4A" },
+  { icon: "👨‍👩‍👧", title: "For Parents",    desc: "Access resources, view curriculum updates, track your child's progress, and communicate with teachers.", cta: "Parent Portal",   href: "/parent-login",   bg: "#EFF6FF", color: "#1E3A8A" },
+  { icon: "👩‍🏫", title: "For Teachers",   desc: "Access teaching resources, lesson plans, professional development opportunities and classroom tools.",   cta: "Teacher Hub",    href: "/teacher-login",  bg: "#F0FDF4", color: "#14532D" },
+  { icon: "🧒",   title: "For Students",   desc: "Interactive learning activities, educational games, and resources to support learning at home.",           cta: "AI Learning Tools", href: "/ai-tools",   bg: "#FEFCE8", color: "#78350F" },
+  { icon: "🏫",   title: "For Admins",     desc: "School management tools, administrative resources, operational guidelines and reporting dashboards.",     cta: "Admin Login",    href: "/admin-login",    bg: "#FDF2F8", color: "#9D174D" },
+  { icon: "💼",   title: "Consultants",    desc: "Partnership opportunities, curriculum collaboration, professional networking and consultancy resources.",  cta: "Contact Us",     href: "/contact",        bg: "#F0FDFA", color: "#134E4A" },
 ];
 
 export default function CommunityPage() {

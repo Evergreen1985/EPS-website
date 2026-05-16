@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { LogOut, Plus, Trash2 } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
 import FaceAutoTagger from "@/components/FaceAutoTagger";
+import TeacherKitTab from "@/components/TeacherKitTab";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit";
 
 const ATT_STATUS = [
   { key:"present", label:"Present", color:"#178F78", bg:"rgba(23,143,120,0.1)", icon:"✅" },
@@ -28,6 +29,17 @@ export default function TeacherDashboardPage() {
   const [showHWForm, setShowHWForm] = useState(false);
   const [hwForm, setHWForm] = useState({ title:"", subject:"", description:"", dueDate:"" });
   const [hwSaving, setHWSaving]   = useState(false);
+
+  // Attendance history state
+  const [showAttHistory, setShowAttHistory] = useState(false);
+  const [attHistory, setAttHistory]         = useState<any[]>([]);
+  const [attHistChildren, setAttHistChildren] = useState<any[]>([]);
+  const [histLoading, setHistLoading]       = useState(false);
+  const [histFrom, setHistFrom]             = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 6);
+    return d.toISOString().split("T")[0];
+  });
+  const [histTo, setHistTo] = useState(new Date().toISOString().split("T")[0]);
 
   const today = new Date().toISOString().split("T")[0];
   const todayFmt = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
@@ -63,6 +75,16 @@ export default function TeacherDashboardPage() {
   }, [session, loadData]);
 
   const logout = () => { localStorage.removeItem("ep_teacher_session"); router.push("/teacher-login"); };
+
+  const loadAttHistory = useCallback(async () => {
+    if (!session?.sectionId) return;
+    setHistLoading(true);
+    const r = await fetch(`/api/teacher/attendance?sectionId=${session.sectionId}&from=${histFrom}&to=${histTo}`);
+    const d = await r.json();
+    setAttHistory(d.attendance || []);
+    setAttHistChildren(d.children || []);
+    setHistLoading(false);
+  }, [session, histFrom, histTo]);
 
   // ── Mark attendance ───────────────────────────────────
   const markAtt = async (childId: string, status: string) => {
@@ -175,6 +197,7 @@ export default function TeacherDashboardPage() {
             { key:"homework",   icon:"📚", label:"Homework" },
             { key:"students",   icon:"👶", label:"Students" },
             { key:"photos",     icon:"📸", label:"Photos" },
+            { key:"kit",        icon:"🎒", label:"Kit" },
           ] as const).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{ flex:1, padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px" }}>
@@ -191,25 +214,115 @@ export default function TeacherDashboardPage() {
           <div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A" }}>
-                Today's Attendance
+                {showAttHistory ? "Attendance History" : "Today's Attendance"}
               </div>
               <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
-                <span style={{ fontSize:"11px", color:"#6B7A99" }}>{markedCount}/{children.length} marked</span>
-                <button onClick={saveAllAttendance} disabled={saving==="all"}
-                  style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"7px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:"5px" }}>
-                  {saving==="all" ? "Saving…" : attSaved ? "✅ Saved!" : "Mark All Present"}
+                {!showAttHistory && (
+                  <>
+                    <span style={{ fontSize:"11px", color:"#6B7A99" }}>{markedCount}/{children.length} marked</span>
+                    <button onClick={saveAllAttendance} disabled={saving==="all"}
+                      style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"7px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:"5px" }}>
+                      {saving==="all" ? "Saving…" : attSaved ? "✅ Saved!" : "Mark All Present"}
+                    </button>
+                  </>
+                )}
+                <button onClick={() => {
+                  setShowAttHistory(p => !p);
+                  if (!showAttHistory) loadAttHistory();
+                }} style={{ background: showAttHistory ? "#1A2F4A" : "rgba(26,47,74,0.08)", color: showAttHistory ? "white" : "#1A2F4A", border:"none", borderRadius:"12px", padding:"7px 14px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
+                  {showAttHistory ? "← Today" : "📊 History"}
                 </button>
               </div>
             </div>
 
-            {loading ? (
+            {/* ── Attendance History View ── */}
+            {showAttHistory && (
+              <div>
+                <div style={{ display:"flex", gap:"10px", marginBottom:"14px", flexWrap:"wrap", alignItems:"center" }}>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>FROM</label>
+                    <input type="date" value={histFrom} onChange={e => setHistFrom(e.target.value)}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"8px", padding:"7px 10px", fontSize:"12px", background:"#FAF0E8", outline:"none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>TO</label>
+                    <input type="date" value={histTo} onChange={e => setHistTo(e.target.value)}
+                      style={{ border:"1px solid #EDE8DF", borderRadius:"8px", padding:"7px 10px", fontSize:"12px", background:"#FAF0E8", outline:"none" }} />
+                  </div>
+                  <button onClick={loadAttHistory} disabled={histLoading}
+                    style={{ background:"#178F78", color:"white", border:"none", borderRadius:"10px", padding:"7px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer", alignSelf:"flex-end" }}>
+                    {histLoading ? "Loading…" : "Apply"}
+                  </button>
+                  <button onClick={() => {
+                    const csv = ["Date,Child,Status",
+                      ...attHistory.map(a => {
+                        const child = attHistChildren.find(c => c.id === a.student_id);
+                        return `${a.date},"${child?.child_name || a.student_id}",${a.status}`;
+                      })
+                    ].join("\n");
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url  = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url; link.download = `attendance-${histFrom}-to-${histTo}.csv`; link.click();
+                    URL.revokeObjectURL(url);
+                  }} style={{ background:"rgba(99,102,241,0.1)", color:"#6366F1", border:"none", borderRadius:"10px", padding:"7px 14px", fontSize:"12px", fontWeight:700, cursor:"pointer", alignSelf:"flex-end" }}>
+                    ⬇ Export CSV
+                  </button>
+                </div>
+
+                {histLoading ? (
+                  <div style={{ textAlign:"center", padding:"30px", color:"#6B7A99" }}>Loading…</div>
+                ) : attHistory.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"30px", color:"#6B7A99", background:"white", borderRadius:"14px", border:"1px solid #EDE8DF" }}>No attendance records for this period.</div>
+                ) : (() => {
+                  const dates = [...new Set(attHistory.map(a => a.date))].sort((a, b) => b.localeCompare(a));
+                  return (
+                    <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+                      {dates.map(date => {
+                        const dayRecs = attHistory.filter(a => a.date === date);
+                        const present = dayRecs.filter(a => a.status === "present").length;
+                        const absent  = dayRecs.filter(a => a.status === "absent").length;
+                        const late    = dayRecs.filter(a => a.status === "late").length;
+                        return (
+                          <div key={date} style={{ background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", padding:"12px 16px" }}>
+                            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"8px" }}>
+                              <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>
+                                {new Date(date + "T00:00:00").toLocaleDateString("en-IN", { weekday:"short", day:"numeric", month:"short" })}
+                              </div>
+                              <div style={{ display:"flex", gap:"8px", fontSize:"11px" }}>
+                                <span style={{ color:"#178F78", fontWeight:700 }}>✅ {present}</span>
+                                <span style={{ color:"#E8694A", fontWeight:700 }}>❌ {absent}</span>
+                                {late > 0 && <span style={{ color:"#F5B829", fontWeight:700 }}>⏰ {late}</span>}
+                              </div>
+                            </div>
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:"5px" }}>
+                              {dayRecs.map(a => {
+                                const child = attHistChildren.find(c => c.id === a.student_id);
+                                const icon  = a.status === "present" ? "✅" : a.status === "absent" ? "❌" : "⏰";
+                                return (
+                                  <span key={a.id} style={{ fontSize:"10px", fontWeight:600, background:"#FAF0E8", borderRadius:"20px", padding:"2px 8px", color:"#1A2F4A" }}>
+                                    {icon} {child?.child_name || "—"}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {!showAttHistory && loading ? (
               <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99" }}>Loading students…</div>
-            ) : children.length === 0 ? (
+            ) : !showAttHistory && children.length === 0 ? (
               <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
                 <div style={{ fontSize:"32px", marginBottom:"8px" }}>👶</div>
                 No students assigned to {session.sectionName} yet.<br/>Admin needs to assign children to this section.
               </div>
-            ) : (
+            ) : !showAttHistory ? (
               <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
                 {children.map(child => {
                   const attStatus = attendance[child.id];
@@ -235,7 +348,7 @@ export default function TeacherDashboardPage() {
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -364,6 +477,14 @@ export default function TeacherDashboardPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ══ KIT TAB ══ */}
+        {tab === "kit" && (
+          <div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>🎒 Kit & Books — {session.sectionName}</div>
+            <TeacherKitTab sectionChildren={children} teacherName={session.name} />
           </div>
         )}
 

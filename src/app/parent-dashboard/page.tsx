@@ -238,7 +238,12 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments">("home");
+  const [paidFees, setPaidFees]      = useState<any[]>([]);
+  const [paidLoading, setPaidLoading]= useState(false);
+  const [doneHW, setDoneHW]         = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("ep_hw_done") || "[]")); } catch { return new Set(); }
+  });
   const [sbClient, setSbClient]       = useState<any>(null);
   // Load supabase client for DocumentManager
   useEffect(() => { getSb().then(setSbClient); }, []);
@@ -314,6 +319,25 @@ export default function ParentDashboardPage() {
       .catch(() => { setMatchStatus(""); setMatchLoad(false); });
   }, [selectedChild?.id]);
 
+  useEffect(() => {
+    if (tab !== "payments" || !selectedChild?.id) return;
+    setPaidLoading(true);
+    fetch(`/api/fees/history?enquiryId=${selectedChild.id}`)
+      .then(r => r.json())
+      .then(d => setPaidFees(Array.isArray(d) ? d : []))
+      .catch(() => setPaidFees([]))
+      .finally(() => setPaidLoading(false));
+  }, [tab, selectedChild?.id]);
+
+  const markHomeworkDone = (hwId: string) => {
+    setDoneHW(prev => {
+      const next = new Set(prev);
+      next.has(hwId) ? next.delete(hwId) : next.add(hwId);
+      localStorage.setItem("ep_hw_done", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   const logout     = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
   const prog       = selectedChild ? PROGRAMS[selectedChild.program_id] || PROGRAMS["nursery"] : null;
   const hasSection = !!selectedChild?.section_id;
@@ -385,7 +409,7 @@ export default function ParentDashboardPage() {
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"documents",icon:"📁",label:"Documents"},{key:"kit",icon:"🎒",label:"Kit & Books"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -516,13 +540,27 @@ export default function ParentDashboardPage() {
                     <div style={{ fontSize:"28px", marginBottom:"8px" }}>🎉</div>
                     <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78" }}>No pending homework!</div>
                   </div>
-                ) : homework.map((hw:any) => (
-                  <div key={hw.id} style={{ border:"1px solid #EDE8DF", borderRadius:"14px", padding:"14px", marginBottom:"10px" }}>
-                    <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"4px" }}>{hw.title}</div>
-                    <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"6px" }}>{hw.description}</div>
-                    <div style={{ fontSize:"11px", color:"#E8694A", fontWeight:700 }}>Due: {new Date(hw.due_date).toLocaleDateString("en-IN")}</div>
-                  </div>
-                ))}
+                ) : homework.map((hw:any) => {
+                  const isDone = doneHW.has(hw.id);
+                  return (
+                    <div key={hw.id} style={{ border:`1px solid ${isDone?"rgba(23,143,120,0.3)":"#EDE8DF"}`, borderRadius:"14px", padding:"14px", marginBottom:"10px", background:isDone?"rgba(23,143,120,0.04)":"white", transition:"all 0.2s" }}>
+                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"10px" }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:"14px", color: isDone ? "#6B7A99" : "#1A2F4A", marginBottom:"4px", textDecoration: isDone ? "line-through" : "none" }}>{hw.title}</div>
+                          {hw.description && <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"6px" }}>{hw.description}</div>}
+                          {hw.subject && <div style={{ fontSize:"10px", color:"#6366F1", fontWeight:700, marginBottom:"4px" }}>📖 {hw.subject}</div>}
+                          <div style={{ fontSize:"11px", color:isDone?"#178F78":(new Date(hw.due_date)<new Date()?"#E8694A":"#6B7A99"), fontWeight:700 }}>
+                            {isDone ? "✅ Completed" : `Due: ${new Date(hw.due_date).toLocaleDateString("en-IN")}`}
+                          </div>
+                        </div>
+                        <button onClick={() => markHomeworkDone(hw.id)}
+                          style={{ flexShrink:0, background: isDone ? "rgba(23,143,120,0.1)" : "#178F78", color: isDone ? "#178F78" : "white", border: isDone ? "1px solid rgba(23,143,120,0.3)" : "none", borderRadius:"10px", padding:"6px 12px", fontSize:"11px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" as const }}>
+                          {isDone ? "↩ Undo" : "✅ Mark Done"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -632,6 +670,68 @@ export default function ParentDashboardPage() {
                       );
                     })}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* ══ PAYMENTS TAB ══ */}
+            {tab === "payments" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>💳 Payment History</div>
+                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>All completed fee payments for {selectedChild.child_name}</div>
+                {paidLoading ? (
+                  <div style={{ textAlign:"center", padding:"30px", color:"#6B7A99" }}>
+                    <div style={{ width:"32px", height:"32px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
+                    Loading…
+                  </div>
+                ) : paidFees.length === 0 ? (
+                  <div style={{ textAlign:"center", padding:"32px", color:"#6B7A99" }}>
+                    <div style={{ fontSize:"32px", marginBottom:"8px" }}>💳</div>
+                    <div style={{ fontWeight:700, fontSize:"14px" }}>No payment history yet</div>
+                    <div style={{ fontSize:"11px", marginTop:"4px" }}>Completed payments will appear here.</div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary */}
+                    <div style={{ background:"rgba(23,143,120,0.08)", borderRadius:"16px", padding:"14px", marginBottom:"16px", display:"flex", gap:"20px", flexWrap:"wrap" }}>
+                      <div>
+                        <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Total Paid</div>
+                        <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
+                          ₹{paidFees.reduce((s,f) => s + Number(f.paid_amount || f.amount || 0), 0).toLocaleString("en-IN")}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Receipts</div>
+                        <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>{paidFees.length}</div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                      {paidFees.map((f:any) => (
+                        <div key={f.id} style={{ border:"1px solid #EDE8DF", borderRadius:"14px", padding:"14px 16px" }}>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{f.period_label || f.fee_type || "Fee"}</div>
+                              <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"3px" }}>
+                                {f.payment_date && `Paid: ${new Date(f.payment_date).toLocaleDateString("en-IN")}`}
+                                {f.payment_mode && ` · ${f.payment_mode.toUpperCase()}`}
+                              </div>
+                              {f.receipt_number && (
+                                <div style={{ fontSize:"10px", color:"#6366F1", marginTop:"2px", fontFamily:"monospace" }}>#{f.receipt_number}</div>
+                              )}
+                            </div>
+                            <div style={{ textAlign:"right" }}>
+                              <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
+                                ₹{Number(f.paid_amount || f.amount || 0).toLocaleString("en-IN")}
+                              </div>
+                              <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"2px 8px", textTransform:"uppercase" }}>
+                                {f.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             )}

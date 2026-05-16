@@ -1,0 +1,118 @@
+====================================================
+  EVERGREEN PRESCHOOL WEBSITE — TEST CHECKLIST
+  (Features built in Claude session — 2026-05-16)
+====================================================
+
+------------------------------------------------------
+STEP 0 — SUPABASE HEALTH CHECK (run this SQL first)
+------------------------------------------------------
+select table_name,
+       case when table_name in (
+         select table_name from information_schema.tables
+         where table_schema = 'public'
+       ) then 'EXISTS' else 'MISSING' end as status
+from (values
+  ('enquiries'), ('sections'), ('calendar_events'), ('announcements'),
+  ('attendance'), ('homework'), ('section_photos'), ('fee_assignments'),
+  ('fee_structures'), ('staff'), ('academic_years'), ('child_kit'),
+  ('programme_items'), ('child_documents')
+) as t(table_name)
+order by table_name;
+
+If child_documents shows MISSING, run the SQL provided separately to create it.
+
+
+------------------------------------------------------
+1. HOMEPAGE — CONTACT FORM
+   URL: /
+------------------------------------------------------
+[ ] Fill in child name, parent name, phone, DOB, select a programme
+[ ] Click Submit
+[ ] Should show a success message (no fake spin/timeout)
+[ ] Go to Admin > Enquiries tab — new enquiry should appear
+
+
+------------------------------------------------------
+2. ADMIN — ANNOUNCEMENTS TAB
+   URL: /admin  > Announcements tab
+------------------------------------------------------
+[ ] CREATE: Click "New Announcement"
+      - Fill title + body
+      - Pick Target: All / Parents / Teachers
+      - Pick Priority: Normal / Urgent
+      - Click Save
+[ ] LIST: Announcement appears with correct target badge and urgency badge
+[ ] EDIT: Click edit, change something, Save — verify update shows
+[ ] DELETE: Delete an announcement — verify it disappears
+[ ] BADGE: Tab button shows count of announcements
+
+
+------------------------------------------------------
+3. TEACHER DASHBOARD — KIT TAB
+   URL: /teacher-dashboard  > Kit tab (Kit)
+------------------------------------------------------
+[ ] Log in as teacher
+[ ] Switch to Kit tab
+[ ] Kit checklist for section children should load
+[ ] Check/uncheck items — should save/persist
+
+
+------------------------------------------------------
+4. TEACHER DASHBOARD — ATTENDANCE HISTORY
+   URL: /teacher-dashboard  > Attendance tab
+------------------------------------------------------
+[ ] Click "History" toggle button (top right of Attendance section)
+[ ] Default range = last 7 days — click Apply
+[ ] Results show grouped by date with present/absent/late counts + child chips
+[ ] Change date range, click Apply — results update
+[ ] Click "Export CSV" — downloads a .csv file with attendance data
+[ ] Click "History" again to toggle BACK to today's attendance marking view
+
+
+------------------------------------------------------
+5. PARENT DASHBOARD — PAYMENTS TAB
+   URL: /parent-dashboard  > Payments tab
+------------------------------------------------------
+[ ] Log in as parent
+[ ] Click "Payments" tab
+[ ] If fees have been paid: list of paid/partial/waived fees shows
+[ ] If no payments yet: "No payments recorded yet" message shows
+[ ] Summary at top shows total paid amount and receipt count
+
+
+------------------------------------------------------
+6. PARENT DASHBOARD — HOMEWORK MARK DONE
+   URL: /parent-dashboard  > Homework tab
+------------------------------------------------------
+[ ] Log in as parent
+[ ] Open Homework tab
+[ ] Each homework item has a "Mark Done" button
+[ ] Click it — item gets strikethrough, button changes to "Undo"
+[ ] Refresh the page — done state PERSISTS (stored in localStorage)
+[ ] Click "Undo" — strikethrough removed, back to normal
+
+
+------------------------------------------------------
+7. COMMUNITY PAGE — PORTAL LINKS
+   URL: /community
+------------------------------------------------------
+[ ] Scroll to "Community Portals" section
+[ ] "Parent Portal" button  --> goes to /parent-login
+[ ] "Teacher Hub" button    --> goes to /teacher-login
+[ ] "Admin Login" button    --> goes to /admin-login
+[ ] "Contact Us" button     --> goes to /contact
+[ ] "AI Learning Tools"     --> goes to /ai-tools
+
+
+------------------------------------------------------
+RECOMMENDED TEST ORDER
+------------------------------------------------------
+1. Run health-check SQL in Supabase
+2. Create child_documents table if missing
+3. Homepage form (no login needed)
+4. Community portal links (no login needed)
+5. Admin login > Announcements tab
+6. Teacher login > Kit tab > Attendance History > CSV export
+7. Parent login > Payments tab > Homework mark-done + refresh
+
+====================================================

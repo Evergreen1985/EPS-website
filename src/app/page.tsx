@@ -162,10 +162,30 @@ export default function HomePage() {
 
   const filteredGal = galFilter === "All" ? galItems : galItems.filter(g => g.cat === galFilter);
 
+  const programToId: Record<string, string> = {
+    "Infant Care": "infant", "Playgroup": "playgroup", "Nursery": "nursery",
+    "Junior KG": "jrkg", "Senior KG": "srkg",
+    "Full-Day Daycare": "daycare", "After-School Program": "afterschool", "Holiday Camp": "holiday",
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormStatus("sending");
-    await new Promise(r => setTimeout(r, 1400));
+    try {
+      await fetch("/api/enquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childName:    form.child,
+          dob:          form.dob || null,
+          phone:        form.phone,
+          parentName:   form.parent,
+          program:      programToId[form.program] || null,
+          programLabel: form.program,
+          lang:         "en-IN",
+        }),
+      });
+    } catch {}
     setFormStatus("success");
   };
 

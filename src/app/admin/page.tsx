@@ -25,8 +25,7 @@ async function getSb() {
   return _sb;
 }
 
-// ✅ FIXED: added "staff" and "settings" to the type
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import" | "kit";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import" | "kit" | "announcements";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const PROGRAM_OPTIONS  = [
@@ -49,6 +48,13 @@ export default function AdminPage() {
   const [editingChild, setEditingChild]   = useState<any>(null);
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [staffList, setStaffList]         = useState<any[]>([]);
+
+  // Announcements state
+  const [announcements, setAnnouncements]       = useState<any[]>([]);
+  const [newAnnForm, setNewAnnForm]             = useState({ title:"", body:"", target:"all", priority:"normal" });
+  const [showAnnForm, setShowAnnForm]           = useState(false);
+  const [annSaving, setAnnSaving]               = useState(false);
+  const [editingAnn, setEditingAnn]             = useState<any>(null);
 
   // Bulk selection state
   const [bulkMode, setBulkMode]           = useState(false);
@@ -89,6 +95,12 @@ export default function AdminPage() {
   }, [router]);
 
   // ── Load data ───────────────────────────────────────────
+  const loadAnnouncements = useCallback(async () => {
+    const r = await fetch("/api/admin/announcements");
+    const d = await r.json();
+    setAnnouncements(Array.isArray(d) ? d : []);
+  }, []);
+
   const loadEnquiries = useCallback(async () => {
     setLoading(true);
     const r = await fetch("/api/admin/enquiries");
@@ -119,6 +131,7 @@ export default function AdminPage() {
     }
   }, [session, loadEnquiries, loadSections]);
   useEffect(() => { if (session && tab === "calendar") loadEvents(); }, [session, tab, calMonth, loadEvents]);
+  useEffect(() => { if (session && tab === "announcements") loadAnnouncements(); }, [session, tab, loadAnnouncements]);
   useEffect(() => {
     if (session && tab === "sections" && staffList.length === 0) {
       fetch("/api/staff").then(r => r.json()).then(d => {
@@ -283,7 +296,8 @@ export default function AdminPage() {
           { key:"settings",  label:"⚙️ Settings",  count: 0                },
           { key:"academic",  label:"🎓 Academic Year", count: 0             },
           { key:"import",    label:"📥 Import Data",   count: 0             },
-          { key:"kit",      label:"🎒 Kit Manager",    count: 0             },
+          { key:"kit",           label:"🎒 Kit Manager",    count: 0                        },
+          { key:"announcements", label:"📢 Announcements", count: announcements.length     },
         ] as const).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -809,6 +823,131 @@ export default function AdminPage() {
 
       {/* ══ KIT MANAGER TAB ══ */}
       {tab === "kit" && <KitBulkManager enquiries={enquiries} />}
+
+      {/* ══ ANNOUNCEMENTS TAB ══ */}
+      {tab === "announcements" && (
+        <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+
+          {/* Header + new button */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px" }}>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>📢 Announcements</div>
+            <button onClick={() => { setShowAnnForm(!showAnnForm); setEditingAnn(null); setNewAnnForm({ title:"", body:"", target:"all", priority:"normal" }); }}
+              style={{ background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"8px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:"6px" }}>
+              <Plus style={{ width:"14px", height:"14px" }} /> New Announcement
+            </button>
+          </div>
+
+          {/* Create / edit form */}
+          {(showAnnForm || editingAnn) && (
+            <div style={{ background:"white", borderRadius:"16px", border:"2px solid #178F78", padding:"18px", marginBottom:"14px" }}>
+              <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78", marginBottom:"14px" }}>
+                {editingAnn ? "Edit Announcement" : "New Announcement"}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginBottom:"10px" }}>
+                <div style={{ gridColumn:"1/-1" }}>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>TITLE *</label>
+                  <input value={editingAnn ? editingAnn.title : newAnnForm.title}
+                    onChange={e => editingAnn ? setEditingAnn((p:any)=>({...p, title:e.target.value})) : setNewAnnForm(p=>({...p, title:e.target.value}))}
+                    style={inp()} placeholder="e.g. School closed on Monday" />
+                </div>
+                <div style={{ gridColumn:"1/-1" }}>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>MESSAGE *</label>
+                  <textarea value={editingAnn ? editingAnn.body : newAnnForm.body}
+                    onChange={e => editingAnn ? setEditingAnn((p:any)=>({...p, body:e.target.value})) : setNewAnnForm(p=>({...p, body:e.target.value}))}
+                    rows={3} style={{ ...inp(), resize:"vertical" as const }} placeholder="Full announcement message…" />
+                </div>
+                <div>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>AUDIENCE</label>
+                  <select value={editingAnn ? editingAnn.target : newAnnForm.target}
+                    onChange={e => editingAnn ? setEditingAnn((p:any)=>({...p, target:e.target.value})) : setNewAnnForm(p=>({...p, target:e.target.value}))}
+                    style={inp()}>
+                    <option value="all">All (Parents + Teachers)</option>
+                    <option value="parents">Parents only</option>
+                    <option value="teachers">Teachers only</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>PRIORITY</label>
+                  <select value={editingAnn ? editingAnn.priority : newAnnForm.priority}
+                    onChange={e => editingAnn ? setEditingAnn((p:any)=>({...p, priority:e.target.value})) : setNewAnnForm(p=>({...p, priority:e.target.value}))}
+                    style={inp()}>
+                    <option value="normal">Normal</option>
+                    <option value="urgent">🔴 Urgent</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:"8px" }}>
+                <button disabled={annSaving}
+                  onClick={async () => {
+                    const form = editingAnn || newAnnForm;
+                    if (!form.title?.trim() || !form.body?.trim()) return;
+                    setAnnSaving(true);
+                    if (editingAnn) {
+                      await fetch("/api/admin/announcements", { method:"PATCH", headers:{"Content-Type":"application/json"}, body: JSON.stringify(editingAnn) });
+                      setEditingAnn(null);
+                    } else {
+                      await fetch("/api/admin/announcements", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(newAnnForm) });
+                      setShowAnnForm(false);
+                      setNewAnnForm({ title:"", body:"", target:"all", priority:"normal" });
+                    }
+                    setAnnSaving(false);
+                    loadAnnouncements();
+                  }}
+                  style={{ background:"#178F78", color:"white", border:"none", borderRadius:"10px", padding:"8px 18px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                  {annSaving ? "Saving…" : editingAnn ? "Save Changes" : "Post Announcement"}
+                </button>
+                <button onClick={() => { setShowAnnForm(false); setEditingAnn(null); }}
+                  style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"10px", padding:"8px 14px", fontSize:"12px", cursor:"pointer" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* List */}
+          {announcements.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
+              <div style={{ fontSize:"32px", marginBottom:"8px" }}>📢</div>
+              No announcements yet. Click "New Announcement" to post one.
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+              {announcements.map((a:any) => (
+                <div key={a.id} style={{ background:"white", borderRadius:"14px", border:`1px solid ${a.priority==="urgent" ? "rgba(220,38,38,0.3)" : "#EDE8DF"}`, padding:"14px 16px" }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", gap:"12px" }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px", flexWrap:"wrap" }}>
+                        <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{a.title}</div>
+                        {a.priority === "urgent" && (
+                          <span style={{ background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"1px 8px", fontSize:"9px", fontWeight:700 }}>🔴 URGENT</span>
+                        )}
+                        <span style={{ background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"1px 8px", fontSize:"9px", fontWeight:700, textTransform:"capitalize" }}>
+                          {a.target === "all" ? "👥 All" : a.target === "parents" ? "👨‍👩‍👧 Parents" : "👩‍🏫 Teachers"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize:"12px", color:"#6B7A99", lineHeight:"1.5", marginBottom:"6px" }}>{a.body}</div>
+                      <div style={{ fontSize:"10px", color:"#9CA3AF" }}>
+                        {new Date(a.created_at).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:"6px", flexShrink:0 }}>
+                      <button onClick={() => { setEditingAnn({...a}); setShowAnnForm(false); }}
+                        style={{ background:"rgba(23,143,120,0.08)", border:"none", borderRadius:"8px", padding:"6px 10px", fontSize:"11px", fontWeight:700, color:"#178F78", cursor:"pointer" }}>
+                        <Edit2 style={{ width:"12px", height:"12px" }} />
+                      </button>
+                      <button onClick={async () => {
+                        if (!confirm("Delete this announcement?")) return;
+                        await fetch("/api/admin/announcements", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ id: a.id }) });
+                        loadAnnouncements();
+                      }} style={{ background:"rgba(220,38,38,0.08)", border:"none", borderRadius:"8px", padding:"6px 10px", fontSize:"11px", fontWeight:700, color:"#DC2626", cursor:"pointer" }}>
+                        <Trash2 style={{ width:"12px", height:"12px" }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ══ CHILD PROFILE MODAL ══ */}
       {editingChild && (
