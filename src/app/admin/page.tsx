@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Plus, Trash2, Edit2, Save, X, Search } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
@@ -11,6 +11,7 @@ import ChildEditModal      from "@/components/ChildEditModal";
 import AcademicYearTab    from "@/components/AcademicYearTab";
 import ExcelImport        from "@/components/ExcelImport";
 import KitBulkManager     from "@/components/KitBulkManager";
+import AttendanceReport   from "@/components/AttendanceReport";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -25,18 +26,9 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "academic" | "import" | "kit" | "announcements";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
-const PROGRAM_OPTIONS  = [
-  { id:"infant",      label:"Infant Care" },
-  { id:"playgroup",   label:"Playgroup" },
-  { id:"nursery",     label:"Nursery" },
-  { id:"jrkg",        label:"Junior KG" },
-  { id:"srkg",        label:"Senior KG" },
-  { id:"daycare",     label:"Full-Day Daycare" },
-  { id:"afterschool", label:"After-School" },
-];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
 const EVENT_COLORS = { holiday:"#E8694A", festival:"#F5B829", activity:"#178F78", exam:"#6366F1", ptm:"#EC4899", sports:"#0F766E" };
 const STATUS_COLORS: Record<string,string> = { new:"#6366F1", called:"#F5B829", visited:"#0F766E", enrolled:"#178F78", "not-interested":"#6B7A99" };
@@ -45,9 +37,17 @@ export default function AdminPage() {
   const router = useRouter();
   const [session, setSession]       = useState<any>(null);
   const [tab, setTab]               = useState<AdminTab>("enquiries");
+  const [allowedTabs, setAllowedTabs] = useState<string[] | null>(null);
   const [editingChild, setEditingChild]   = useState<any>(null);
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [staffList, setStaffList]         = useState<any[]>([]);
+
+  // Programme state
+  const [programOptions, setProgramOptions] = useState<{id:string;label:string;icon?:string;color?:string;sort_order?:number}[]>([]);
+  const [showProgForm, setShowProgForm]     = useState(false);
+  const [editingProg, setEditingProg]       = useState<any>(null);
+  const [progForm, setProgForm]             = useState({ slug:"", label:"", icon:"🎓", color:"#178F78", sort_order:0 });
+  const [progSaving, setProgSaving]         = useState(false);
 
   // Announcements state
   const [announcements, setAnnouncements]       = useState<any[]>([]);
@@ -55,6 +55,13 @@ export default function AdminPage() {
   const [showAnnForm, setShowAnnForm]           = useState(false);
   const [annSaving, setAnnSaving]               = useState(false);
   const [editingAnn, setEditingAnn]             = useState<any>(null);
+
+  // Expenses state
+  const [expenses, setExpenses]         = useState<any[]>([]);
+  const [expMonth, setExpMonth]         = useState(new Date().toISOString().slice(0, 7));
+  const [showExpForm, setShowExpForm]   = useState(false);
+  const [expForm, setExpForm]           = useState({ category:"salaries", title:"", amount:"", date:new Date().toISOString().split("T")[0], notes:"" });
+  const [expSaving, setExpSaving]       = useState(false);
 
   // Bulk selection state
   const [bulkMode, setBulkMode]           = useState(false);
@@ -83,6 +90,17 @@ export default function AdminPage() {
     const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}`;
   });
 
+  // Public holiday loader state
+  const [schoolState, setSchoolState]           = useState("");
+  const [calAcademicYear, setCalAcademicYear]   = useState("all");
+  const [holidayPreview, setHolidayPreview]     = useState<any[]>([]);
+  const [savedHolidayDates, setSavedHolidayDates] = useState<Set<string>>(new Set());
+  const [newHolSelected, setNewHolSelected]     = useState<Set<string>>(new Set());
+  const [loadingHolidays, setLoadingHolidays]   = useState(false);
+  const [savingHolidays, setSavingHolidays]     = useState(false);
+  const [holidayMsg, setHolidayMsg]             = useState("");
+  const loadedHolidayKeyRef = useRef("");
+
   // ── Auth check ─────────────────────────────────────────
   useEffect(() => {
     fetch("/api/admin/me", { credentials: "include" })
@@ -90,11 +108,34 @@ export default function AdminPage() {
         if (!r.ok) { router.replace("/admin-login"); return null; }
         return r.json();
       })
-      .then((data) => { if (data) setSession(data); })
+      .then((data) => {
+        if (data) {
+          setSession(data);
+          // Fetch tab permissions for this admin's role
+          fetch("/api/admin/permissions", { credentials: "include" })
+            .then(r => r.json())
+            .then(d => setAllowedTabs(d.permissions ?? null))
+            .catch(() => setAllowedTabs(null));
+        }
+      })
       .catch(() => router.replace("/admin-login"));
   }, [router]);
 
+  // Switch to first allowed tab if current tab is restricted
+  useEffect(() => {
+    if (allowedTabs && allowedTabs.length > 0 && !allowedTabs.includes(tab)) {
+      setTab(allowedTabs[0] as AdminTab);
+    }
+  }, [allowedTabs, tab]);
+
   // ── Load data ───────────────────────────────────────────
+  const loadProgrammes = useCallback(async () => {
+    const r = await fetch("/api/programmes", { cache: "no-store" });
+    const d = await r.json();
+    const list = (d.programmes || []).map((p: any) => ({ id: p.slug, label: p.label, icon: p.icon, color: p.color, sort_order: p.sort_order, _id: p.id }));
+    setProgramOptions(list);
+  }, []);
+
   const loadAnnouncements = useCallback(async () => {
     const r = await fetch("/api/admin/announcements");
     const d = await r.json();
@@ -125,13 +166,117 @@ export default function AdminPage() {
     if (session) {
       loadEnquiries();
       loadSections();
+      loadProgrammes();
       fetch("/api/academic-years").then(r => r.json()).then(d => {
         if (Array.isArray(d)) setAcademicYears(d);
       });
     }
-  }, [session, loadEnquiries, loadSections]);
-  useEffect(() => { if (session && tab === "calendar") loadEvents(); }, [session, tab, calMonth, loadEvents]);
+  }, [session, loadEnquiries, loadSections, loadProgrammes]);
+  const onAcademicYearChange = useCallback(() => {
+    loadEnquiries();
+    fetch("/api/academic-years").then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setAcademicYears(d);
+    });
+    // Reset cache so holiday panel reloads with fresh year list
+    loadedHolidayKeyRef.current = "";
+  }, [loadEnquiries]);
+
+  const loadHolidayPanel = useCallback(async (state: string, academicYear: string, schoolAcademicYears: any[]) => {
+    const calYear = calMonth.slice(0, 4);
+    let yearStart = calYear;
+    let yearEnd   = calYear;
+    let startDate = `${calYear}-01-01`;
+    let endDate   = `${calYear}-12-31`;
+    let autoSelectAll = false;
+
+    if (academicYear !== "all") {
+      const ay = schoolAcademicYears.find((a: any) => a.id === academicYear);
+      if (ay) {
+        startDate = ay.start_date;
+        endDate   = ay.end_date;
+        yearStart = ay.start_date.slice(0, 4);
+        yearEnd   = ay.end_date.slice(0, 4);
+        autoSelectAll = true; // academic year chosen → pre-select all
+      }
+    }
+
+    const cacheKey = `${yearStart}-${yearEnd}-${state}-${academicYear}`;
+    if (cacheKey === loadedHolidayKeyRef.current) return;
+    loadedHolidayKeyRef.current = cacheKey;
+
+    setLoadingHolidays(true);
+    setHolidayPreview([]);
+    setHolidayMsg("");
+
+    try {
+      // Fetch holidays (two years if academic year spans two calendar years)
+      const fetches = [
+        fetch(`/api/admin/holidays?year=${yearStart}&state=${encodeURIComponent(state)}`, { cache: "no-store" }).then(r => r.json()),
+      ];
+      if (yearEnd !== yearStart) {
+        fetches.push(fetch(`/api/admin/holidays?year=${yearEnd}&state=${encodeURIComponent(state)}`, { cache: "no-store" }).then(r => r.json()));
+      }
+      const results = await Promise.all(fetches);
+      let allHolidays: any[] = results.flatMap((hd: any) => hd.holidays || []);
+
+      // Filter to academic year date range
+      if (academicYear !== "all") {
+        allHolidays = allHolidays.filter(h => h.date >= startDate && h.date <= endDate);
+      }
+
+      // Deduplicate
+      const seen = new Set<string>();
+      allHolidays = allHolidays.filter(h => {
+        const k = `${h.date}::${h.name}`;
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+      allHolidays.sort((a, b) => a.date.localeCompare(b.date));
+
+      // Fetch existing calendar events for the year range (for comparison)
+      const evRes = await fetch(`/api/admin/calendar?year=${yearStart}&yearEnd=${yearEnd}`, { cache: "no-store" });
+      const evData = await evRes.json();
+      const existingDates = new Set<string>(
+        (evData.events || []).filter((e: any) => e.event_type === "holiday").map((e: any) => e.event_date)
+      );
+      setSavedHolidayDates(existingDates);
+
+      setHolidayPreview(allHolidays);
+
+      // Auto-select: academic year → all new ones selected; otherwise → none selected
+      if (autoSelectAll) {
+        setNewHolSelected(new Set(allHolidays.filter(h => !existingDates.has(h.date)).map((h: any) => h.date)));
+      } else {
+        setNewHolSelected(new Set());
+      }
+
+      if (allHolidays.length === 0) setHolidayMsg("No holidays found for this period.");
+    } catch {
+      setHolidayMsg("Could not load holidays.");
+    } finally {
+      setLoadingHolidays(false);
+    }
+  }, [calMonth]);
+
+  useEffect(() => {
+    if (session && tab === "calendar") {
+      loadEvents();
+      fetch("/api/settings", { cache: "no-store" })
+        .then(r => r.json())
+        .then(d => {
+          const state = d.state || "";
+          setSchoolState(state);
+          loadHolidayPanel(state, calAcademicYear, academicYears);
+        });
+    }
+  }, [session, tab, calMonth, calAcademicYear, loadEvents, academicYears, loadHolidayPanel]);
   useEffect(() => { if (session && tab === "announcements") loadAnnouncements(); }, [session, tab, loadAnnouncements]);
+
+  const loadExpenses = useCallback(async () => {
+    const r = await fetch(`/api/owner/expenses?month=${expMonth}`);
+    if (r.ok) { const d = await r.json(); setExpenses(d.expenses || []); }
+  }, [expMonth]);
+  useEffect(() => { if (session && tab === "expenses") loadExpenses(); }, [session, tab, expMonth, loadExpenses]);
   useEffect(() => {
     if (session && tab === "sections" && staffList.length === 0) {
       fetch("/api/staff").then(r => r.json()).then(d => {
@@ -139,6 +284,62 @@ export default function AdminPage() {
       });
     }
   }, [session, tab, staffList.length]);
+
+  // ── Public Holiday Loader ─────────────────────────────────
+  const savePublicHolidays = async () => {
+    const toSave = holidayPreview.filter(h => newHolSelected.has(h.date) && !savedHolidayDates.has(h.date));
+    if (toSave.length === 0) return;
+    setSavingHolidays(true);
+    setHolidayMsg("");
+    let saved = 0;
+    for (const h of toSave) {
+      const r = await fetch("/api/admin/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: h.name, event_date: h.date, event_type: "holiday",
+          icon: h.icon || "🗓️", color: "#E8694A", is_holiday: true,
+          description: h.source === "state" ? `${schoolState} holiday` : "National holiday",
+          affects: "all",
+        }),
+      });
+      if (r.ok) saved++;
+    }
+    // Refresh: update saved dates set, clear selections, reload month view
+    const newSaved = new Set(savedHolidayDates);
+    toSave.forEach(h => newSaved.add(h.date));
+    setSavedHolidayDates(newSaved);
+    setNewHolSelected(new Set());
+    await loadEvents();
+    setHolidayMsg(`✓ ${saved} holiday${saved !== 1 ? "s" : ""} added to calendar.`);
+    setSavingHolidays(false);
+  };
+
+  // ── Programme CRUD ────────────────────────────────────────
+  const addProgramme = async () => {
+    if (!progForm.slug || !progForm.label) return;
+    setProgSaving(true);
+    await fetch("/api/programmes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(progForm) });
+    await loadProgrammes();
+    setProgForm({ slug: "", label: "", icon: "🎓", color: "#178F78", sort_order: 0 });
+    setShowProgForm(false);
+    setProgSaving(false);
+  };
+
+  const saveProgramme = async () => {
+    if (!editingProg) return;
+    setProgSaving(true);
+    await fetch("/api/programmes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: editingProg._id, label: editingProg.label, icon: editingProg.icon, color: editingProg.color, sort_order: editingProg.sort_order }) });
+    await loadProgrammes();
+    setEditingProg(null);
+    setProgSaving(false);
+  };
+
+  const deleteProgramme = async (programmeId: string) => {
+    if (!confirm("Delete this programme? Existing sections/enquiries using it won't be affected.")) return;
+    await fetch(`/api/programmes?id=${programmeId}`, { method: "DELETE" });
+    await loadProgrammes();
+  };
 
   const logout = async () => {
     await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
@@ -294,11 +495,12 @@ export default function AdminPage() {
           { key:"fees",      label:"💳 Fees",      count: 0                },
           { key:"staff",     label:"👩‍🏫 Staff",    count: 0                },
           { key:"settings",  label:"⚙️ Settings",  count: 0                },
-          { key:"academic",  label:"🎓 Academic Year", count: 0             },
           { key:"import",    label:"📥 Import Data",   count: 0             },
           { key:"kit",           label:"🎒 Kit Manager",    count: 0                        },
           { key:"announcements", label:"📢 Announcements", count: announcements.length     },
-        ] as const).map(t => (
+          { key:"expenses",      label:"💸 Expenses",      count: 0                         },
+          { key:"reports",       label:"📊 Reports",       count: 0                         },
+        ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
             {t.label}
@@ -564,9 +766,99 @@ export default function AdminPage() {
         {/* ══ SECTIONS TAB ══ */}
         {tab === "sections" && (
           <div>
+
+            {/* ── Programme Manager ── */}
+            <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"18px" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
+                <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>📚 Programmes</div>
+                {!showProgForm && !editingProg && (
+                  <button onClick={() => setShowProgForm(true)}
+                    style={{ display:"flex", alignItems:"center", gap:"5px", background:"rgba(23,143,120,0.1)", color:"#178F78", border:"none", borderRadius:"10px", padding:"6px 12px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
+                    <Plus style={{ width:"12px", height:"12px" }} /> Add Programme
+                  </button>
+                )}
+              </div>
+
+              {/* List */}
+              <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", marginBottom: showProgForm ? "12px" : "0" }}>
+                {programOptions.map((p: any) => (
+                  <div key={p.id} style={{ background:"#FAF0E8", borderRadius:"10px", padding:"6px 10px", display:"flex", alignItems:"center", gap:"6px", fontSize:"12px" }}>
+                    {editingProg?._id === p._id ? (
+                      <div style={{ display:"flex", gap:"6px", alignItems:"center", flexWrap:"wrap" }}>
+                        <input value={editingProg.label} onChange={e => setEditingProg((v: any) => ({ ...v, label: e.target.value }))}
+                          style={{ ...inp(), width:"120px", padding:"4px 8px", fontSize:"12px" }} placeholder="Label" />
+                        <input value={editingProg.icon} onChange={e => setEditingProg((v: any) => ({ ...v, icon: e.target.value }))}
+                          style={{ ...inp(), width:"52px", padding:"4px 8px", fontSize:"12px", textAlign:"center" }} placeholder="🎓" />
+                        <input value={editingProg.color} onChange={e => setEditingProg((v: any) => ({ ...v, color: e.target.value }))}
+                          style={{ ...inp(), width:"90px", padding:"4px 8px", fontSize:"12px" }} placeholder="#178F78" />
+                        <input type="number" value={editingProg.sort_order} onChange={e => setEditingProg((v: any) => ({ ...v, sort_order: parseInt(e.target.value) || 0 }))}
+                          style={{ ...inp(), width:"56px", padding:"4px 8px", fontSize:"12px" }} placeholder="Order" />
+                        <button onClick={saveProgramme} disabled={progSaving}
+                          style={{ background:"#178F78", color:"white", border:"none", borderRadius:"8px", padding:"4px 10px", fontSize:"11px", fontWeight:700, cursor:"pointer" }}>
+                          {progSaving ? "…" : "Save"}
+                        </button>
+                        <button onClick={() => setEditingProg(null)}
+                          style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"8px", padding:"4px 8px", fontSize:"11px", cursor:"pointer" }}>✕</button>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontSize:"16px" }}>{p.icon || "🎓"}</span>
+                        <span style={{ fontWeight:700, color:"#1A2F4A" }}>{p.label}</span>
+                        <span style={{ color:"#9CA3AF" }}>({p.id})</span>
+                        <button onClick={() => setEditingProg(p)}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:"#178F78", padding:"0 2px" }} title="Edit">✏️</button>
+                        <button onClick={() => deleteProgramme(p._id)}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:"#E8694A", padding:"0 2px" }} title="Delete">✕</button>
+                      </>
+                    )}
+                  </div>
+                ))}
+                {programOptions.length === 0 && (
+                  <div style={{ fontSize:"12px", color:"#9CA3AF" }}>No programmes yet. Add one to get started.</div>
+                )}
+              </div>
+
+              {/* Add form */}
+              {showProgForm && (
+                <div style={{ display:"flex", gap:"8px", flexWrap:"wrap", alignItems:"flex-end", borderTop:"1px solid #EDE8DF", paddingTop:"12px" }}>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>SLUG (unique ID)</label>
+                    <input value={progForm.slug} onChange={e => setProgForm(p => ({ ...p, slug: e.target.value }))}
+                      style={{ ...inp(), width:"110px", padding:"6px 10px", fontSize:"12px" }} placeholder="e.g. nursery" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>LABEL</label>
+                    <input value={progForm.label} onChange={e => setProgForm(p => ({ ...p, label: e.target.value }))}
+                      style={{ ...inp(), width:"130px", padding:"6px 10px", fontSize:"12px" }} placeholder="e.g. Nursery" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>ICON</label>
+                    <input value={progForm.icon} onChange={e => setProgForm(p => ({ ...p, icon: e.target.value }))}
+                      style={{ ...inp(), width:"52px", padding:"6px 8px", fontSize:"12px", textAlign:"center" }} placeholder="🎓" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>COLOR</label>
+                    <input value={progForm.color} onChange={e => setProgForm(p => ({ ...p, color: e.target.value }))}
+                      style={{ ...inp(), width:"90px", padding:"6px 10px", fontSize:"12px" }} placeholder="#178F78" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"3px" }}>ORDER</label>
+                    <input type="number" value={progForm.sort_order} onChange={e => setProgForm(p => ({ ...p, sort_order: parseInt(e.target.value) || 0 }))}
+                      style={{ ...inp(), width:"56px", padding:"6px 8px", fontSize:"12px" }} />
+                  </div>
+                  <button onClick={addProgramme} disabled={progSaving || !progForm.slug || !progForm.label}
+                    style={{ background: !progForm.slug || !progForm.label ? "#EDE8DF" : "#178F78", color: !progForm.slug || !progForm.label ? "#9CA3AF" : "white", border:"none", borderRadius:"10px", padding:"7px 16px", fontSize:"12px", fontWeight:700, cursor: !progForm.slug || !progForm.label ? "not-allowed" : "pointer" }}>
+                    {progSaving ? "Adding…" : "Add"}
+                  </button>
+                  <button onClick={() => setShowProgForm(false)}
+                    style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"10px", padding:"7px 12px", fontSize:"12px", cursor:"pointer" }}>Cancel</button>
+                </div>
+              )}
+            </div>
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>Class Sections</div>
-              <button onClick={() => { setNewSec(true); setEditSec({ name:"", program_id:"nursery", program_label:"Nursery", class_teacher:"", strength:20, academic_year:"2025-26" }); }}
+              <button onClick={() => { setNewSec(true); setEditSec({ name:"", program_id: programOptions[0]?.id || "nursery", program_label: programOptions[0]?.label || "Nursery", class_teacher:"", strength:20, academic_year:"2025-26" }); }}
                 style={{ display:"flex", alignItems:"center", gap:"6px", background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"8px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
                 <Plus style={{ width:"14px", height:"14px" }} /> Add Section
               </button>
@@ -583,10 +875,10 @@ export default function AdminPage() {
                   <div>
                     <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>PROGRAMME</label>
                     <select value={editingSection.program_id} onChange={e => {
-                      const prog = PROGRAM_OPTIONS.find(p => p.id === e.target.value);
+                      const prog = programOptions.find(p => p.id === e.target.value);
                       setEditSec((p:any) => ({ ...p, program_id: e.target.value, program_label: prog?.label || "" }));
                     }} style={inp()}>
-                      {PROGRAM_OPTIONS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      {programOptions.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                     </select>
                   </div>
                   <div>
@@ -629,7 +921,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {PROGRAM_OPTIONS.map(prog => {
+            {programOptions.map(prog => {
               const progSections = sections.filter(s => s.program_id === prog.id);
               if (progSections.length === 0) return null;
               return (
@@ -671,6 +963,10 @@ export default function AdminPage() {
         {/* ══ CALENDAR TAB ══ */}
         {tab === "calendar" && (
           <div>
+            {/* ── Academic Year management (top) ── */}
+            <AcademicYearTab onYearChange={onAcademicYearChange} />
+            <div style={{ borderTop:"2px solid #EDE8DF", margin:"20px 0" }} />
+
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"16px", flexWrap:"wrap", gap:"10px" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A" }}>Calendar & Events</div>
               <div style={{ display:"flex", gap:"10px" }}>
@@ -682,6 +978,118 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+
+            {/* ── Public Holiday Loader ── */}
+            {(() => {
+              const savedHols = holidayPreview.filter(h => savedHolidayDates.has(h.date));
+              const newHols   = holidayPreview.filter(h => !savedHolidayDates.has(h.date));
+              const canSave   = newHolSelected.size > 0 && !savingHolidays;
+              return (
+                <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"16px", marginBottom:"18px" }}>
+                  {/* Header row */}
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", flexWrap:"wrap", gap:"10px", marginBottom:"12px" }}>
+                    <div>
+                      <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"2px" }}>
+                        🌐 Public Holidays
+                        {loadingHolidays && <span style={{ marginLeft:"8px", fontSize:"11px", color:"#4A90D9", fontWeight:400 }}>Loading…</span>}
+                      </div>
+                      {schoolState
+                        ? <div style={{ fontSize:"11px", color:"#178F78" }}>State: <strong>{schoolState}</strong> · National + state holidays</div>
+                        : <div style={{ fontSize:"11px", color:"#E8694A" }}>⚠ No state — <a href="#" onClick={e=>{e.preventDefault();setTab("settings");}} style={{color:"#E8694A",fontWeight:700}}>set in Settings</a></div>
+                      }
+                    </div>
+                    {/* Academic year selector */}
+                    <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                      <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99" }}>ACADEMIC YEAR</label>
+                      <select value={calAcademicYear} onChange={e => { setCalAcademicYear(e.target.value); loadedHolidayKeyRef.current = ""; }}
+                        style={{ ...inp({ width:"auto" }), padding:"6px 10px", fontSize:"12px" }}>
+                        <option value="all">All / By Month</option>
+                        {academicYears.map((ay: any) => (
+                          <option key={ay.id} value={ay.id}>{ay.label}{ay.is_current ? " (Current)" : ""}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Already-saved holidays — top section */}
+                  {savedHols.length > 0 && (
+                    <div style={{ marginBottom:"12px" }}>
+                      <div style={{ fontSize:"11px", fontWeight:700, color:"#178F78", marginBottom:"6px", display:"flex", alignItems:"center", gap:"6px" }}>
+                        <span>✓ Already in Calendar ({savedHols.length})</span>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:"3px" }}>
+                        {savedHols.map((h, i) => (
+                          <div key={i} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"5px 10px", borderRadius:"8px", background:"#F0FAF7", border:"1px solid #178F7820", opacity:0.75 }}>
+                            <span style={{ color:"#178F78", fontSize:"14px" }}>✓</span>
+                            <span style={{ fontSize:"15px" }}>{h.icon}</span>
+                            <span style={{ flex:1, fontSize:"12px", fontWeight:600, color:"#1A2F4A" }}>{h.name}</span>
+                            <span style={{ fontSize:"11px", color:"#6B7A99" }}>{new Date(h.date+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}</span>
+                            <span style={{ fontSize:"9px", fontWeight:700, padding:"2px 6px", borderRadius:"20px", background: h.source==="state" ? "rgba(74,144,217,0.1)" : "rgba(23,143,120,0.1)", color: h.source==="state" ? "#4A90D9" : "#178F78" }}>
+                              {h.source==="state" ? "STATE" : "NATIONAL"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* New holidays — bottom section */}
+                  {newHols.length > 0 && (
+                    <div>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:"#E8694A" }}>
+                          + New Holidays to Add ({newHols.length})
+                          {calAcademicYear !== "all" && <span style={{ color:"#178F78", marginLeft:"6px" }}>— All selected for academic year</span>}
+                        </div>
+                        <div style={{ display:"flex", gap:"8px" }}>
+                          <button onClick={() => setNewHolSelected(new Set(newHols.map((h:any)=>h.date)))}
+                            style={{ background:"none", border:"none", fontSize:"11px", color:"#4A90D9", cursor:"pointer", fontWeight:700 }}>Select All</button>
+                          <button onClick={() => setNewHolSelected(new Set())}
+                            style={{ background:"none", border:"none", fontSize:"11px", color:"#6B7A99", cursor:"pointer" }}>Clear</button>
+                        </div>
+                      </div>
+                      <div style={{ maxHeight:"280px", overflowY:"auto", display:"flex", flexDirection:"column", gap:"3px" }}>
+                        {newHols.map((h, i) => (
+                          <div key={i} style={{ display:"flex", alignItems:"center", gap:"10px", padding:"5px 10px", borderRadius:"8px", background: newHolSelected.has(h.date) ? "#FFF8F0" : "#FAF0E8", border:`1px solid ${newHolSelected.has(h.date) ? "#F5B82930" : "#EDE8DF"}` }}>
+                            <input type="checkbox" checked={newHolSelected.has(h.date)}
+                              onChange={e => {
+                                const s = new Set(newHolSelected);
+                                e.target.checked ? s.add(h.date) : s.delete(h.date);
+                                setNewHolSelected(s);
+                              }} style={{ cursor:"pointer" }} />
+                            <span style={{ fontSize:"15px" }}>{h.icon}</span>
+                            <div style={{ flex:1 }}>
+                              <input value={h.name} onChange={e => {
+                                const updated = [...holidayPreview];
+                                const idx = updated.findIndex(x => x.date===h.date && x.name===h.name);
+                                if (idx >= 0) { updated[idx] = { ...updated[idx], name: e.target.value }; setHolidayPreview(updated); }
+                              }} style={{ ...inp({ width:"100%" }), padding:"3px 8px", fontSize:"12px", fontWeight:600 }} />
+                            </div>
+                            <span style={{ fontSize:"11px", color:"#6B7A99", whiteSpace:"nowrap" }}>{new Date(h.date+"T00:00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}</span>
+                            <span style={{ fontSize:"9px", fontWeight:700, padding:"2px 6px", borderRadius:"20px", background: h.source==="state" ? "rgba(74,144,217,0.1)" : "rgba(23,143,120,0.1)", color: h.source==="state" ? "#4A90D9" : "#178F78" }}>
+                              {h.source==="state" ? "STATE" : "NATIONAL"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display:"flex", gap:"10px", alignItems:"center", marginTop:"10px" }}>
+                        <button onClick={savePublicHolidays} disabled={!canSave}
+                          style={{ background: !canSave ? "#EDE8DF" : "#178F78", color: !canSave ? "#9CA3AF" : "white", border:"none", borderRadius:"10px", padding:"8px 20px", fontSize:"12px", fontWeight:700, cursor: !canSave ? "not-allowed" : "pointer" }}>
+                          {savingHolidays ? "Saving…" : `Save ${newHolSelected.size} Selected to Calendar`}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!loadingHolidays && holidayPreview.length === 0 && !holidayMsg && (
+                    <div style={{ fontSize:"12px", color:"#9CA3AF", textAlign:"center", padding:"12px 0" }}>Select an academic year or wait for holidays to load…</div>
+                  )}
+                  {holidayMsg && (
+                    <div style={{ marginTop:"8px", fontSize:"12px", fontWeight:700, color: holidayMsg.startsWith("✓") ? "#178F78" : "#E8694A" }}>{holidayMsg}</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {(newEvent || editingEvent) && editingEvent && (
               <div style={{ background:"white", borderRadius:"16px", border:"2px solid #178F78", padding:"18px", marginBottom:"14px" }}>
@@ -718,7 +1126,7 @@ export default function AdminPage() {
                     <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>AFFECTS</label>
                     <select value={editingEvent.affects || "all"} onChange={e => setEditEvt((p:any) => ({ ...p, affects: e.target.value }))} style={inp()}>
                       <option value="all">All Classes</option>
-                      {PROGRAM_OPTIONS.map(p => <option key={p.id} value={`program:${p.id}`}>{p.label} only</option>)}
+                      {programOptions.map(p => <option key={p.id} value={`program:${p.id}`}>{p.label} only</option>)}
                     </select>
                   </div>
                   <div style={{ display:"flex", alignItems:"flex-end", paddingBottom:"2px" }}>
@@ -816,7 +1224,6 @@ export default function AdminPage() {
       </div>
 
       {/* ══ ACADEMIC YEAR TAB ══ */}
-      {tab === "academic" && <AcademicYearTab onYearChange={loadEnquiries} />}
 
       {/* ══ IMPORT TAB ══ */}
       {tab === "import" && <ExcelImport onImported={() => { loadEnquiries(); }} />}
@@ -1025,6 +1432,127 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ══ EXPENSES TAB ══ */}
+      {tab === "expenses" && (
+        <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#1A2F4A" }}>💸 Expenses</div>
+              <input type="month" value={expMonth} onChange={e => setExpMonth(e.target.value)}
+                style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"7px 12px", fontSize:"13px", outline:"none", background:"white", fontFamily:"'Quicksand',sans-serif" }} />
+            </div>
+            <button onClick={() => setShowExpForm(!showExpForm)}
+              style={{ display:"flex", alignItems:"center", gap:"6px", background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"10px 18px", fontWeight:700, fontSize:"13px", cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>
+              <Plus style={{ width:"14px", height:"14px" }} /> Add Expense
+            </button>
+          </div>
+
+          {showExpForm && (
+            <div style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", padding:"20px", marginBottom:"20px" }}>
+              <div style={{ fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>New Expense</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"12px", marginBottom:"14px" }}>
+                {[
+                  { label:"Category", field:"category", type:"select" },
+                  { label:"Title *", field:"title", type:"text", placeholder:"e.g. Teacher salaries" },
+                  { label:"Amount (₹) *", field:"amount", type:"number", placeholder:"0" },
+                  { label:"Date *", field:"date", type:"date" },
+                  { label:"Notes", field:"notes", type:"text", placeholder:"Optional", span:2 },
+                ].map((f: any) => (
+                  <div key={f.field} style={{ gridColumn: f.span ? `span ${f.span}` : undefined }}>
+                    <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"5px", textTransform:"uppercase", letterSpacing:"0.05em" }}>{f.label}</label>
+                    {f.type === "select" ? (
+                      <select value={expForm.category} onChange={e => setExpForm(p => ({ ...p, category: e.target.value }))}
+                        style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", outline:"none", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"100%", boxSizing:"border-box" as const }}>
+                        {["salaries","utilities","maintenance","supplies","repairs","events","other"].map(c =>
+                          <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>
+                        )}
+                      </select>
+                    ) : (
+                      <input type={f.type} value={(expForm as any)[f.field]} placeholder={f.placeholder}
+                        onChange={e => setExpForm(p => ({ ...p, [f.field]: e.target.value }))}
+                        style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", outline:"none", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"100%", boxSizing:"border-box" as const }} />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div style={{ display:"flex", gap:"10px" }}>
+                <button disabled={expSaving || !expForm.title || !expForm.amount} onClick={async () => {
+                  setExpSaving(true);
+                  await fetch("/api/owner/expenses", { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ ...expForm, amount:parseFloat(expForm.amount), added_by:session?.name || "admin" }) });
+                  setExpForm({ category:"salaries", title:"", amount:"", date:new Date().toISOString().split("T")[0], notes:"" });
+                  setShowExpForm(false); setExpSaving(false); loadExpenses();
+                }} style={{ background: !expForm.title || !expForm.amount ? "#ccc" : "#178F78", color:"white", border:"none", borderRadius:"12px", padding:"10px 20px", fontWeight:700, fontSize:"13px", cursor: !expForm.title || !expForm.amount ? "not-allowed" : "pointer", fontFamily:"'Quicksand',sans-serif" }}>
+                  {expSaving ? "Saving…" : "Save Expense"}
+                </button>
+                <button onClick={() => setShowExpForm(false)} style={{ background:"#EDE8DF", color:"#6B7A99", border:"none", borderRadius:"12px", padding:"10px 16px", fontSize:"13px", cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Summary cards */}
+          <div style={{ display:"flex", gap:"12px", marginBottom:"20px", flexWrap:"wrap" }}>
+            <div style={{ background:"linear-gradient(135deg,#F5B82922,#F5B82911)", border:"1px solid #F5B82944", borderRadius:"14px", padding:"16px 22px" }}>
+              <div style={{ fontSize:"11px", color:"#6B7A99", textTransform:"uppercase", letterSpacing:"0.06em" }}>Month Total</div>
+              <div style={{ fontSize:"1.6rem", fontWeight:800, color:"#F5B829" }}>₹{expenses.reduce((s,e)=>s+Number(e.amount),0).toLocaleString("en-IN")}</div>
+            </div>
+            {Object.entries(expenses.reduce((acc:Record<string,number>,e)=>{ acc[e.category]=(acc[e.category]||0)+Number(e.amount); return acc; },{})).map(([cat,amt])=>(
+              <div key={cat} style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"14px", padding:"14px 18px" }}>
+                <div style={{ fontSize:"11px", color:"#6B7A99", textTransform:"capitalize" }}>{cat}</div>
+                <div style={{ fontSize:"1.1rem", fontWeight:700, color:"#1A2F4A" }}>₹{(amt as number).toLocaleString("en-IN")}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Expenses table */}
+          <div style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", overflow:"hidden" }}>
+            {expenses.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"48px", color:"#6B7A99" }}>No expenses recorded for this month</div>
+            ) : (
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
+                <thead>
+                  <tr style={{ background:"#FAF0E8", color:"#6B7A99", fontSize:"11px", textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                    {["Date","Category","Title","Amount","Notes","Added By",""].map(h => (
+                      <th key={h} style={{ textAlign: h==="Amount" ? "right" : "left", padding:"10px 14px", fontWeight:700 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((e:any) => (
+                    <tr key={e.id} style={{ borderTop:"1px solid #EDE8DF" }}>
+                      <td style={{ padding:"11px 14px", color:"#6B7A99" }}>{new Date(e.date).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}</td>
+                      <td style={{ padding:"11px 14px" }}>
+                        <span style={{ background:"#FEF3E8", color:"#E8694A", borderRadius:"6px", padding:"2px 8px", fontSize:"11px", fontWeight:700, textTransform:"capitalize" }}>{e.category}</span>
+                      </td>
+                      <td style={{ padding:"11px 14px", fontWeight:600, color:"#1A2F4A" }}>{e.title}</td>
+                      <td style={{ padding:"11px 14px", textAlign:"right", fontWeight:700, color:"#F5B829" }}>₹{Number(e.amount).toLocaleString("en-IN")}</td>
+                      <td style={{ padding:"11px 14px", color:"#6B7A99" }}>{e.notes || "—"}</td>
+                      <td style={{ padding:"11px 14px", color:"#6B7A99", fontSize:"12px" }}>{e.added_by || "—"}</td>
+                      <td style={{ padding:"11px 14px", textAlign:"center" }}>
+                        <button onClick={async () => {
+                          if (!confirm("Delete this expense?")) return;
+                          await fetch(`/api/owner/expenses?id=${e.id}`, { method:"DELETE" });
+                          loadExpenses();
+                        }} style={{ background:"none", border:"none", cursor:"pointer", color:"#E8694A", opacity:0.7 }}>
+                          <Trash2 style={{ width:"14px", height:"14px" }} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ REPORTS TAB ══ */}
+      {tab === "reports" && (
+        <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#1A2F4A", marginBottom:"20px" }}>📊 Attendance Reports</div>
+          <AttendanceReport theme="light" />
         </div>
       )}
 

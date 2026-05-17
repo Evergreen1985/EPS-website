@@ -338,7 +338,11 @@ export default function ParentDashboardPage() {
     });
   };
 
-  const logout     = () => { localStorage.removeItem("ep_parent_session"); router.replace("/parent-login"); };
+  const logout     = async () => {
+    localStorage.removeItem("ep_parent_session");
+    await fetch("/api/auth/parent-logout", { method: "POST" }).catch(() => {});
+    router.replace("/parent-login");
+  };
   const prog       = selectedChild ? PROGRAMS[selectedChild.program_id] || PROGRAMS["nursery"] : null;
   const hasSection = !!selectedChild?.section_id;
 

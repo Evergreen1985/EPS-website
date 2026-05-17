@@ -33,6 +33,15 @@ const sectionTitle: React.CSSProperties = {
   fontWeight: 700, color: "#1A2F4A", marginBottom: "16px",
 };
 
+const INDIAN_STATES = [
+  "Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh",
+  "Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka",
+  "Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram",
+  "Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana",
+  "Tripura","Uttar Pradesh","Uttarakhand","West Bengal",
+  "Delhi","Jammu & Kashmir","Ladakh","Puducherry","Chandigarh",
+];
+
 type Settings = {
   school_name: string;
   trust_name:  string;
@@ -42,11 +51,13 @@ type Settings = {
   pan_number:  string;
   gst_number:  string;
   logo_url:    string;
+  state:       string;
 };
 
 const BLANK: Settings = {
   school_name: "", trust_name: "", address: "",
   phone: "", email: "", pan_number: "", gst_number: "", logo_url: "/logo.png",
+  state: "",
 };
 
 export default function SchoolSettingsTab() {
@@ -69,6 +80,7 @@ export default function SchoolSettingsTab() {
           pan_number:  d.pan_number  || "",
           gst_number:  d.gst_number  || "",
           logo_url:    d.logo_url    || "/logo.png",
+          state:       d.state       || "",
         };
         setForm(s);
         setOriginal(s);
@@ -118,6 +130,23 @@ export default function SchoolSettingsTab() {
             <textarea style={{ ...inp, minHeight: "64px", resize: "vertical" }}
               value={form.address} onChange={set("address")}
               placeholder="1427, 13th Cross, Ananthnagar Phase-2, Bangalore - 560100" />
+          </div>
+          <div>
+            <label style={label}>STATE</label>
+            <select style={{ ...inp, cursor: "pointer" }} value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))}>
+              <option value="">— Select State —</option>
+              {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            {form.state && (
+              <div style={{ fontSize: "11px", color: "#178F78", marginTop: "4px" }}>
+                ✓ Public holidays for <strong>{form.state}</strong> will auto-load in Calendar
+              </div>
+            )}
+            {!form.state && (
+              <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "4px" }}>
+                Used to auto-load public holidays in the Calendar tab
+              </div>
+            )}
           </div>
           <div>
             <label style={label}>PHONE</label>

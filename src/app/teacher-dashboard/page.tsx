@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Plus, Trash2 } from "lucide-react";
+import { LogOut, Plus, Trash2, MessageSquare, Send, Clock } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
 import FaceAutoTagger from "@/components/FaceAutoTagger";
 import TeacherKitTab from "@/components/TeacherKitTab";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages";
 
 const ATT_STATUS = [
   { key:"present", label:"Present", color:"#178F78", bg:"rgba(23,143,120,0.1)", icon:"✅" },
@@ -41,6 +41,18 @@ export default function TeacherDashboardPage() {
   });
   const [histTo, setHistTo] = useState(new Date().toISOString().split("T")[0]);
 
+  // Messages state
+  const [msgSubject, setMsgSubject]   = useState("");
+  const [msgBody, setMsgBody]         = useState("");
+  const [msgSending, setMsgSending]   = useState(false);
+  const [msgSent, setMsgSent]         = useState(false);
+  const [sentMessages, setSentMessages] = useState<any[]>([]);
+  const [msgLoading, setMsgLoading]   = useState(false);
+
+  // Clock in/out state
+  const [clockRecord, setClockRecord] = useState<any>(null);
+  const [clockLoading, setClockLoading] = useState(false);
+
   const today = new Date().toISOString().split("T")[0];
   const todayFmt = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
 
@@ -74,7 +86,33 @@ export default function TeacherDashboardPage() {
     if (session?.sectionId) loadData(session.sectionId);
   }, [session, loadData]);
 
-  const logout = () => { localStorage.removeItem("ep_teacher_session"); router.push("/teacher-login"); };
+  // Load clock record for today
+  const loadClockRecord = useCallback(async (name: string) => {
+    const r = await fetch(`/api/teacher/clock?staffName=${encodeURIComponent(name)}`);
+    if (r.ok) { const d = await r.json(); setClockRecord(d.record); }
+  }, []);
+
+  useEffect(() => {
+    if (session?.name) loadClockRecord(session.name);
+  }, [session, loadClockRecord]);
+
+  // Load sent messages
+  const loadMessages = useCallback(async (name: string) => {
+    setMsgLoading(true);
+    const r = await fetch(`/api/teacher/messages?teacherName=${encodeURIComponent(name)}`);
+    if (r.ok) { const d = await r.json(); setSentMessages(d.messages || []); }
+    setMsgLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (tab === "messages" && session?.name) loadMessages(session.name);
+  }, [tab, session, loadMessages]);
+
+  const logout = async () => {
+    localStorage.removeItem("ep_teacher_session");
+    await fetch("/api/teacher/logout", { method: "POST" }).catch(() => {});
+    router.push("/teacher-login");
+  };
 
   const loadAttHistory = useCallback(async () => {
     if (!session?.sectionId) return;
@@ -143,6 +181,37 @@ export default function TeacherDashboardPage() {
     loadData(session.sectionId);
   };
 
+  // ── Send message to owner ─────────────────────────────
+  const sendMessage = async () => {
+    if (!msgSubject.trim() || !msgBody.trim()) return;
+    setMsgSending(true);
+    await fetch("/api/teacher/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_teacher_id: session.id,
+        from_teacher_name: session.name,
+        from_section: session.sectionName,
+        subject: msgSubject.trim(),
+        message: msgBody.trim(),
+      }),
+    });
+    setMsgSubject(""); setMsgBody(""); setMsgSent(true);
+    setTimeout(() => setMsgSent(false), 3000);
+    setMsgSending(false);
+    loadMessages(session.name);
+  };
+
+  // ── Clock in / out ────────────────────────────────────
+  const handleClock = async (action: "in" | "out") => {
+    setClockLoading(true);
+    await fetch("/api/teacher/clock", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, staff_id: session.id, staff_name: session.name }),
+    });
+    loadClockRecord(session.name);
+    setClockLoading(false);
+  };
+
   const inp = { border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", outline:"none", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"100%", boxSizing:"border-box" as const };
 
   const presentCount = Object.values(attendance).filter(s => s === "present").length;
@@ -198,6 +267,7 @@ export default function TeacherDashboardPage() {
             { key:"students",   icon:"👶", label:"Students" },
             { key:"photos",     icon:"📸", label:"Photos" },
             { key:"kit",        icon:"🎒", label:"Kit" },
+            { key:"messages",   icon:"💬", label:"Messages" },
           ] as const).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{ flex:1, padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px" }}>
@@ -519,6 +589,96 @@ export default function TeacherDashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ══ MESSAGES TAB ══ */}
+        {tab === "messages" && (
+          <div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>💬 Messages to Owner</div>
+
+            {/* Clock in/out */}
+            <div style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", padding:"16px", marginBottom:"20px", display:"flex", alignItems:"center", gap:"16px" }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>Staff Attendance — Today</div>
+                {clockRecord ? (
+                  <div style={{ fontSize:"12px", color:"#6B7A99", marginTop:"4px" }}>
+                    Clock In: <strong>{clockRecord.clock_in ? new Date(clockRecord.clock_in).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) : "—"}</strong>
+                    {" · "}
+                    Clock Out: <strong>{clockRecord.clock_out ? new Date(clockRecord.clock_out).toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}) : "—"}</strong>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:"12px", color:"#6B7A99", marginTop:"4px" }}>Not clocked in yet</div>
+                )}
+              </div>
+              <button
+                onClick={() => handleClock("in")}
+                disabled={clockLoading || !!clockRecord?.clock_in}
+                style={{ padding:"9px 18px", borderRadius:"12px", border:"none", background: clockRecord?.clock_in ? "#E8F5F0" : "#178F78", color: clockRecord?.clock_in ? "#178F78" : "white", fontWeight:700, fontSize:"12px", cursor: clockRecord?.clock_in ? "default" : "pointer", fontFamily:"'Quicksand',sans-serif" }}
+              >
+                {clockRecord?.clock_in ? "✅ Clocked In" : "🕐 Clock In"}
+              </button>
+              <button
+                onClick={() => handleClock("out")}
+                disabled={clockLoading || !clockRecord?.clock_in || !!clockRecord?.clock_out}
+                style={{ padding:"9px 18px", borderRadius:"12px", border:"none", background: clockRecord?.clock_out ? "#FEF3E8" : clockRecord?.clock_in ? "#E8694A" : "rgba(0,0,0,0.07)", color: clockRecord?.clock_out ? "#E8694A" : clockRecord?.clock_in ? "white" : "#999", fontWeight:700, fontSize:"12px", cursor: (!clockRecord?.clock_in || !!clockRecord?.clock_out) ? "default" : "pointer", fontFamily:"'Quicksand',sans-serif" }}
+              >
+                {clockRecord?.clock_out ? "✅ Clocked Out" : "🕐 Clock Out"}
+              </button>
+            </div>
+
+            {/* New message form */}
+            <div style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", padding:"20px", marginBottom:"20px" }}>
+              <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"14px" }}>Send Message to Owner</div>
+              {msgSent && (
+                <div style={{ background:"rgba(23,143,120,0.1)", border:"1px solid rgba(23,143,120,0.3)", borderRadius:"10px", padding:"10px 14px", color:"#178F78", fontSize:"13px", marginBottom:"12px" }}>
+                  Message sent successfully!
+                </div>
+              )}
+              <div style={{ marginBottom:"12px" }}>
+                <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"6px", textTransform:"uppercase", letterSpacing:"0.05em" }}>Subject *</label>
+                <input value={msgSubject} onChange={e => setMsgSubject(e.target.value)} placeholder="e.g. Maintenance issue in classroom" style={inp} />
+              </div>
+              <div style={{ marginBottom:"16px" }}>
+                <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"6px", textTransform:"uppercase", letterSpacing:"0.05em" }}>Message *</label>
+                <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder="Describe the issue or update…" rows={4} style={{ ...inp, resize:"vertical" }} />
+              </div>
+              <button
+                onClick={sendMessage}
+                disabled={msgSending || !msgSubject.trim() || !msgBody.trim()}
+                style={{ display:"flex", alignItems:"center", gap:"8px", padding:"10px 20px", borderRadius:"12px", border:"none", background: msgSending || !msgSubject.trim() || !msgBody.trim() ? "#E8E0D8" : "#178F78", color: msgSending || !msgSubject.trim() || !msgBody.trim() ? "#999" : "white", fontWeight:700, fontSize:"13px", cursor: msgSending ? "wait" : "pointer", fontFamily:"'Quicksand',sans-serif" }}
+              >
+                <Send size={14} /> {msgSending ? "Sending…" : "Send to Owner"}
+              </button>
+            </div>
+
+            {/* Sent messages history */}
+            <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A", marginBottom:"12px" }}>Sent Messages</div>
+            {msgLoading ? (
+              <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99" }}>Loading…</div>
+            ) : sentMessages.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>No messages sent yet</div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+                {sentMessages.map((m: any) => (
+                  <div key={m.id} style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"14px", padding:"16px" }}>
+                    <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{m.subject}</div>
+                    <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px", marginBottom:"10px" }}>
+                      {new Date(m.created_at).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+                      {" · "}{m.read_by_owner ? "✅ Read" : "⏳ Unread"}
+                    </div>
+                    <div style={{ fontSize:"13px", color:"#4A5568", background:"#FAF0E8", borderRadius:"8px", padding:"10px", lineHeight:1.6 }}>{m.message}</div>
+                    {m.owner_reply && (
+                      <div style={{ marginTop:"10px", borderLeft:"3px solid #178F78", paddingLeft:"12px" }}>
+                        <div style={{ fontSize:"11px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>Owner replied:</div>
+                        <div style={{ fontSize:"13px", color:"#4A5568", lineHeight:1.6 }}>{m.owner_reply}</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { signTeacherSession, TEACHER_COOKIE_NAME, TEACHER_MAX_AGE } from "@/lib/teacherSession";
 
 function sb() {
   return createClient(
@@ -61,7 +62,18 @@ export async function POST(req: Request) {
     // Update last login (fire-and-forget)
     sb().from("teacher_accounts").update({ last_login: new Date().toISOString() }).eq("id", data.id).then(() => {});
 
-    return NextResponse.json({
+    const token = await signTeacherSession({
+      id:           data.id,
+      username:     data.username,
+      name:         data.name,
+      sectionId:    data.section_id    || "",
+      sectionName:  data.section_name  || "",
+      programId:    data.program_id    || "",
+      programLabel: data.program_label || "",
+      role:         data.role          || "teacher",
+    });
+
+    const res = NextResponse.json({
       success:      true,
       id:           data.id,
       name:         data.name,
@@ -72,6 +84,11 @@ export async function POST(req: Request) {
       programLabel: data.program_label,
       role:         data.role,
     });
+    res.cookies.set(TEACHER_COOKIE_NAME, token, {
+      httpOnly: true, secure: process.env.NODE_ENV === "production",
+      sameSite: "lax", maxAge: TEACHER_MAX_AGE, path: "/",
+    });
+    return res;
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

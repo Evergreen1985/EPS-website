@@ -10,14 +10,19 @@ function sb() {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get("month"); // format: 2026-04
+  const month   = searchParams.get("month");    // format: 2026-04
+  const year    = searchParams.get("year");     // format: 2026
+  const yearEnd = searchParams.get("yearEnd");  // format: 2027 (for academic year range)
   let query = sb().from("calendar_events").select("*").order("event_date");
   if (month) {
     const [y, m] = month.split("-").map(Number);
-    const lastDay = new Date(y, m, 0).getDate(); // gets actual last day of month
+    const lastDay = new Date(y, m, 0).getDate();
     query = query
       .gte("event_date", `${month}-01`)
       .lte("event_date", `${month}-${String(lastDay).padStart(2,"0")}`);
+  } else if (year) {
+    const endYear = yearEnd || year;
+    query = query.gte("event_date", `${year}-01-01`).lte("event_date", `${endYear}-12-31`);
   }
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

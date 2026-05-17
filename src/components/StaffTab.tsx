@@ -46,7 +46,9 @@ export default function StaffTab() {
   const [modal, setModal]           = useState<any>(null);
   const [form, setForm]             = useState(blankForm());
   const [saving, setSaving]         = useState(false);
+  const [saveError, setSaveError]   = useState("");
   const [filterRole, setFilterRole] = useState("All");
+  const [roles, setRoles]           = useState<string[]>(ROLES);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +66,13 @@ export default function StaffTab() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Load custom roles from owner
+  useEffect(() => {
+    fetch("/api/owner/roles").then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.roles?.length) setRoles(d.roles.map((r: any) => r.name));
+    }).catch(() => {});
+  }, []);
 
   const openNew = () => {
     setForm(blankForm());
@@ -86,14 +95,21 @@ export default function StaffTab() {
   };
 
   const save = async () => {
+    if (!form.name.trim()) { setSaveError("Name is required"); return; }
     setSaving(true);
+    setSaveError("");
     const payload = modal?.id ? { id: modal.id, ...form } : form;
-    const res     = await fetch("/api/staff", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (data.success) { setModal(null); load(); }
+    try {
+      const res  = await fetch("/api/staff", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.success) { setModal(null); load(); }
+      else setSaveError(data.error || "Failed to save — please try again");
+    } catch (e: any) {
+      setSaveError("Network error: " + e.message);
+    }
     setSaving(false);
   };
 
@@ -118,7 +134,7 @@ export default function StaffTab() {
       {/* Header row */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-          {["All", ...ROLES].map(r => (
+          {["All", ...roles].map(r => (
             <button key={r} onClick={() => setFilterRole(r)}
               style={{ padding: "5px 12px", borderRadius: "20px", border: "none", cursor: "pointer", fontSize: "11px", fontWeight: 700,
                 background: filterRole === r ? (ROLE_COLORS[r] || "#178F78") : "#EDE8DF",
@@ -190,7 +206,7 @@ export default function StaffTab() {
               <div>
                 <label style={lbl}>ROLE *</label>
                 <select style={inp} value={form.role} onChange={set("role")}>
-                  {ROLES.map(r => <option key={r}>{r}</option>)}
+                  {roles.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
               <div>
@@ -247,7 +263,12 @@ export default function StaffTab() {
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+            {saveError && (
+              <div style={{ background: "rgba(232,105,74,0.1)", border: "1px solid rgba(232,105,74,0.3)", borderRadius: "10px", padding: "10px 14px", color: "#E8694A", fontSize: "13px", marginTop: "14px" }}>
+                {saveError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
               <button onClick={save} disabled={saving || !form.name}
                 style={{ flex: 1, background: saving || !form.name ? "#ccc" : "#178F78", color: "white", border: "none", borderRadius: "12px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: saving || !form.name ? "not-allowed" : "pointer", fontFamily: "'Quicksand', sans-serif", boxShadow: "0 4px 14px rgba(23,143,120,0.3)" }}>
                 {saving ? "Saving…" : modal?.id ? "💾 Update Profile" : "➕ Add Staff"}

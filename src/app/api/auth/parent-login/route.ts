@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { signParentSession, PARENT_COOKIE_NAME, PARENT_MAX_AGE } from "@/lib/parentSession";
 
 function sb() {
   return createClient(
@@ -138,13 +139,24 @@ export async function POST(req: Request) {
       // Update last login (fire-and-forget)
       client.from("parent_accounts").update({ last_login: new Date().toISOString() }).eq("phone", phoneClean).then(() => {});
 
-      return NextResponse.json({
+      const token = await signParentSession({
+        phone:     phoneClean,
+        childName: account.child_name || "",
+        enquiryId: account.enquiry_id || "",
+      });
+
+      const res = NextResponse.json({
         success:   true,
         phone:     phoneClean,
         childName: account.child_name,
         studentId: account.student_id,
         enquiryId: account.enquiry_id,
       });
+      res.cookies.set(PARENT_COOKIE_NAME, token, {
+        httpOnly: true, secure: process.env.NODE_ENV === "production",
+        sameSite: "lax", maxAge: PARENT_MAX_AGE, path: "/",
+      });
+      return res;
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
