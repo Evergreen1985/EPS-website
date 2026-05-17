@@ -12,6 +12,7 @@ import AcademicYearTab    from "@/components/AcademicYearTab";
 import ExcelImport        from "@/components/ExcelImport";
 import KitBulkManager     from "@/components/KitBulkManager";
 import AttendanceReport   from "@/components/AttendanceReport";
+import SitePhotosManager  from "@/components/SitePhotosManager";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -480,6 +481,11 @@ export default function AdminPage() {
       <div style={{ background:"#1A2F4A", padding:"0 24px", display:"flex", alignItems:"center", gap:"16px", height:"56px" }}>
         <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"white", flex:1 }}>🌿 Evergreen Admin</div>
         <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.6)" }}>Welcome, {session.name}</div>
+        {allowedTabs && (
+          <a href="/teacher-dashboard" style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.1)", borderRadius:"20px", padding:"5px 12px", color:"white", fontSize:"11px", fontWeight:600, textDecoration:"none" }}>
+            👩‍🏫 Staff Dashboard
+          </a>
+        )}
         <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.1)", border:"none", borderRadius:"20px", padding:"5px 12px", color:"white", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
           <LogOut style={{ width:"13px", height:"13px" }} /> Logout
         </button>
@@ -1193,32 +1199,38 @@ export default function AdminPage() {
 
         {/* ══ PHOTOS TAB ══ */}
         {tab === "photos" && (
-          <div>
-            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>📸 Upload Class Photos</div>
-            <div style={{ marginBottom:"14px" }}>
-              <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase", display:"block", marginBottom:"6px" }}>Select Section to Upload For</label>
-              <select onChange={e => {
-                const sec = sections.find(s => s.id === e.target.value);
-                if (sec) setEditSec(sec); else setEditSec(null);
-              }} style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"280px" }}>
-                <option value="">— Choose section —</option>
-                {sections.map(s => <option key={s.id} value={s.id}>{s.name} ({s.program_label})</option>)}
-              </select>
-            </div>
-            {editingSection && (
-              <PhotoUploader
-                sectionId={editingSection.id}
-                sectionName={editingSection.name}
-                uploadedBy="Admin"
-                uploadedByRole="admin"
-                children={enquiries.filter(e => e.section_id === editingSection.id).map(e => ({ id: e.id, child_name: e.child_name }))}
-              />
-            )}
-            {!editingSection && (
-              <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
-                Select a section above to upload photos for that class.
+          <div style={{ display:"flex", flexDirection:"column", gap:"28px" }}>
+            {/* ── Website display photos ── */}
+            <SitePhotosManager />
+
+            {/* ── Class photos (existing) ── */}
+            <div>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"16px" }}>📸 Upload Class Photos</div>
+              <div style={{ marginBottom:"14px" }}>
+                <label style={{ fontSize:"11px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase", display:"block", marginBottom:"6px" }}>Select Section to Upload For</label>
+                <select onChange={e => {
+                  const sec = sections.find(s => s.id === e.target.value);
+                  if (sec) setEditSec(sec); else setEditSec(null);
+                }} style={{ border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"280px" }}>
+                  <option value="">— Choose section —</option>
+                  {sections.map(s => <option key={s.id} value={s.id}>{s.name} ({s.program_label})</option>)}
+                </select>
               </div>
-            )}
+              {editingSection && (
+                <PhotoUploader
+                  sectionId={editingSection.id}
+                  sectionName={editingSection.name}
+                  uploadedBy="Admin"
+                  uploadedByRole="admin"
+                  children={enquiries.filter(e => e.section_id === editingSection.id).map(e => ({ id: e.id, child_name: e.child_name }))}
+                />
+              )}
+              {!editingSection && (
+                <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
+                  Select a section above to upload photos for that class.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

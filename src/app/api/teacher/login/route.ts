@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import { signTeacherSession, TEACHER_COOKIE_NAME, TEACHER_MAX_AGE } from "@/lib/teacherSession";
+import { signSession as signAdminSession, COOKIE_NAME as ADMIN_COOKIE_NAME, MAX_AGE_SECONDS as ADMIN_MAX_AGE } from "@/lib/adminSession";
 
 function sb() {
   return createClient(
@@ -73,21 +74,56 @@ export async function POST(req: Request) {
       role:         data.role          || "teacher",
     });
 
+    // Fetch role permissions to determine dashboard access
+    const roleName = data.role || "Teacher";
+    const { data: roleData } = await sb()
+      .from("staff_roles")
+      .select("permissions")
+      .eq("name", roleName)
+      .maybeSingle();
+
+    const allPerms: string[] = roleData?.permissions || [];
+    const adminTabs = allPerms.filter((p: string) => !p.startsWith("td:"));
+    const tdTabs    = allPerms.filter((p: string) => p.startsWith("td:"));
+
+    // Redirect: admin panel if they have admin tabs; teacher dashboard otherwise
+    const redirectTo = adminTabs.length > 0 && tdTabs.length === 0 ? "/admin" : "/teacher-dashboard";
+
     const res = NextResponse.json({
-      success:      true,
-      id:           data.id,
-      name:         data.name,
-      username:     data.username,
-      sectionId:    data.section_id,
-      sectionName:  data.section_name,
-      programId:    data.program_id,
-      programLabel: data.program_label,
-      role:         data.role,
+      success:        true,
+      id:             data.id,
+      name:           data.name,
+      username:       data.username,
+      sectionId:      data.section_id,
+      sectionName:    data.section_name,
+      programId:      data.program_id,
+      programLabel:   data.program_label,
+      role:           data.role,
+      hasAdminAccess: adminTabs.length > 0,
+      adminTabs,
+      tdTabs,
+      redirectTo,
     });
+
     res.cookies.set(TEACHER_COOKIE_NAME, token, {
       httpOnly: true, secure: process.env.NODE_ENV === "production",
       sameSite: "lax", maxAge: TEACHER_MAX_AGE, path: "/",
     });
+
+    // Also mint an admin cookie if this staff member has admin tab permissions
+    if (adminTabs.length > 0) {
+      const adminToken = await signAdminSession({
+        username:    data.username,
+        name:        data.name,
+        role:        roleName,
+        permissions: adminTabs,
+      });
+      res.cookies.set(ADMIN_COOKIE_NAME, adminToken, {
+        httpOnly: true, secure: process.env.NODE_ENV === "production",
+        sameSite: "lax", maxAge: ADMIN_MAX_AGE, path: "/",
+      });
+    }
+
     return res;
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });

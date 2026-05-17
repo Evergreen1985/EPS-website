@@ -49,6 +49,15 @@ const ALL_ADMIN_TABS = [
   { key: "reports",       label: "📊 Reports"        },
 ];
 
+const ALL_TD_TABS = [
+  { key: "td:attendance", label: "📅 Attendance" },
+  { key: "td:homework",   label: "📚 Homework"   },
+  { key: "td:students",   label: "👶 Students"   },
+  { key: "td:photos",     label: "📸 Photos"     },
+  { key: "td:kit",        label: "🎒 Kit"        },
+  { key: "td:messages",   label: "💬 Messages"   },
+];
+
 // ── Styles ────────────────────────────────────────────────────────────────────
 const card = (extra?: object) => ({
   background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
@@ -116,6 +125,13 @@ export default function OwnerDashboard() {
   const [editingRole, setEditingRole] = useState<string | null>(null);
   const [editRoleVal, setEditRoleVal] = useState({ name: "", color: "", permissions: [] as string[] });
 
+  // Login management state
+  const [teacherAccounts, setTeacherAccounts] = useState<Record<string, { id: string; username: string }>>({});
+  const [loginModal, setLoginModal] = useState<{ name: string; phone: string; role: string; action: "create" | "reset" } | null>(null);
+  const [loginWorking, setLoginWorking] = useState(false);
+  const [loginCreds, setLoginCreds] = useState<{ username: string; password: string; waUrl: string | null } | null>(null);
+  const [loginError, setLoginError] = useState("");
+
   // Cleanup state
   const [cleanupMeta, setCleanupMeta]       = useState<{ tables: Record<string, any>; counts: Record<string, number>; errors?: Record<string, string> } | null>(null);
   const [cleanupSelected, setCleanupSelected] = useState<Set<string>>(new Set());
@@ -163,8 +179,17 @@ export default function OwnerDashboard() {
 
   const fetchStaff = useCallback(async () => {
     setLoad("staff", true);
-    const r = await fetch(`/api/owner/staff-attendance?date=${staffDate}`, { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); setStaffList(d.staff || []); }
+    const [sr, lr] = await Promise.all([
+      fetch(`/api/owner/staff-attendance?date=${staffDate}`, { cache: "no-store" }),
+      fetch("/api/owner/staff-login", { cache: "no-store" }),
+    ]);
+    if (sr.ok) { const d = await sr.json(); setStaffList(d.staff || []); }
+    if (lr.ok) {
+      const d = await lr.json();
+      const map: Record<string, { id: string; username: string }> = {};
+      (d.accounts || []).forEach((a: any) => { map[a.name] = { id: a.id, username: a.username }; });
+      setTeacherAccounts(map);
+    }
     setLoad("staff", false);
   }, [staffDate]);
 
@@ -289,6 +314,25 @@ export default function OwnerDashboard() {
       next.has(table) ? next.delete(table) : next.add(table);
       return next;
     });
+  };
+
+  // ── Login management ──────────────────────────────────────────────────────
+  const handleLoginAction = async () => {
+    if (!loginModal) return;
+    setLoginWorking(true); setLoginError(""); setLoginCreds(null);
+    try {
+      const res = await fetch("/api/owner/staff-login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: loginModal.action, name: loginModal.name, phone: loginModal.phone, role: loginModal.role }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) { setLoginError(d.error || "Failed"); }
+      else {
+        setLoginCreds({ username: d.username, password: d.password, waUrl: d.waUrl });
+        fetchStaff();
+      }
+    } catch { setLoginError("Network error"); }
+    setLoginWorking(false);
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -732,14 +776,16 @@ export default function OwnerDashboard() {
                       <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Clock In</th>
                       <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Clock Out</th>
                       <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Status</th>
-                      <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Actions</th>
+                      <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Portal Login</th>
+                      <th style={{ textAlign: "left", padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Attendance</th>
                     </tr>
                   </thead>
                   <tbody>
                     {staffList.map((s: any) => {
-                      const att = s.attendance;
-                      const status = att?.status || "unmarked";
-                      const color = status === "present" ? "#178F78" : status === "absent" ? "#E8694A" : status === "leave" ? "#9B59B6" : status === "half_day" ? "#F5B829" : "#888";
+                      const att     = s.attendance;
+                      const status  = att?.status || "unmarked";
+                      const color   = status === "present" ? "#178F78" : status === "absent" ? "#E8694A" : status === "leave" ? "#9B59B6" : status === "half_day" ? "#F5B829" : "#888";
+                      const account = teacherAccounts[s.name];
                       return (
                         <tr key={s.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                           <td style={{ padding: "10px 12px", fontWeight: 600 }}>{s.name}</td>
@@ -748,6 +794,22 @@ export default function OwnerDashboard() {
                           <td style={{ padding: "10px 12px", color: "rgba(255,255,255,0.55)" }}>{att?.clock_out ? fmtTime(att.clock_out) : "—"}</td>
                           <td style={{ padding: "10px 12px" }}>
                             <span style={{ background: `${color}22`, color, borderRadius: "6px", padding: "3px 10px", fontSize: "11px", fontWeight: 700, textTransform: "capitalize" }}>{status.replace("_", " ")}</span>
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            {account ? (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ fontSize: "11px", color: "#4ade80", fontFamily: "monospace" }}>@{account.username}</span>
+                                <button onClick={() => { setLoginModal({ name: s.name, phone: s.phone || "", role: s.role, action: "reset" }); setLoginCreds(null); setLoginError(""); }}
+                                  style={{ padding: "3px 8px", borderRadius: "6px", border: "none", fontSize: "10px", fontWeight: 700, cursor: "pointer", background: "rgba(245,184,41,0.15)", color: "#F5B829" }}>
+                                  Reset Password
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => { setLoginModal({ name: s.name, phone: s.phone || "", role: s.role, action: "create" }); setLoginCreds(null); setLoginError(""); }}
+                                style={{ padding: "4px 10px", borderRadius: "6px", border: "none", fontSize: "10px", fontWeight: 700, cursor: "pointer", background: "rgba(23,143,120,0.2)", color: "#4ade80" }}>
+                                + Create Login
+                              </button>
+                            )}
                           </td>
                           <td style={{ padding: "10px 12px" }}>
                             <div style={{ display: "flex", gap: "6px" }}>
@@ -766,6 +828,70 @@ export default function OwnerDashboard() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── LOGIN MANAGEMENT MODAL ─────────────────────────────────────────── */}
+        {loginModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+            <div style={{ background: "#1a2744", borderRadius: "20px", padding: "28px", width: "100%", maxWidth: "420px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              {loginCreds ? (
+                <>
+                  <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                    <div style={{ fontSize: "36px", marginBottom: "8px" }}>✅</div>
+                    <div style={{ fontFamily: "'Fredoka',sans-serif", fontSize: "18px", fontWeight: 700, color: "white" }}>
+                      {loginModal.action === "create" ? "Login Created!" : "Password Reset!"}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginTop: "4px" }}>Share these credentials with {loginModal.name}</div>
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "14px", padding: "16px", marginBottom: "16px" }}>
+                    <div style={{ display: "grid", gap: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>Username</span>
+                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: "white", background: "rgba(255,255,255,0.1)", padding: "2px 10px", borderRadius: "6px" }}>{loginCreds.username}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)" }}>Password</span>
+                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#4ade80", background: "rgba(74,222,128,0.1)", padding: "2px 10px", borderRadius: "6px" }}>{loginCreds.password}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {loginCreds.waUrl && (
+                      <a href={loginCreds.waUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", background: "#25D366", color: "white", borderRadius: "12px", padding: "12px", fontWeight: 700, fontSize: "14px", textDecoration: "none" }}>
+                        💬 Send via WhatsApp
+                      </a>
+                    )}
+                    <button onClick={() => setLoginModal(null)} style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: "12px", padding: "11px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>Done</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontFamily: "'Fredoka',sans-serif", fontSize: "18px", fontWeight: 700, color: "white", marginBottom: "6px" }}>
+                    {loginModal.action === "create" ? "Create Login Account" : "Reset Password to Default"}
+                  </div>
+                  <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.55)", marginBottom: "20px" }}>
+                    {loginModal.action === "create"
+                      ? `Create a teacher portal login for ${loginModal.name}`
+                      : `Reset ${loginModal.name}'s password back to the default`}
+                  </div>
+                  <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px", padding: "14px", marginBottom: "20px", fontSize: "13px" }}>
+                    <div style={{ color: "rgba(255,255,255,0.5)", marginBottom: "6px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.05em" }}>Default password formula</div>
+                    <code style={{ color: "#4ade80", fontFamily: "monospace" }}>Evergreen@{loginModal.phone ? loginModal.phone.replace(/\D/g,"").slice(-4) || "XXXX" : "XXXX"}</code>
+                    {!loginModal.phone && <div style={{ fontSize: "11px", color: "#F5B829", marginTop: "6px" }}>⚠️ No phone on record — will use 1234 as last 4 digits</div>}
+                  </div>
+                  {loginError && <div style={{ background: "rgba(220,38,38,0.15)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "10px", padding: "10px 14px", color: "#f87171", fontSize: "12px", marginBottom: "14px" }}>{loginError}</div>}
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button onClick={handleLoginAction} disabled={loginWorking}
+                      style={{ flex: 1, background: loginWorking ? "rgba(255,255,255,0.1)" : loginModal.action === "reset" ? "linear-gradient(135deg,#F5B829,#e5a820)" : "linear-gradient(135deg,#178F78,#0f6b5a)", color: "white", border: "none", borderRadius: "12px", padding: "12px", fontSize: "14px", fontWeight: 700, cursor: loginWorking ? "not-allowed" : "pointer" }}>
+                      {loginWorking ? "Working…" : loginModal.action === "create" ? "Create Login" : "Reset Password"}
+                    </button>
+                    <button onClick={() => setLoginModal(null)} style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "none", borderRadius: "12px", padding: "12px 16px", fontSize: "13px", cursor: "pointer" }}>Cancel</button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         )}
 
@@ -880,13 +1006,13 @@ export default function OwnerDashboard() {
           <div>
             <div style={{ fontWeight: 700, fontSize: "15px", marginBottom: "6px" }}>Staff Roles</div>
             <div style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)", marginBottom: "20px" }}>
-              Define roles and set which admin tabs each role can access. Admin can then assign these roles when adding staff.
+              Define roles and configure which tabs each role sees in the <strong style={{ color: "rgba(255,255,255,0.7)" }}>Staff Dashboard</strong> (teacher portal) and the <strong style={{ color: "rgba(255,255,255,0.7)" }}>Admin Panel</strong>. Admin assigns roles when adding staff.
             </div>
 
             {/* Add role form */}
             <div style={card({ marginBottom: "20px" })}>
               <div style={{ fontWeight: 700, marginBottom: "14px" }}>Add New Role</div>
-              <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "16px" }}>
+              <div style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "20px" }}>
                 <div style={{ flex: 1, minWidth: "180px" }}>
                   <label style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", display: "block", marginBottom: "6px" }}>Role Name *</label>
                   <input value={roleForm.name} onChange={e => setRoleForm(p => ({ ...p, name: e.target.value }))}
@@ -900,19 +1026,40 @@ export default function OwnerDashboard() {
                 </div>
               </div>
 
-              {/* Tab access checkboxes */}
-              <div style={{ marginBottom: "16px" }}>
+              {/* Staff Dashboard Tabs */}
+              <div style={{ marginBottom: "18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
-                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Admin Tab Access</span>
-                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }}>Select which tabs this role can see in the admin dashboard</span>
-                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: ALL_ADMIN_TABS.map(t => t.key) }))}
-                    style={{ marginLeft: "auto", fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>
-                    All
-                  </button>
-                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: [] }))}
-                    style={{ fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>
-                    None
-                  </button>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>Staff Dashboard Tabs</span>
+                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }}>What staff see in the teacher portal</span>
+                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: [...p.permissions.filter(k => !k.startsWith("td:")), ...ALL_TD_TABS.map(t => t.key)] }))}
+                    style={{ marginLeft: "auto", fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>All</button>
+                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: p.permissions.filter(k => !k.startsWith("td:")) }))}
+                    style={{ fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>None</button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(145px, 1fr))", gap: "6px" }}>
+                  {ALL_TD_TABS.map(t => {
+                    const checked = roleForm.permissions.includes(t.key);
+                    return (
+                      <label key={t.key} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "7px 10px", borderRadius: "8px", cursor: "pointer", background: checked ? "rgba(23,143,120,0.2)" : "rgba(255,255,255,0.04)", border: `1px solid ${checked ? "rgba(23,143,120,0.5)" : "rgba(255,255,255,0.07)"}`, transition: "all 0.12s" }}>
+                        <input type="checkbox" checked={checked}
+                          onChange={e => setRoleForm(p => ({ ...p, permissions: e.target.checked ? [...p.permissions, t.key] : p.permissions.filter(k => k !== t.key) }))}
+                          style={{ accentColor: "#178F78", cursor: "pointer", width: "14px", height: "14px" }} />
+                        <span style={{ fontSize: "12px", color: checked ? "white" : "rgba(255,255,255,0.5)" }}>{t.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Admin Panel Tabs */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", fontWeight: 700 }}>Admin Panel Tabs</span>
+                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.3)" }}>Which admin dashboard tabs this role can access</span>
+                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: [...p.permissions.filter(k => k.startsWith("td:")), ...ALL_ADMIN_TABS.map(t => t.key)] }))}
+                    style={{ marginLeft: "auto", fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>All</button>
+                  <button onClick={() => setRoleForm(p => ({ ...p, permissions: p.permissions.filter(k => k.startsWith("td:")) }))}
+                    style={{ fontSize: "11px", background: "none", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.45)", borderRadius: "6px", padding: "3px 10px", cursor: "pointer" }}>None</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(165px, 1fr))", gap: "6px" }}>
                   {ALL_ADMIN_TABS.map(t => {
@@ -953,12 +1100,15 @@ export default function OwnerDashboard() {
               <div style={card()}>
                 <div style={{ fontWeight: 700, marginBottom: "14px" }}>Defined Roles ({rolesList.length})</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {rolesList.map((r: any) => (
+                  {rolesList.map((r: any) => {
+                    const tdPerms    = (r.permissions || []).filter((k: string) => k.startsWith("td:"));
+                    const adminPerms = (r.permissions || []).filter((k: string) => !k.startsWith("td:"));
+                    return (
                     <div key={r.id} style={{ padding: "14px", background: "rgba(255,255,255,0.04)", borderRadius: "12px", border: `1px solid ${editingRole === r.id ? "rgba(46,107,181,0.5)" : "rgba(255,255,255,0.07)"}` }}>
                       {editingRole === r.id ? (
                         <div>
                           {/* Edit header row */}
-                          <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "14px" }}>
+                          <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "16px" }}>
                             <input type="color" value={editRoleVal.color}
                               onChange={e => setEditRoleVal(p => ({ ...p, color: e.target.value }))}
                               style={{ width: "36px", height: "36px", borderRadius: "8px", border: "none", background: "none", cursor: "pointer", padding: "2px", flexShrink: 0 }} />
@@ -967,18 +1117,39 @@ export default function OwnerDashboard() {
                               style={{ ...inputStyle, flex: 1 }}
                               autoFocus />
                           </div>
-                          {/* Permissions grid */}
-                          <div style={{ marginBottom: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontWeight: 700 }}>Admin Tab Access</span>
-                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: ALL_ADMIN_TABS.map(t => t.key) }))}
-                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>
-                                All
-                              </button>
-                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: [] }))}
-                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>
-                                None
-                              </button>
+
+                          {/* Staff Dashboard Tabs */}
+                          <div style={{ marginBottom: "14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Staff Dashboard Tabs</span>
+                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: [...p.permissions.filter(k => !k.startsWith("td:")), ...ALL_TD_TABS.map(t => t.key)] }))}
+                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>All</button>
+                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: p.permissions.filter(k => !k.startsWith("td:")) }))}
+                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>None</button>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "5px" }}>
+                              {ALL_TD_TABS.map(t => {
+                                const checked = editRoleVal.permissions.includes(t.key);
+                                return (
+                                  <label key={t.key} style={{ display: "flex", alignItems: "center", gap: "7px", padding: "6px 9px", borderRadius: "7px", cursor: "pointer", background: checked ? "rgba(23,143,120,0.18)" : "rgba(255,255,255,0.03)", border: `1px solid ${checked ? "rgba(23,143,120,0.45)" : "rgba(255,255,255,0.06)"}` }}>
+                                    <input type="checkbox" checked={checked}
+                                      onChange={e => setEditRoleVal(p => ({ ...p, permissions: e.target.checked ? [...p.permissions, t.key] : p.permissions.filter(k => k !== t.key) }))}
+                                      style={{ accentColor: "#178F78", cursor: "pointer", width: "13px", height: "13px" }} />
+                                    <span style={{ fontSize: "11px", color: checked ? "white" : "rgba(255,255,255,0.45)" }}>{t.label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Admin Panel Tabs */}
+                          <div style={{ marginBottom: "14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                              <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", fontWeight: 700 }}>Admin Panel Tabs</span>
+                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: [...p.permissions.filter(k => k.startsWith("td:")), ...ALL_ADMIN_TABS.map(t => t.key)] }))}
+                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>All</button>
+                              <button onClick={() => setEditRoleVal(p => ({ ...p, permissions: p.permissions.filter(k => k.startsWith("td:")) }))}
+                                style={{ fontSize: "10px", background: "none", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.4)", borderRadius: "5px", padding: "2px 8px", cursor: "pointer" }}>None</button>
                             </div>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(155px, 1fr))", gap: "5px" }}>
                               {ALL_ADMIN_TABS.map(t => {
@@ -994,6 +1165,7 @@ export default function OwnerDashboard() {
                               })}
                             </div>
                           </div>
+
                           {/* Save/Cancel */}
                           <div style={{ display: "flex", gap: "8px" }}>
                             <button onClick={async () => {
@@ -1013,12 +1185,14 @@ export default function OwnerDashboard() {
                           <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: r.color, flexShrink: 0 }} />
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 700, fontSize: "14px" }}>{r.name}</div>
-                            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginTop: "4px" }}>
-                              {!r.permissions || r.permissions.length === 0
-                                ? "No tab access"
-                                : r.permissions.length === ALL_ADMIN_TABS.length
-                                ? "Full access — all tabs"
-                                : `${r.permissions.length} tabs: ${r.permissions.slice(0, 4).map((k: string) => ALL_ADMIN_TABS.find(t => t.key === k)?.label?.replace(/\p{Emoji}/gu, "").trim() || k).join(", ")}${r.permissions.length > 4 ? ` +${r.permissions.length - 4} more` : ""}`
+                            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", marginTop: "4px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                              {tdPerms.length > 0
+                                ? <span>Dashboard: <span style={{ color: "#5eead4" }}>{tdPerms.length}/{ALL_TD_TABS.length} tabs</span></span>
+                                : <span style={{ color: "rgba(255,255,255,0.25)" }}>No dashboard tabs</span>
+                              }
+                              {adminPerms.length > 0
+                                ? <span>Admin: <span style={{ color: "#93c5fd" }}>{adminPerms.length}/{ALL_ADMIN_TABS.length} tabs</span></span>
+                                : <span style={{ color: "rgba(255,255,255,0.25)" }}>No admin access</span>
                               }
                             </div>
                           </div>
@@ -1036,10 +1210,11 @@ export default function OwnerDashboard() {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div style={{ marginTop: "14px", fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
-                  Roles appear in Admin → Staff when creating staff. The tab access controls what each role sees in the admin dashboard.
+                  Roles appear in Admin → Staff when adding staff. Dashboard tabs control what staff see in the teacher portal; Admin tabs control what they see in the admin panel.
                 </div>
               </div>
             )}

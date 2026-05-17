@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
+import site from "@/content/site.json";
 
 type Step = "choose" | "first-login" | "login" | "success";
 
@@ -18,8 +19,8 @@ export default function ParentLoginPage() {
   const [error, setError]       = useState("");
   const [result, setResult]     = useState<any>(null);
 
-  const inp  = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all";
-  const inpS = { borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" };
+  const inp    = "w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 transition-all";
+  const inpS   = { borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" };
   const inpCls = `${inp} focus:ring-teal-400`;
 
   const call = async (action: string, extra: any = {}) => {
@@ -52,54 +53,48 @@ export default function ParentLoginPage() {
   return (
     <div style={{ minHeight:"100vh", background:"#FEFCF8", fontFamily:"'Quicksand',sans-serif", display:"flex", flexDirection:"column" }}>
 
-      {/* Header */}
-      <div style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)", padding:"32px 20px 28px", textAlign:"center" }}>
-        <div style={{ width:"56px", height:"56px", borderRadius:"50%", background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", fontSize:"24px" }}>👨‍👩‍👧</div>
-        <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.8rem", fontWeight:700, color:"white", marginBottom:"4px" }}>Parent Portal</div>
-        <p style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)" }}>Evergreen Preschool & Daycare</p>
+      {/* ── PARENT PORTAL HEADER — contains Welcome Back section ── */}
+      <div style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)", padding:"32px 20px 28px" }}>
+        <div style={{ maxWidth:"480px", margin:"0 auto" }}>
+
+          {/* Welcome Back — always shown in header */}
+          <div style={{ marginBottom:"4px" }}>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.2rem", fontWeight:700, color:"white", marginBottom:"4px" }}>Welcome Back!</div>
+            <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)", marginBottom:"16px" }}>How would you like to log in?</div>
+
+            {/* Two options side by side */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+              <button onClick={() => { setStep("first-login"); setError(""); }}
+                style={{ padding:"14px 10px", borderRadius:"16px", border: step === "first-login" ? "2px solid white" : "2px solid rgba(255,255,255,0.4)", background:"white", cursor:"pointer", textAlign:"center", transition:"all 0.2s", boxShadow: step === "first-login" ? "0 0 0 3px rgba(255,255,255,0.4)" : "none" }}>
+                <div style={{ fontSize:"22px", marginBottom:"6px" }}>🆕</div>
+                <div style={{ fontWeight:700, color:"#178F78", fontSize:"13px", marginBottom:"2px" }}>First Time</div>
+                <div style={{ fontSize:"10px", color:"#6B7A99" }}>Set up your account</div>
+              </button>
+
+              <button onClick={() => { setStep("login"); setError(""); }}
+                style={{ padding:"14px 10px", borderRadius:"16px", border: step === "login" ? "2px solid white" : "2px solid rgba(255,255,255,0.4)", background:"white", cursor:"pointer", textAlign:"center", transition:"all 0.2s", boxShadow: step === "login" ? "0 0 0 3px rgba(255,255,255,0.4)" : "none" }}>
+                <div style={{ fontSize:"22px", marginBottom:"6px" }}>🔐</div>
+                <div style={{ fontWeight:700, color:"#178F78", fontSize:"13px", marginBottom:"2px" }}>Login</div>
+                <div style={{ fontSize:"10px", color:"#6B7A99" }}>Use your password</div>
+              </button>
+            </div>
+
+            <div style={{ textAlign:"center", marginTop:"14px", fontSize:"15px", color:"rgba(255,255,255,0.85)" }}>
+              New here?{" "}
+              <Link href="/enquiry" style={{ color:"white", fontWeight:700 }}>Submit an enquiry first →</Link>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", padding:"24px 16px" }}>
+      {/* ── FORMS + FEATURES ── */}
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", padding:"24px 16px 32px" }}>
         <div style={{ width:"100%", maxWidth:"400px" }}>
-
-          {/* ── CHOOSE ── */}
-          {step === "choose" && (
-            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
-              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"6px" }}>Welcome Back!</div>
-              <p style={{ fontSize:"13px", color:"#6B7A99", marginBottom:"24px" }}>How would you like to log in?</p>
-
-              <button onClick={() => setStep("first-login")}
-                style={{ width:"100%", padding:"16px", border:"2px solid #178F78", borderRadius:"16px", background:"rgba(23,143,120,0.05)", cursor:"pointer", textAlign:"left", marginBottom:"12px", display:"flex", alignItems:"center", gap:"14px" }}>
-                <div style={{ width:"44px", height:"44px", borderRadius:"12px", background:"rgba(23,143,120,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0 }}>🆕</div>
-                <div>
-                  <div style={{ fontWeight:700, color:"#178F78", fontSize:"14px", marginBottom:"2px" }}>First Time Login</div>
-                  <div style={{ fontSize:"11px", color:"#6B7A99" }}>Use your child&apos;s DOB + last 4 digits of phone</div>
-                </div>
-                <ArrowRight style={{ width:"16px", height:"16px", color:"#178F78", marginLeft:"auto" }} />
-              </button>
-
-              <button onClick={() => setStep("login")}
-                style={{ width:"100%", padding:"16px", border:"2px solid #EDE8DF", borderRadius:"16px", background:"white", cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:"14px" }}>
-                <div style={{ width:"44px", height:"44px", borderRadius:"12px", background:"rgba(232,105,74,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0 }}>🔐</div>
-                <div>
-                  <div style={{ fontWeight:700, color:"#E8694A", fontSize:"14px", marginBottom:"2px" }}>Login with Password</div>
-                  <div style={{ fontSize:"11px", color:"#6B7A99" }}>Already set up your account</div>
-                </div>
-                <ArrowRight style={{ width:"16px", height:"16px", color:"#6B7A99", marginLeft:"auto" }} />
-              </button>
-
-              <div style={{ textAlign:"center", marginTop:"20px", fontSize:"12px", color:"#6B7A99" }}>
-                New here?{" "}
-                <Link href="/enquiry" style={{ color:"#178F78", fontWeight:700 }}>Submit an enquiry first →</Link>
-              </div>
-            </div>
-          )}
 
           {/* ── FIRST TIME LOGIN ── */}
           {step === "first-login" && (
-            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
-              <button onClick={() => { setStep("choose"); setError(""); }}
-                style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
+            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)", marginBottom:"24px" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>First Time Setup</div>
               <p style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"20px" }}>Verify your identity to create your password</p>
 
@@ -137,7 +132,7 @@ export default function ParentLoginPage() {
                 {loading ? "Verifying..." : "Verify & Create Password →"}
               </button>
 
-              <div style={{ textAlign:"center", marginTop:"14px", display:"flex", flexDirection:"column", gap:"6px" }}>
+              <div style={{ textAlign:"center", marginTop:"14px" }}>
                 <button onClick={() => { setStep("login"); setError(""); }}
                   style={{ fontSize:"12px", color:"#178F78", background:"none", border:"none", cursor:"pointer", fontWeight:600 }}>
                   Already have a password? Login →
@@ -148,9 +143,7 @@ export default function ParentLoginPage() {
 
           {/* ── REGULAR LOGIN ── */}
           {step === "login" && (
-            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)" }}>
-              <button onClick={() => { setStep("choose"); setError(""); }}
-                style={{ fontSize:"12px", color:"#6B7A99", background:"none", border:"none", cursor:"pointer", marginBottom:"16px", padding:0 }}>← Back</button>
+            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)", marginBottom:"24px" }}>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.3rem", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>Parent Login</div>
               <p style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"20px" }}>Enter your phone and password</p>
 
@@ -168,7 +161,6 @@ export default function ParentLoginPage() {
               <div style={{ marginBottom:"8px" }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"6px" }}>
                   <label style={{ fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", color:"#6B7A99" }}>Password *</label>
-                  {/* ← FORGOT PASSWORD LINK right next to the label */}
                   <Link href="/forgot-password?role=parent"
                     style={{ fontSize:"11px", color:"#E8694A", fontWeight:600, textDecoration:"none" }}>
                     Forgot Password?
@@ -206,7 +198,7 @@ export default function ParentLoginPage() {
 
           {/* ── SUCCESS ── */}
           {step === "success" && result && (
-            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)", textAlign:"center" }}>
+            <div style={{ background:"white", borderRadius:"24px", border:"1px solid #EDE8DF", padding:"28px", boxShadow:"0 4px 20px rgba(0,0,0,0.06)", textAlign:"center", marginBottom:"24px" }}>
               <div style={{ width:"60px", height:"60px", borderRadius:"50%", background:"rgba(23,143,120,0.1)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", fontSize:"28px" }}>✅</div>
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.5rem", fontWeight:700, color:"#178F78", marginBottom:"6px" }}>
                 {result.firstLogin ? "Account Created!" : "Welcome back!"}
@@ -216,23 +208,6 @@ export default function ParentLoginPage() {
                   ? "Your login credentials have been sent to your WhatsApp!"
                   : `Logged in as ${result.childName ? result.childName + "'s parent" : "Parent"}`}
               </p>
-
-              {result.firstLogin && result.password && (
-                <div style={{ background:"rgba(23,143,120,0.06)", border:"1.5px solid rgba(23,143,120,0.2)", borderRadius:"16px", padding:"16px", marginBottom:"20px", textAlign:"left" }}>
-                  <div style={{ fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.06em", color:"#178F78", marginBottom:"10px" }}>🔐 Your Login Details</div>
-                  <div style={{ fontSize:"13px", marginBottom:"6px" }}>
-                    <span style={{ color:"#6B7A99" }}>Phone: </span>
-                    <span style={{ fontWeight:700, color:"#1A2F4A" }}>{phone}</span>
-                  </div>
-                  <div style={{ fontSize:"13px", marginBottom:"12px" }}>
-                    <span style={{ color:"#6B7A99" }}>Password: </span>
-                    <span style={{ fontWeight:700, color:"#178F78", fontFamily:"monospace", fontSize:"15px", letterSpacing:"2px" }}>{result.password}</span>
-                  </div>
-                  <div style={{ fontSize:"11px", color:"#6B7A99", background:"rgba(245,184,41,0.1)", border:"1px solid rgba(245,184,41,0.3)", borderRadius:"8px", padding:"8px 10px" }}>
-                    💬 These credentials have been sent to your WhatsApp. Please save them!
-                  </div>
-                </div>
-              )}
 
               {result.waUrl && (
                 <a href={result.waUrl} target="_blank" rel="noopener noreferrer"
@@ -252,6 +227,31 @@ export default function ParentLoginPage() {
               </div>
             </div>
           )}
+
+        </div>
+
+        {/* ── What's in your portal ── */}
+        <div style={{ width:"100%", maxWidth:"900px" }}>
+          <div style={{ textAlign:"center", fontSize:"11px", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.08em", color:"#6B7A99", marginBottom:"14px" }}>
+            What you get access to
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"12px", marginBottom:"14px" }}>
+            {[
+              { icon:"📸", title:"Class Photos & Videos",   desc:"Daily updates from teachers",     strip:"#BFDBFE" },
+              { icon:"📚", title:"Homework & Assignments",  desc:"View, track & submit work",        strip:"#99F6E4" },
+              { icon:"🎥", title:"Parent-Teacher Meetings", desc:"Join Google Meet sessions",        strip:"#C4B5FD" },
+              { icon:"📋", title:"Fee Receipts & Reports",  desc:"Download invoices & term reports", strip:"#FDE68A" },
+            ].map(p => (
+              <div key={p.title} style={{ background:"white", borderRadius:"18px", border:"1px solid #EDE8DF", overflow:"hidden" }}>
+                <div style={{ height:"5px", background:p.strip }} />
+                <div style={{ padding:"22px 18px" }}>
+                  <span style={{ fontSize:"34px", display:"block", marginBottom:"14px" }}>{p.icon}</span>
+                  <div style={{ fontWeight:700, fontSize:"15px", color:"#1A2F4A", marginBottom:"6px", fontFamily:"'Fredoka',sans-serif" }}>{p.title}</div>
+                  <div style={{ fontSize:"12px", color:"#6B7A99", lineHeight:1.5 }}>{p.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
 
         </div>
       </div>

@@ -12,7 +12,7 @@ const tabs = [
   { label:"Daycare",      idx:3,  href:null },
   { label:"Gallery",      idx:4,  href:null },
   { label:"AI Tools ✨",  idx:5,  href:null },
-  { label:"Contact",      idx:7,  href:null },
+  { label:"Contact",      idx:6,  href:null },
   { label:"Parent Login", idx:-1, href:"/parent-login" },
   { label:"Teacher",      idx:-1, href:"/teacher-login" },
 ];
@@ -114,7 +114,7 @@ export default function Navbar() {
               style={{ background:"#178F78", boxShadow:"0 4px 12px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
               Enquiry
             </button>
-            <button onClick={() => handleTab(tabs.find(t=>t.idx===7)!)}
+            <button onClick={() => handleTab(tabs.find(t=>t.label==="Contact")!)}
               className="ml-2 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
               style={{ background:"#E8694A", boxShadow:"0 4px 12px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
               Enroll Now
@@ -143,7 +143,7 @@ export default function Navbar() {
                 {tab.label}
               </button>
             ))}
-            <button onClick={() => { handleTab(tabs[7]); }}
+            <button onClick={() => { handleTab(tabs.find(t=>t.label==="Contact")!); }}
               className="font-bold text-center py-3 rounded-xl text-white mt-1"
               style={{ background:"#E8694A", fontFamily:"'Quicksand',sans-serif" }}>
               Enroll Now

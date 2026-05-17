@@ -8,6 +8,15 @@ import TeacherKitTab from "@/components/TeacherKitTab";
 
 type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages";
 
+const TD_TABS = [
+  { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
+  { key: "homework"   as TeacherTab, icon: "📚", label: "Homework"   },
+  { key: "students"   as TeacherTab, icon: "👶", label: "Students"   },
+  { key: "photos"     as TeacherTab, icon: "📸", label: "Photos"     },
+  { key: "kit"        as TeacherTab, icon: "🎒", label: "Kit"        },
+  { key: "messages"   as TeacherTab, icon: "💬", label: "Messages"   },
+];
+
 const ATT_STATUS = [
   { key:"present", label:"Present", color:"#178F78", bg:"rgba(23,143,120,0.1)", icon:"✅" },
   { key:"absent",  label:"Absent",  color:"#E8694A", bg:"rgba(232,105,74,0.1)",  icon:"❌" },
@@ -15,15 +24,19 @@ const ATT_STATUS = [
 ];
 export default function TeacherDashboardPage() {
   const router = useRouter();
-  const [session, setSession]     = useState<any>(null);
-  const [tab, setTab]             = useState<TeacherTab>("attendance");
-  const [children, setChildren]   = useState<any[]>([]);
-  const [attendance, setAtt]      = useState<Record<string, string>>({});
-  const [homework, setHomework]   = useState<any[]>([]);
-  const [photos, setPhotos]       = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState<string | null>(null);
-  const [attSaved, setAttSaved]   = useState(false);
+  const [session, setSession]         = useState<any>(null);
+  const [tab, setTab]                 = useState<TeacherTab>("attendance");
+  const [teacherSections, setTeacherSections] = useState<any[]>([]);
+  const [currentSectionId, setCurrentSectionId] = useState<string>("");
+  const [children, setChildren]       = useState<any[]>([]);
+  const [attendance, setAtt]          = useState<Record<string, string>>({});
+  const [homework, setHomework]       = useState<any[]>([]);
+  const [photos, setPhotos]           = useState<any[]>([]);
+  // undefined = loading | null = role not in staff_roles (show all) | string[] = role found
+  const [permissions, setPermissions] = useState<string[] | null | undefined>(undefined);
+  const [loading, setLoading]         = useState(true);
+  const [saving, setSaving]           = useState<string | null>(null);
+  const [attSaved, setAttSaved]       = useState(false);
 
   // New homework form
   const [showHWForm, setShowHWForm] = useState(false);
@@ -67,24 +80,78 @@ export default function TeacherDashboardPage() {
     setSession(parsed);
   }, [router]);
 
+  // ── Load permissions ──────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/teacher/permissions")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { setPermissions(null); return; } // fetch failed → treat as unrestricted
+        // d.permissions: null = role not in DB (unrestricted), array = role found
+        const perms: string[] | null = d.permissions;
+        setPermissions(perms);
+        if (Array.isArray(perms)) {
+          const tdPerms = perms.filter((p: string) => p.startsWith("td:"));
+          if (tdPerms.length > 0) {
+            // Switch to first visible tab if current one is restricted
+            setTab(cur => {
+              if (perms.includes(`td:${cur}`)) return cur;
+              const first = TD_TABS.find(t => perms.includes(`td:${t.key}`));
+              return first ? first.key : cur;
+            });
+          }
+        }
+      })
+      .catch(() => setPermissions(null));
+  }, [session]);
+
+  // ── Auto-redirect to admin if no TD tabs but has admin access ────────────
+  useEffect(() => {
+    if (!Array.isArray(permissions)) return;
+    const hasTd    = permissions.some(p => p.startsWith("td:"));
+    const hasAdmin = permissions.some(p => !p.startsWith("td:"));
+    if (!hasTd && hasAdmin) router.replace("/admin");
+  }, [permissions, router]);
+
+  // ── Load teacher's assigned sections ─────────────────
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/teacher/sections")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) { setLoading(false); return; }
+        const secs = d.sections || [];
+        setTeacherSections(secs);
+        if (secs.length > 0) {
+          // Prefer session.sectionId if it's in the list, else first
+          const preferred = secs.find((s: any) => s.id === session.sectionId) || secs[0];
+          setCurrentSectionId(preferred.id);
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch(() => setLoading(false));
+  }, [session]);
+
   // ── Load data ─────────────────────────────────────────
   const loadData = useCallback(async (sectionId: string) => {
     setLoading(true);
-    const r = await fetch(`/api/teacher/dashboard?sectionId=${sectionId}`);
-    const d = await r.json();
-    setChildren(d.children || []);
-    setHomework(d.homework  || []);
-    setPhotos(d.photos      || []);
-    // Build attendance map from today's records
-    const attMap: Record<string, string> = {};
-    (d.attendance || []).forEach((a: any) => { attMap[a.student_id] = a.status; });
-    setAtt(attMap);
+    try {
+      const r = await fetch(`/api/teacher/dashboard?sectionId=${sectionId}`);
+      const d = await r.json();
+      setChildren(d.children || []);
+      setHomework(d.homework  || []);
+      setPhotos(d.photos      || []);
+      const attMap: Record<string, string> = {};
+      (d.attendance || []).forEach((a: any) => { attMap[a.student_id] = a.status; });
+      setAtt(attMap);
+    } catch { /* ignore, just stop spinner */ }
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    if (session?.sectionId) loadData(session.sectionId);
-  }, [session, loadData]);
+    if (currentSectionId) loadData(currentSectionId);
+  }, [currentSectionId, loadData]);
 
   // Load clock record for today
   const loadClockRecord = useCallback(async (name: string) => {
@@ -117,7 +184,7 @@ export default function TeacherDashboardPage() {
   const loadAttHistory = useCallback(async () => {
     if (!session?.sectionId) return;
     setHistLoading(true);
-    const r = await fetch(`/api/teacher/attendance?sectionId=${session.sectionId}&from=${histFrom}&to=${histTo}`);
+    const r = await fetch(`/api/teacher/attendance?sectionId=${currentSectionId}&from=${histFrom}&to=${histTo}`);
     const d = await r.json();
     setAttHistory(d.attendance || []);
     setAttHistChildren(d.children || []);
@@ -157,8 +224,8 @@ export default function TeacherDashboardPage() {
     await fetch("/api/teacher/homework", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sectionId:   session.sectionId,
-        sectionName: session.sectionName,
+        sectionId:   currentSectionId,
+        sectionName: currentSectionName,
         title:       hwForm.title,
         subject:     hwForm.subject,
         description: hwForm.description,
@@ -169,7 +236,7 @@ export default function TeacherDashboardPage() {
     setHWForm({ title:"", subject:"", description:"", dueDate:"" });
     setShowHWForm(false);
     setHWSaving(false);
-    loadData(session.sectionId);
+    loadData(currentSectionId);
   };
 
   const deleteHW = async (id: string) => {
@@ -178,7 +245,7 @@ export default function TeacherDashboardPage() {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-    loadData(session.sectionId);
+    loadData(currentSectionId);
   };
 
   // ── Send message to owner ─────────────────────────────
@@ -190,7 +257,7 @@ export default function TeacherDashboardPage() {
       body: JSON.stringify({
         from_teacher_id: session.id,
         from_teacher_name: session.name,
-        from_section: session.sectionName,
+        from_section: currentSectionName,
         subject: msgSubject.trim(),
         message: msgBody.trim(),
       }),
@@ -214,9 +281,22 @@ export default function TeacherDashboardPage() {
 
   const inp = { border:"1px solid #EDE8DF", borderRadius:"10px", padding:"9px 12px", fontSize:"13px", outline:"none", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif", width:"100%", boxSizing:"border-box" as const };
 
+  const currentSection = teacherSections.find(s => s.id === currentSectionId) || null;
+  const currentSectionName = currentSection?.name || session?.sectionName || "";
+  const currentProgLabel   = currentSection?.program_label || session?.programLabel || "";
+
   const presentCount = Object.values(attendance).filter(s => s === "present").length;
   const absentCount  = Object.values(attendance).filter(s => s === "absent").length;
   const markedCount  = Object.values(attendance).length;
+
+  // undefined (loading) or null (role not in DB) → show all tabs
+  // string[] → show only what's configured for this role (may be empty)
+  const visibleTabs = Array.isArray(permissions)
+    ? TD_TABS.filter(t => permissions.includes(`td:${t.key}`))
+    : TD_TABS;
+
+  // True only when role is found AND has at least one non-td: permission
+  const hasAdminAccess = Array.isArray(permissions) && permissions.some(p => !p.startsWith("td:"));
 
   if (!session) return null;
 
@@ -227,18 +307,52 @@ export default function TeacherDashboardPage() {
       <div style={{ background:"linear-gradient(135deg,#1A2F4A,#0f6b5a)", padding:"14px 20px" }}>
         <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div>
-            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"white" }}>
-              👩‍🏫 {session.name}
+            <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"white" }}>
+                👩‍🏫 {session.name}
+              </div>
+              {session.role && (
+                <span style={{ background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)", borderRadius:"20px", padding:"2px 10px", fontSize:"11px", fontWeight:700, color:"rgba(255,255,255,0.9)", letterSpacing:"0.03em" }}>
+                  {session.role}
+                </span>
+              )}
+              {currentSectionName && (
+                <span style={{ background:"rgba(23,143,120,0.35)", border:"1px solid rgba(23,143,120,0.5)", borderRadius:"20px", padding:"2px 10px", fontSize:"11px", fontWeight:700, color:"#7EFCE1" }}>
+                  {currentSectionName}
+                </span>
+              )}
             </div>
-            <div style={{ fontSize:"11px", color:"rgba(255,255,255,0.65)", marginTop:"2px" }}>
-              {session.sectionName} · {session.programLabel} · {todayFmt}
+            <div style={{ fontSize:"11px", color:"rgba(255,255,255,0.55)", marginTop:"4px" }}>
+              {currentProgLabel ? `${currentProgLabel} · ` : ""}{todayFmt}
             </div>
           </div>
-          <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
-            <LogOut style={{ width:"13px", height:"13px" }} /> Logout
-          </button>
+          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+            {hasAdminAccess && (
+              <a href="/admin" style={{ display:"flex", alignItems:"center", gap:"5px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, textDecoration:"none" }}>
+                🏢 Admin Panel
+              </a>
+            )}
+            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
+              <LogOut style={{ width:"13px", height:"13px" }} /> Logout
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Section switcher — shown only when teacher has multiple sections */}
+      {teacherSections.length > 1 && (
+        <div style={{ background:"#1A2F4A", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+          <div style={{ maxWidth:"900px", margin:"0 auto", padding:"8px 20px", display:"flex", alignItems:"center", gap:"8px" }}>
+            <span style={{ fontSize:"11px", color:"rgba(255,255,255,0.5)", fontWeight:700, marginRight:"4px" }}>SECTION:</span>
+            {teacherSections.map(s => (
+              <button key={s.id} onClick={() => setCurrentSectionId(s.id)}
+                style={{ padding:"5px 14px", borderRadius:"20px", border:`1.5px solid ${s.id===currentSectionId?"rgba(23,143,120,0.8)":"rgba(255,255,255,0.15)"}`, background:s.id===currentSectionId?"rgba(23,143,120,0.25)":"transparent", color:s.id===currentSectionId?"#7EFCE1":"rgba(255,255,255,0.6)", fontSize:"12px", fontWeight:700, cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>
+                {s.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick stats */}
       <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
@@ -258,24 +372,34 @@ export default function TeacherDashboardPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
-        <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex" }}>
-          {([
-            { key:"attendance", icon:"📅", label:"Attendance" },
-            { key:"homework",   icon:"📚", label:"Homework" },
-            { key:"students",   icon:"👶", label:"Students" },
-            { key:"photos",     icon:"📸", label:"Photos" },
-            { key:"kit",        icon:"🎒", label:"Kit" },
-            { key:"messages",   icon:"💬", label:"Messages" },
-          ] as const).map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              style={{ flex:1, padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px" }}>
-              {t.icon} {t.label}
-            </button>
-          ))}
+      {/* Tabs — only render when there are visible tabs */}
+      {visibleTabs.length > 0 && (
+        <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
+          <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex" }}>
+            {visibleTabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                style={{ flex:1, padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px" }}>
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* No staff dashboard tabs configured for this role */}
+      {Array.isArray(permissions) && visibleTabs.length === 0 && (
+        <div style={{ maxWidth:"900px", margin:"40px auto", padding:"0 16px" }}>
+          <div style={{ textAlign:"center", padding:"48px 32px", background:"white", borderRadius:"20px", border:"1px solid #EDE8DF" }}>
+            <div style={{ fontSize:"40px", marginBottom:"12px" }}>🔒</div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"#1A2F4A", marginBottom:"8px" }}>No Staff Dashboard Tabs</div>
+            <div style={{ fontSize:"13px", color:"#6B7A99", lineHeight:1.6 }}>
+              Your role ({session.role}) has not been assigned any staff dashboard tabs.
+              {hasAdminAccess && <><br/>Please use the <strong style={{ color:"#178F78" }}>Admin Panel</strong> button above.</>}
+              {!hasAdminAccess && <><br/>Contact the school owner to configure access for your role.</>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
 
@@ -390,7 +514,10 @@ export default function TeacherDashboardPage() {
             ) : !showAttHistory && children.length === 0 ? (
               <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
                 <div style={{ fontSize:"32px", marginBottom:"8px" }}>👶</div>
-                No students assigned to {session.sectionName} yet.<br/>Admin needs to assign children to this section.
+                {currentSectionId
+                  ? <>No students assigned to <strong>{currentSectionName}</strong> yet. Admin needs to assign children to this section.</>
+                  : <>No class section assigned to your account yet.<br/>Please contact the admin to assign you to a section.</>
+                }
               </div>
             ) : !showAttHistory ? (
               <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
@@ -426,7 +553,7 @@ export default function TeacherDashboardPage() {
         {tab === "homework" && (
           <div>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"14px" }}>
-              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A" }}>Homework — {session.sectionName}</div>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A" }}>Homework — {currentSectionName}</div>
               <button onClick={() => setShowHWForm(!showHWForm)}
                 style={{ display:"flex", alignItems:"center", gap:"6px", background:"#178F78", color:"white", border:"none", borderRadius:"12px", padding:"7px 16px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
                 <Plus style={{ width:"13px", height:"13px" }} /> Assign Homework
@@ -501,12 +628,12 @@ export default function TeacherDashboardPage() {
         {tab === "students" && (
           <div>
             <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>
-              Students — {session.sectionName} ({children.length})
+              Students — {currentSectionName} ({children.length})
             </div>
             {children.length === 0 ? (
               <div style={{ textAlign:"center", padding:"40px", color:"#6B7A99", background:"white", borderRadius:"16px", border:"1px solid #EDE8DF" }}>
                 <div style={{ fontSize:"32px", marginBottom:"8px" }}>👶</div>
-                No students assigned yet.
+                {currentSectionId ? "No students assigned to this section yet." : "No class section assigned. Contact admin to assign you to a section."}
               </div>
             ) : (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:"10px" }}>
@@ -553,7 +680,7 @@ export default function TeacherDashboardPage() {
         {/* ══ KIT TAB ══ */}
         {tab === "kit" && (
           <div>
-            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>🎒 Kit & Books — {session.sectionName}</div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>🎒 Kit & Books — {currentSectionName}</div>
             <TeacherKitTab sectionChildren={children} teacherName={session.name} />
           </div>
         )}
@@ -561,15 +688,15 @@ export default function TeacherDashboardPage() {
         {/* ══ PHOTOS TAB ══ */}
         {tab === "photos" && (
           <div>
-            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>📸 Class Photos — {session.sectionName}</div>
+            <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#1A2F4A", marginBottom:"14px" }}>📸 Class Photos — {currentSectionName}</div>
 
             <PhotoUploader
-              sectionId={session.sectionId}
-              sectionName={session.sectionName}
+              sectionId={currentSectionId}
+              sectionName={currentSectionName}
               uploadedBy={session.name}
               uploadedByRole="teacher"
               children={children}
-              onUploaded={() => loadData(session.sectionId)}
+              onUploaded={() => loadData(currentSectionId)}
             />
 
             <div style={{ marginTop:"16px" }}>
@@ -581,8 +708,8 @@ export default function TeacherDashboardPage() {
               ) : (
                 <div>
                   {photos.map((p: any) => (
-                    <FaceAutoTagger key={p.id} photo={p} sectionId={session.sectionId}
-                      children={children} onSaved={() => loadData(session.sectionId)} />
+                    <FaceAutoTagger key={p.id} photo={p} sectionId={currentSectionId}
+                      children={children} onSaved={() => loadData(currentSectionId)} />
                   ))}
                 </div>
               )}

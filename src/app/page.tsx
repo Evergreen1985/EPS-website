@@ -34,7 +34,7 @@ const galItems = [
   { cat:"Events",  bg:"#FFF5EB", e:"🎭", cap:"Drama performance night" },
 ];
 
-const sectionIds = ["home","programs","about","daycare","gallery","ai-tools","portal","contact"];
+const sectionIds = ["home","programs","about","daycare","gallery","ai-tools","contact"];
 
 // ─── helpers ─────────────────────────────────────────────
 const Slide = ({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
@@ -82,6 +82,7 @@ export default function HomePage() {
   const [aboutSlide, setAboutSlide] = useState(0);
   const [daySlide, setDaySlide]   = useState(0);
   const [galFilter, setGalFilter] = useState("All");
+  const [sitePhotos, setSitePhotos] = useState<Record<string, string>>({});
 
   // ── auto-advance slides ──────────────────────────────
   const progTotal  = progList.length;
@@ -105,6 +106,10 @@ export default function HomePage() {
     const t = setInterval(() => setDaySlide(p => (p + 1) % dayTotal), 5000);
     return () => clearInterval(t);
   }, [active]);
+
+  useEffect(() => {
+    fetch("/api/site-photos").then(r => r.json()).then(d => setSitePhotos(d.photos || {})).catch(() => {});
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -194,7 +199,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                 A warm and nurturing environment in Electronic City, Bengaluru, where play-based learning sparks curiosity, creativity, and lifelong friendships.
               </p>
               <div className="flex flex-wrap gap-3 mb-8">
-                <button onClick={() => jumpTo(7)}
+                <button onClick={() => jumpTo(6)}
                   className="flex items-center gap-2 font-bold px-7 py-3 rounded-full text-white transition-all hover:-translate-y-0.5"
                   style={{ background:"#E8694A", boxShadow:"0 6px 20px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                   Enroll Your Child <ArrowRight className="w-4 h-4" />
@@ -219,7 +224,10 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
               <div className="relative w-full max-w-md mx-auto aspect-square">
                 <div className="blob-shape w-full h-full overflow-hidden shadow-2xl border-8 border-white"
                   style={{ background:"linear-gradient(135deg,#FFD6CA,#B2F0E3)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"80px" }}>
-                  🧒
+                  {sitePhotos.hero
+                    ? <img src={sitePhotos.hero} alt="Evergreen Preschool" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                    : "🧒"
+                  }
                 </div>
                 <div className="float-badge absolute -bottom-4 -left-4 bg-white rounded-2xl shadow-xl p-3 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background:"rgba(245,184,41,0.2)" }}>
@@ -253,56 +261,66 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
         )}
         <div className="flex-1 overflow-hidden relative">
           <SlideArrows cur={progSlide} total={progList.length} onPrev={() => setProgSlide(p => Math.max(0,p-1))} onNext={() => setProgSlide(p => Math.min(progList.length-1,p+1))} />
-          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:"calc(100vh - 184px)" }}>
+          <div className="flex transition-transform duration-500" style={{ transform:`translateX(-${progSlide * 100}%)`, height:SSH }}>
             {progList.map((prog) => {
-              const c = progColors[prog.id] ?? progColors.srkg;
+              const c    = progColors[prog.id] ?? progColors.srkg;
+              const lPic = sitePhotos[`prog_${prog.id}_left`];
+              const rPic = sitePhotos[`prog_${prog.id}_right`];
               return (
-                <Slide key={prog.id}>
-                  <div className="max-w-2xl mx-auto px-14 py-4">
-                    <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
-                      <div className="h-1.5" style={{ background:c.strip }} />
-                      <div className="p-6">
-                        {/* Header */}
-                        <div className="flex items-center gap-4 mb-3">
-                          <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ background:`${c.check}18` }}>
-                            {programs.find(p=>p.id===prog.id)?.icon ?? "📚"}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-bold text-2xl leading-tight" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{prog.title}</div>
-                            <span className="text-sm font-semibold px-3 py-0.5 rounded-full" style={{ background:"#FAF0E8", color:"#6B7A99" }}>{prog.ageRange}</span>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <div className="font-bold text-base" style={{ fontFamily:"'Fredoka',sans-serif", color:c.btn }}>Ratio {prog.ratio}</div>
-                          </div>
-                        </div>
-                        {/* Description */}
-                        <p className="text-sm leading-relaxed mb-3" style={{ color:"#6B7A99" }}>{prog.description}</p>
-                        {/* Highlights — 2 columns */}
-                        <div className="text-sm font-bold uppercase tracking-wider mb-2" style={{ color:"#1A2F4A" }}>Highlights</div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
-                          {prog.highlights.slice(0,6).map((h: string, i: number) => (
-                            <div key={i} className="flex items-start gap-2 text-sm" style={{ color:"#6B7A99" }}>
-                              <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background:c.check }} />{h}
-                            </div>
-                          ))}
-                        </div>
-                        {/* Schedule box */}
-                        <div className="mb-4">
-                          <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
-                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>{prog.timingLabel}</div>
-                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.timing}</div>
-                          </div>
-                        </div>
-                        {/* Enroll button */}
-                        <Link href="/enquiry"
-							className="w-full py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5 text-center block"
-							style={{ background:c.btn, boxShadow:`0 4px 12px ${c.btnShadow}`, fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
-								Enquire for {prog.title} →
-						</Link>
-                      </div>
-                    </div>
+                <div key={prog.id} className="min-w-full flex-shrink-0"
+                  style={{ height:SSH, display:"grid", gridTemplateColumns:"30% 40% 30%", overflow:"hidden" }}>
+
+                  {/* col 1 — left photo */}
+                  <div style={{ position:"relative", overflow:"hidden", background:`linear-gradient(135deg,${c.check}18,${c.check}06)` }}>
+                    {lPic
+                      ? <img src={lPic} alt="" style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                      : <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"64px", opacity:0.3 }}>{prog.icon ?? "📚"}</div>
+                    }
                   </div>
-                </Slide>
+
+                  {/* col 2 — content */}
+                  <div style={{ overflowY:"auto", padding:"18px 16px", background:"white",
+                    scrollbarWidth:"none" as const,
+                    borderLeft:`3px solid ${c.check}25`, borderRight:`3px solid ${c.check}25` }}>
+                    <div style={{ height:"4px", borderRadius:"4px", background:c.strip, marginBottom:"14px" }} />
+                    <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"10px" }}>
+                      <div style={{ width:"44px", height:"44px", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", background:`${c.check}18`, flexShrink:0 }}>
+                        {prog.icon ?? "📚"}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontFamily:"'Fredoka',sans-serif", fontWeight:700, fontSize:"1.35rem", color:"#178F78", lineHeight:1.1 }}>{prog.title}</div>
+                        <span style={{ fontSize:"11px", fontWeight:600, background:"#FAF0E8", color:"#6B7A99", borderRadius:"20px", padding:"2px 10px", display:"inline-block", marginTop:"3px" }}>{prog.ageRange}</span>
+                      </div>
+                      <div style={{ fontFamily:"'Fredoka',sans-serif", fontWeight:700, fontSize:"13px", color:c.btn, flexShrink:0 }}>Ratio {prog.ratio}</div>
+                    </div>
+                    <p style={{ fontSize:"12px", lineHeight:1.65, color:"#6B7A99", marginBottom:"10px", fontFamily:"'Quicksand',sans-serif" }}>{prog.description}</p>
+                    <div style={{ fontSize:"10px", fontWeight:700, textTransform:"uppercase" as const, letterSpacing:"0.08em", color:"#1A2F4A", marginBottom:"6px" }}>Highlights</div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 10px", marginBottom:"12px" }}>
+                      {prog.highlights.slice(0,6).map((h:string, i:number) => (
+                        <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:"6px", fontSize:"11px", color:"#6B7A99", fontFamily:"'Quicksand',sans-serif" }}>
+                          <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:c.check, flexShrink:0, marginTop:"4px" }} />{h}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ borderRadius:"12px", padding:"9px 12px", textAlign:"center", background:`${c.check}0d`, marginBottom:"14px" }}>
+                      <div style={{ fontSize:"10px", color:"#6B7A99", marginBottom:"2px" }}>{prog.timingLabel}</div>
+                      <div style={{ fontSize:"13px", fontWeight:700, color:"#1A2F4A" }}>{prog.timing}</div>
+                    </div>
+                    <Link href="/enquiry"
+                      style={{ display:"block", textAlign:"center", padding:"11px 16px", borderRadius:"20px", background:c.btn, color:"white", fontWeight:700, fontSize:"13px", boxShadow:`0 5px 16px ${c.btnShadow}`, textDecoration:"none", fontFamily:"'Quicksand',sans-serif" }}>
+                      Enquire for {prog.title} →
+                    </Link>
+                  </div>
+
+                  {/* col 3 — right photo */}
+                  <div style={{ position:"relative", overflow:"hidden", background:`linear-gradient(135deg,${c.check}06,${c.check}18)` }}>
+                    {rPic
+                      ? <img src={rPic} alt="" style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", objectFit:"cover" }} />
+                      : <div style={{ position:"absolute", top:0, left:0, right:0, bottom:0, display:"flex", alignItems:"center", justifyContent:"center", fontSize:"64px", opacity:0.3 }}>{prog.icon ?? "📚"}</div>
+                    }
+                  </div>
+
+                </div>
               );
             })}
           </div>
@@ -423,7 +441,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                       <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background:"#178F78" }} />{f}
                     </div>
                   ))}
-                  <button onClick={() => jumpTo(7)} className="mt-4 font-bold px-6 py-2.5 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
+                  <button onClick={() => jumpTo(6)} className="mt-4 font-bold px-6 py-2.5 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
                     style={{ background:"#178F78", boxShadow:"0 5px 16px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                     Enquire About Daycare →
                   </button>
@@ -458,7 +476,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                       <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background:"#0F766E" }} />{f}
                     </div>
                   ))}
-                  <button onClick={() => jumpTo(7)} className="mt-4 font-bold px-6 py-2.5 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
+                  <button onClick={() => jumpTo(6)} className="mt-4 font-bold px-6 py-2.5 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
                     style={{ background:"#0F766E", boxShadow:"0 5px 16px rgba(15,118,110,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                     Enquire About After-School →
                   </button>
@@ -493,7 +511,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                     </div>
                   ))}
                 </div>
-                <button onClick={() => jumpTo(7)} className="w-full font-bold py-3 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
+                <button onClick={() => jumpTo(6)} className="w-full font-bold py-3 rounded-full text-white text-sm hover:-translate-y-0.5 transition-all"
                   style={{ background:"#E8694A", boxShadow:"0 5px 16px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                   Enquire About Holiday Camps →
                 </button>
@@ -580,58 +598,9 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
       </div>
 
       {/* ══════════════════════════════════════════════
-          6. PARENT PORTAL
+          6. CONTACT
       ══════════════════════════════════════════════ */}
       <div ref={el => { sectionRefs.current[6] = el; }}
-        style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
-        {secBand("👨‍👩‍👧","Parent Portal","Everything for parents in one place")}
-        <div className="flex-1 overflow-y-auto p-5" style={{ scrollbarWidth:"none" }}>
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
-              {[
-                { icon:"📸", title:"Class Photo Gallery",     tool:"Google Photos",    strip:"#BFDBFE", bg:"#EFF6FF",  tc:"#1E40AF", desc:"Daily photos & videos from teachers." },
-                { icon:"📚", title:"Homework & Assignments",  tool:"Google Classroom", strip:"#99F6E4", bg:"#F0FDFA",  tc:"#0F766E", desc:"View, submit and track assignments." },
-                { icon:"🎥", title:"Live Classes & Meetings", tool:"Google Meet",      strip:"#C4B5FD", bg:"#F5F3FF",  tc:"#6D28D9", desc:"Join parent-teacher meetings online." },
-                { icon:"📋", title:"Digital Report Cards",    tool:"Google Drive",     strip:"#FDE68A", bg:"#FFFBEB",  tc:"#92400E", desc:"Download term reports as PDF anytime." },
-              ].map(p => (
-                <div key={p.title} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor:"#EDE8DF" }}>
-                  <div className="h-1" style={{ background:p.strip }} />
-                  <div className="p-4 flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background:p.bg }}>{p.icon}</div>
-                    <div className="flex-1">
-                      <div className="font-bold text-sm mb-0.5" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>{p.title}</div>
-                      <div className="text-xs mb-1" style={{ color:"#6B7A99" }}>{p.desc}</div>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background:p.bg, color:p.tc }}>{p.tool}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* WhatsApp CTA */}
-            <div className="rounded-2xl p-4 flex items-center gap-4 border" style={{ background:"linear-gradient(135deg,rgba(37,211,102,0.08),rgba(37,211,102,0.15))", borderColor:"rgba(37,211,102,0.3)" }}>
-              <div className="text-3xl">💬</div>
-              <div className="flex-1">
-                <div className="font-bold text-base mb-0.5" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Join Your Class WhatsApp Group</div>
-                <div className="text-xs" style={{ color:"#6B7A99" }}>All updates, photos, homework reminders sent via WhatsApp — zero friction for parents.</div>
-              </div>
-              <a href={`https://wa.me/91${site.phone}?text=Hi! Please add me to my child's class WhatsApp group.`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex-shrink-0 font-bold px-5 py-2.5 rounded-full text-white text-sm flex items-center gap-1.5"
-                style={{ background:"#25D366", boxShadow:"0 4px 12px rgba(37,211,102,0.35)", fontFamily:"'Quicksand',sans-serif" }}>
-                Message Us
-              </a>
-            </div>
-            <Link href="/parent-portal" className="block text-center mt-3 text-sm font-bold hover:underline" style={{ color:"#178F78" }}>
-              View Full Parent Portal →
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════
-          7. CONTACT
-      ══════════════════════════════════════════════ */}
-      <div ref={el => { sectionRefs.current[7] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("✉️","Contact & Admissions","We reply within one business day")}
         <div className="flex-1 flex items-center px-5 py-4 overflow-hidden" style={{ background:"#FEFCF8" }}>

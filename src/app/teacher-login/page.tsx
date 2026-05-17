@@ -22,7 +22,7 @@ export default function TeacherLoginPage() {
       setError(data.error || "Invalid credentials");
     } else {
       localStorage.setItem("ep_teacher_session", JSON.stringify({ ...data, loginTime: Date.now() }));
-      router.push("/teacher-dashboard");
+      router.push(data.redirectTo || "/teacher-dashboard");
     }
     setLoading(false);
   };
@@ -31,8 +31,8 @@ export default function TeacherLoginPage() {
     <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#1A2F4A,#0f6b5a)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"'Quicksand',sans-serif", padding:"20px" }}>
       <div style={{ width:"100%", maxWidth:"380px" }}>
         <div style={{ textAlign:"center", marginBottom:"28px" }}>
-          <div style={{ width:"68px", height:"68px", borderRadius:"20px", background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"32px", margin:"0 auto 14px" }}>👩‍🏫</div>
-          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.7rem", fontWeight:700, color:"white" }}>Teacher Portal</div>
+          <div style={{ width:"68px", height:"68px", borderRadius:"20px", background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"32px", margin:"0 auto 14px" }}>👥</div>
+          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.7rem", fontWeight:700, color:"white" }}>School Staff Login</div>
           <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)", marginTop:"4px" }}>Evergreen Preschool & Daycare</div>
         </div>
 

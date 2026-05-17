@@ -26,12 +26,22 @@ const ALL_ADMIN_TABS = [
   { key: "reports",      label: "📊 Reports"        },
 ];
 
-const ALL_KEYS = ALL_ADMIN_TABS.map(t => t.key);
+const ALL_TD_TABS = [
+  { key: "td:attendance", label: "📅 Attendance" },
+  { key: "td:homework",   label: "📚 Homework"   },
+  { key: "td:students",   label: "👶 Students"   },
+  { key: "td:photos",     label: "📸 Photos"     },
+  { key: "td:kit",        label: "🎒 Kit"        },
+  { key: "td:messages",   label: "💬 Messages"   },
+];
+
+const ALL_ADMIN_KEYS = ALL_ADMIN_TABS.map(t => t.key);
+const ALL_TD_KEYS    = ALL_TD_TABS.map(t => t.key);
 
 const DEFAULT_ROLES = [
-  { name: "Teacher",       color: "#178F78", permissions: ["enquiries"] },
-  { name: "Class Teacher", color: "#178F78", permissions: ["enquiries", "calendar", "photos", "announcements"] },
-  { name: "Admin",         color: "#E8694A", permissions: ALL_KEYS },
+  { name: "Teacher",       color: "#178F78", permissions: [...ALL_TD_KEYS] },
+  { name: "Class Teacher", color: "#178F78", permissions: [...ALL_TD_KEYS, "enquiries", "calendar", "photos", "announcements"] },
+  { name: "Admin",         color: "#E8694A", permissions: [...ALL_TD_KEYS, ...ALL_ADMIN_KEYS] },
   { name: "Helper",        color: "#6366F1", permissions: [] },
   { name: "Driver",        color: "#F5B829", permissions: [] },
   { name: "Cook",          color: "#EC4899", permissions: [] },
@@ -51,10 +61,10 @@ export async function GET() {
     if (!data || data.length === 0) {
       const seeds = DEFAULT_ROLES.map((r, i) => ({ ...r, sort_order: i + 1 }));
       const { data: seeded } = await client.from("staff_roles").insert(seeds).select();
-      return NextResponse.json({ roles: seeded || [] });
+      return NextResponse.json({ roles: seeded || [], allAdminTabs: ALL_ADMIN_TABS, allTdTabs: ALL_TD_TABS });
     }
 
-    return NextResponse.json({ roles: data });
+    return NextResponse.json({ roles: data, allAdminTabs: ALL_ADMIN_TABS, allTdTabs: ALL_TD_TABS });
   } catch (e) {
     console.error("[owner/roles GET]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

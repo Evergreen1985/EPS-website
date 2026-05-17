@@ -1,9 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
 
 export interface AdminSession {
-  username: string;
-  name: string;
-  role: string;
+  username:    string;
+  name:        string;
+  role:        string;
+  permissions?: string[]; // set for restricted staff; absent = full admin access
 }
 
 export const COOKIE_NAME     = "ep_admin_sid";
@@ -39,9 +40,10 @@ export async function verifySession(token: string): Promise<AdminSession | null>
   try {
     const { payload } = await jwtVerify(token, getSecret());
     return {
-      username: payload.username as string,
-      name:     payload.name     as string,
-      role:     payload.role     as string,
+      username:    payload.username    as string,
+      name:        payload.name        as string,
+      role:        payload.role        as string,
+      permissions: Array.isArray(payload.permissions) ? (payload.permissions as string[]) : undefined,
     };
   } catch {
     return null;
