@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Phone, MapPin, CheckCircle2, Mic, MicOff, Globe, ChevronDown, Play, Star } from "lucide-react";
+import { Phone, Mic, MicOff, Globe, ChevronDown, Star, Sparkles } from "lucide-react";
 import site from "@/content/site.json";
 
 // ── Program data ──────────────────────────────────────────
@@ -25,12 +25,12 @@ const LANGUAGES = [
 ];
 
 const UI_TEXT: Record<string, Record<string, string>> = {
-  "en-IN": { title:"Enquiry Form", childName:"Child's Name", dob:"Date of Birth", phone:"Phone Number (WhatsApp)", parentName:"Parent/Guardian Name", address:"Address", program:"Interested Programme", submit:"Submit Enquiry", required:"mandatory", optional:"optional", suggest:"Suggested for your child", submitSuccess:"Thank you!", successMsg:"Your enquiry has been received. We will contact you shortly on WhatsApp.", speaking:"Listening...", tapMic:"Tap microphone to fill form by voice", greeting:"Hello! Welcome to Evergreen Preschool. Please tell me your child's name." },
-  "kn-IN": { title:"ವಿಚಾರಣೆ ಫಾರ್ಮ್", childName:"ಮಗುವಿನ ಹೆಸರು", dob:"ಹುಟ್ಟಿದ ದಿನ", phone:"ಫೋನ್ ಸಂಖ್ಯೆ (WhatsApp)", parentName:"ಪೋಷಕರ ಹೆಸರು", address:"ವಿಳಾಸ", program:"ಆಸಕ್ತಿಯ ಕಾರ್ಯಕ್ರಮ", submit:"ವಿಚಾರಣೆ ಸಲ್ಲಿಸಿ", required:"ಕಡ್ಡಾಯ", optional:"ಐಚ್ಛಿಕ", suggest:"ನಿಮ್ಮ ಮಗುವಿಗೆ ಸೂಚಿಸಲಾಗಿದೆ", submitSuccess:"ಧನ್ಯವಾದಗಳು!", successMsg:"ನಿಮ್ಮ ವಿಚಾರಣೆಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ನಾವು ಶೀಘ್ರದಲ್ಲೇ WhatsApp ನಲ್ಲಿ ಸಂಪರ್ಕಿಸುತ್ತೇವೆ.", speaking:"ಆಲಿಸುತ್ತಿದ್ದೇನೆ...", tapMic:"ಧ್ವನಿಯ ಮೂಲಕ ಫಾರ್ಮ್ ಭರ್ತಿ ಮಾಡಲು ಮೈಕ್ ಒತ್ತಿ", greeting:"ನಮಸ್ಕಾರ! ಎವರ್‌ಗ್ರೀನ್ ಪ್ರಿಸ್ಕೂಲ್‌ಗೆ ಸ್ವಾಗತ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮಗುವಿನ ಹೆಸರು ಹೇಳಿ." },
-  "hi-IN": { title:"पूछताछ फॉर्म", childName:"बच्चे का नाम", dob:"जन्म तिथि", phone:"फोन नंबर (WhatsApp)", parentName:"माता/पिता का नाम", address:"पता", program:"रुचि का कार्यक्रम", submit:"पूछताछ जमा करें", required:"अनिवार्य", optional:"वैकल्पिक", suggest:"आपके बच्चे के लिए सुझाव", submitSuccess:"धन्यवाद!", successMsg:"आपकी पूछताछ प्राप्त हो गई है। हम जल्द ही WhatsApp पर संपर्क करेंगे।", speaking:"सुन रहा हूँ...", tapMic:"आवाज़ से फॉर्म भरने के लिए माइक दबाएं", greeting:"नमस्ते! एवरग्रीन प्रीस्कूल में आपका स्वागत है। कृपया अपने बच्चे का नाम बताएं।" },
-  "ta-IN": { title:"விசாரணை படிவம்", childName:"குழந்தையின் பெயர்", dob:"பிறந்த தேதி", phone:"தொலைபேசி எண் (WhatsApp)", parentName:"பெற்றோர் பெயர்", address:"முகவரி", program:"விரும்பிய திட்டம்", submit:"விசாரணை சமர்ப்பிக்கவும்", required:"கட்டாயம்", optional:"விருப்பத்தேர்வு", suggest:"உங்கள் குழந்தைக்கு பரிந்துரை", submitSuccess:"நன்றி!", successMsg:"உங்கள் விசாரணை பெறப்பட்டது. விரைவில் WhatsApp-ல் தொடர்பு கொள்கிறோம்.", speaking:"கேட்கிறேன்...", tapMic:"குரலால் படிவம் நிரப்ப மைக்கை அழுத்தவும்", greeting:"வணக்கம்! எவர்கிரீன் பூர்வ பள்ளிக்கு வரவேற்கிறோம். உங்கள் குழந்தையின் பெயரைச் சொல்லுங்கள்." },
-  "te-IN": { title:"విచారణ ఫారం", childName:"పిల్లల పేరు", dob:"పుట్టిన తేదీ", phone:"ఫోన్ నంబర్ (WhatsApp)", parentName:"తల్లిదండ్రుల పేరు", address:"చిరునామా", program:"ఆసక్తి కార్యక్రమం", submit:"విచారణ సమర్పించండి", required:"తప్పనిసరి", optional:"ఐచ్ఛికం", suggest:"మీ పిల్లలకు సూచించబడింది", submitSuccess:"ధన్యవాదాలు!", successMsg:"మీ విచారణ స్వీకరించబడింది. త్వరలో WhatsApp లో సంప్రదిస్తాము.", speaking:"వింటున్నాను...", tapMic:"వాయిస్ ద్వారా ఫారం నింపడానికి మైక్ నొక్కండి", greeting:"నమస్తే! ఎవర్‌గ్రీన్ ప్రీస్కూల్‌కు స్వాగతం. దయచేసి మీ పిల్లల పేరు చెప్పండి." },
-  "ml-IN": { title:"അന്വേഷണ ഫോം", childName:"കുട്ടിയുടെ പേര്", dob:"ജനനതീയതി", phone:"ഫോൺ നമ്പർ (WhatsApp)", parentName:"രക്ഷിതാവിന്റെ പേര്", address:"വിലാസം", program:"താൽപ്പര്യമുള്ള പ്രോഗ്രാം", submit:"അന്വേഷണം സമർപ്പിക്കുക", required:"നിർബന്ധം", optional:"ഐച്ഛികം", suggest:"നിങ്ങളുടെ കുട്ടിക്ക് നിർദ്ദേശിച്ചത്", submitSuccess:"നന്ദി!", successMsg:"നിങ്ങളുടെ അന്വേഷണം ലഭിച്ചു. ഉടൻ WhatsApp-ൽ ബന്ധപ്പെടും.", speaking:"കേൾക്കുന്നു...", tapMic:"ശബ്ദം ഉപയോഗിച്ച് ഫോം പൂരിപ്പിക്കാൻ മൈക്ക് അമർത്തുക", greeting:"നമസ്കാരം! എവർഗ്രീൻ പ്രീസ്കൂളിലേക്ക് സ്വാഗതം. ദയവായി നിങ്ങളുടെ കുട്ടിയുടെ പേര് പറയൂ." },
+  "en-IN": { title:"Enquiry Form", childName:"Child's Name", dob:"Date of Birth", phone:"Phone Number (WhatsApp)", parentName:"Parent/Guardian Name", address:"Address", comments:"Comments", program:"Interested Programme", submit:"Submit Enquiry", required:"mandatory", optional:"optional", suggest:"Suggested for your child", submitSuccess:"Thank you!", successMsg:"Your enquiry has been received. We will contact you shortly on WhatsApp.", speaking:"Listening...", tapMic:"Tap microphone to fill form by voice", greeting:"Hello! Welcome to Evergreen Preschool. Please tell me your child's name." },
+  "kn-IN": { title:"ವಿಚಾರಣೆ ಫಾರ್ಮ್", childName:"ಮಗುವಿನ ಹೆಸರು", dob:"ಹುಟ್ಟಿದ ದಿನ", phone:"ಫೋನ್ ಸಂಖ್ಯೆ (WhatsApp)", parentName:"ಪೋಷಕರ ಹೆಸರು", address:"ವಿಳಾಸ", comments:"ಟಿಪ್ಪಣಿಗಳು", program:"ಆಸಕ್ತಿಯ ಕಾರ್ಯಕ್ರಮ", submit:"ವಿಚಾರಣೆ ಸಲ್ಲಿಸಿ", required:"ಕಡ್ಡಾಯ", optional:"ಐಚ್ಛಿಕ", suggest:"ನಿಮ್ಮ ಮಗುವಿಗೆ ಸೂಚಿಸಲಾಗಿದೆ", submitSuccess:"ಧನ್ಯವಾದಗಳು!", successMsg:"ನಿಮ್ಮ ವಿಚಾರಣೆಯನ್ನು ಸ್ವೀಕರಿಸಲಾಗಿದೆ. ನಾವು ಶೀಘ್ರದಲ್ಲೇ WhatsApp ನಲ್ಲಿ ಸಂಪರ್ಕಿಸುತ್ತೇವೆ.", speaking:"ಆಲಿಸುತ್ತಿದ್ದೇನೆ...", tapMic:"ಧ್ವನಿಯ ಮೂಲಕ ಫಾರ್ಮ್ ಭರ್ತಿ ಮಾಡಲು ಮೈಕ್ ಒತ್ತಿ", greeting:"ನಮಸ್ಕಾರ! ಎವರ್‌ಗ್ರೀನ್ ಪ್ರಿಸ್ಕೂಲ್‌ಗೆ ಸ್ವಾಗತ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಮಗುವಿನ ಹೆಸರು ಹೇಳಿ." },
+  "hi-IN": { title:"पूछताछ फॉर्म", childName:"बच्चे का नाम", dob:"जन्म तिथि", phone:"फोन नंबर (WhatsApp)", parentName:"माता/पिता का नाम", address:"पता", comments:"टिप्पणियाँ", program:"रुचि का कार्यक्रम", submit:"पूछताछ जमा करें", required:"अनिवार्य", optional:"वैकल्पिक", suggest:"आपके बच्चे के लिए सुझाव", submitSuccess:"धन्यवाद!", successMsg:"आपकी पूछताछ प्राप्त हो गई है। हम जल्द ही WhatsApp पर संपर्क करेंगे।", speaking:"सुन रहा हूँ...", tapMic:"आवाज़ से फॉर्म भरने के लिए माइक दबाएं", greeting:"नमस्ते! एवरग्रीन प्रीस्कूल में आपका स्वागत है। कृपया अपने बच्चे का नाम बताएं।" },
+  "ta-IN": { title:"விசாரணை படிவம்", childName:"குழந்தையின் பெயர்", dob:"பிறந்த தேதி", phone:"தொலைபேசி எண் (WhatsApp)", parentName:"பெற்றோர் பெயர்", address:"முகவரி", comments:"கருத்துகள்", program:"விரும்பிய திட்டம்", submit:"விசாரணை சமர்ப்பிக்கவும்", required:"கட்டாயம்", optional:"விருப்பத்தேர்வு", suggest:"உங்கள் குழந்தைக்கு பரிந்துரை", submitSuccess:"நன்றி!", successMsg:"உங்கள் விசாரணை பெறப்பட்டது. விரைவில் WhatsApp-ல் தொடர்பு கொள்கிறோம்.", speaking:"கேட்கிறேன்...", tapMic:"குரலால் படிவம் நிரப்ப மைக்கை அழுத்தவும்", greeting:"வணக்கம்! எவர்கிரீன் பூர்வ பள்ளிக்கு வரவேற்கிறோம். உங்கள் குழந்தையின் பெயரைச் சொல்லுங்கள்." },
+  "te-IN": { title:"విచారణ ఫారం", childName:"పిల్లల పేరు", dob:"పుట్టిన తేదీ", phone:"ఫోన్ నంబర్ (WhatsApp)", parentName:"తల్లిదండ్రుల పేరు", address:"చిరునామా", comments:"వ్యాఖ్యలు", program:"ఆసక్తి కార్యక్రమం", submit:"విచారణ సమర్పించండి", required:"తప్పనిసరి", optional:"ఐచ్ఛికం", suggest:"మీ పిల్లలకు సూచించబడింది", submitSuccess:"ధన్యవాదాలు!", successMsg:"మీ విచారణ స్వీకరించబడింది. త్వరలో WhatsApp లో సంప్రదిస్తాము.", speaking:"వింటున్నాను...", tapMic:"వాయిస్ ద్వారా ఫారం నింపడానికి మైక్ నొక్కండి", greeting:"నమస్తే! ఎవర్‌గ్రీన్ ప్రీస్కూల్‌కు స్వాగతం. దయచేసి మీ పిల్లల పేరు చెప్పండి." },
+  "ml-IN": { title:"അന്വേഷണ ഫോം", childName:"കുട്ടിയുടെ പേര്", dob:"ജനനതീയതി", phone:"ഫോൺ നമ്പർ (WhatsApp)", parentName:"രക്ഷിതാവിന്റെ പേര്", address:"വിലാസം", comments:"അഭിപ്രായങ്ങൾ", program:"താൽപ്പര്യമുള്ള പ്രോഗ്രാം", submit:"അന്വേഷണം സമർപ്പിക്കുക", required:"നിർബന്ധം", optional:"ഐച്ഛികം", suggest:"നിങ്ങളുടെ കുട്ടിക്ക് നിർദ്ദേശിച്ചത്", submitSuccess:"നന്ദി!", successMsg:"നിങ്ങളുടെ അന്വേഷണം ലഭിച്ചു. ഉടൻ WhatsApp-ൽ ബന്ധപ്പെടും.", speaking:"കേൾക്കുന്നു...", tapMic:"ശബ്ദം ഉപയോഗിച്ച് ഫോം പൂരിപ്പിക്കാൻ മൈക്ക് അമർത്തുക", greeting:"നമസ്കാരം! എവർഗ്രീൻ പ്രീസ്കൂളിലേക്ക് സ്വാഗതം. ദയവായി നിങ്ങളുടെ കുട്ടിയുടെ പേര് പറയൂ." },
 };
 
 function getAgeInMonths(dob: string): number | null {
@@ -59,28 +59,50 @@ export default function EnquiryPage() {
   const [showLang, setShowLang]       = useState(false);
   const langRef                       = useRef<HTMLDivElement>(null);
 
-  // Close language dropdown on outside click — use bubble phase, not capture
   useEffect(() => {
     if (!showLang) return;
     const close = (e: MouseEvent) => {
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
-        setShowLang(false);
-      }
+      if (langRef.current && !langRef.current.contains(e.target as Node)) setShowLang(false);
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [showLang]);
-  const [form, setForm]               = useState({ childName:"", dob:"", phone:"", parentName:"", address:"", program:"" });
+
+  const [form, setForm]               = useState({ childName:"", dob:"", phone:"", parentName:"", address:"", comments:"", program:"" });
   const [status, setStatus]           = useState<Status>("idle");
   const [listening, setListening]     = useState(false);
   const [voiceField, setVoiceField]   = useState<string | null>(null);
   const [transcript, setTranscript]   = useState("");
   const [showCampus, setShowCampus]   = useState(false);
+  const [milestoneTip, setMilestoneTip] = useState("");
+  const [loadingTip, setLoadingTip]   = useState(false);
+  const [maxDate, setMaxDate]         = useState("");
   const recognitionRef                = useRef<any>(null);
   const t = UI_TEXT[lang] || UI_TEXT["en-IN"];
   const ageMonths   = getAgeInMonths(form.dob);
   const suggested   = suggestPrograms(ageMonths);
   const selectedProg = PROGRAMS.find(p => p.id === form.program);
+
+  // Set max date client-side to avoid server/client mismatch
+  useEffect(() => { setMaxDate(new Date().toISOString().split("T")[0]); }, []);
+
+  // AI milestone tip — fetch when DOB changes
+  useEffect(() => {
+    if (ageMonths === null || ageMonths < 1) { setMilestoneTip(""); return; }
+    setMilestoneTip(""); setLoadingTip(true);
+    const ctrl = new AbortController();
+    fetch("/api/ai/milestone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ageMonths }),
+      signal: ctrl.signal,
+    })
+      .then(r => r.json())
+      .then(d => { if (d.tip) setMilestoneTip(d.tip); })
+      .catch(() => {})
+      .finally(() => setLoadingTip(false));
+    return () => ctrl.abort();
+  }, [form.dob]);
 
   // Voice input
   const startVoice = useCallback((field: string) => {
@@ -124,7 +146,6 @@ export default function EnquiryPage() {
     e.preventDefault();
     setStatus("sending");
 
-    // Save to DB via our API route (works even without Supabase configured)
     try {
       const res = await fetch("/api/enquiry", {
         method: "POST",
@@ -136,6 +157,7 @@ export default function EnquiryPage() {
           phone:        form.phone,
           parentName:   form.parentName,
           address:      form.address,
+          comments:     form.comments,
           program:      form.program,
           programLabel: PROGRAMS.find(p=>p.id===form.program)?.label,
           lang,
@@ -144,7 +166,6 @@ export default function EnquiryPage() {
       const result = await res.json();
       if (!result.success) {
         console.error("Enquiry save error:", result.error, result.code);
-        alert("DB Error: " + result.error + " (code: " + result.code + ")");
       }
     } catch (err) {
       console.error("Enquiry fetch error:", err);
@@ -152,23 +173,21 @@ export default function EnquiryPage() {
 
     await new Promise(r => setTimeout(r, 600));
 
-    // Auto-create parent account for portal access
     try {
       await fetch("/api/auth/parent-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action:     "create",
-          phone:      form.phone,
-          childName:  form.childName,
-          childDob:   form.dob,
-          enquiryId:  null,
+          action:    "create",
+          phone:     form.phone,
+          childName: form.childName,
+          childDob:  form.dob,
+          enquiryId: null,
         }),
       });
     } catch {}
 
     setStatus("success");
-    // Open WhatsApp with confirmation
     const prog = PROGRAMS.find(p => p.id === form.program);
     const msg = `🌿 *Evergreen Preschool — Enquiry Confirmation*\n\nDear ${form.parentName || "Parent"},\n\nThank you for your enquiry for *${form.childName}*!\n\n📋 *Programme Suggested:* ${prog?.label || "To be confirmed"}\n👶 *Age:* ${ageMonths ? formatAge(ageMonths) : "-"}\n🕐 *Timing:* ${prog?.time || "-"}\n👩‍🏫 *Ratio:* ${prog?.ratio || "-"}\n\n*Next Steps:*\n1. Our team will call you within 1 business day\n2. Schedule a free campus visit\n3. Meet the teachers\n\n📍 1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru\n📞 ${site.phone}\n\n_We look forward to welcoming ${form.childName} to the Evergreen family!_ 🌿`;
     const waUrl = `https://wa.me/91${site.phone}?text=${encodeURIComponent(msg)}`;
@@ -177,7 +196,17 @@ export default function EnquiryPage() {
 
   const inp = "w-full rounded-xl border px-4 py-2.5 text-sm focus:outline-none focus:ring-2 transition-all";
   const inpStyle = { borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" };
-  const inpFocusStyle = { "--tw-ring-color":"#178F78" } as any;
+
+  function VoiceBtn({ field }: { field: string }) {
+    const active = voiceField === field;
+    return (
+      <button type="button" onClick={() => listening && active ? stopVoice() : startVoice(field)}
+        style={{ display:"flex", alignItems:"center", gap:"4px", background:active?"#E8694A":"rgba(23,143,120,0.1)", border:"none", borderRadius:"20px", padding:"3px 10px", color:active?"white":"#178F78", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
+        {active ? <MicOff style={{width:"11px",height:"11px"}}/> : <Mic style={{width:"11px",height:"11px"}}/>}
+        {active ? "Stop" : "Voice"}
+      </button>
+    );
+  }
 
   if (status === "success") {
     return (
@@ -270,7 +299,6 @@ export default function EnquiryPage() {
               <p style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)" }}>Evergreen Preschool & Daycare · Electronic City, Bengaluru</p>
             </div>
 
-            {/* Language selector — rendered in a portal-like way to avoid clipping */}
             <div ref={langRef} style={{ position:"relative", zIndex:999 }}>
               <button onClick={() => setShowLang(!showLang)}
                 style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.2)", border:"1.5px solid rgba(255,255,255,0.4)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" }}>
@@ -329,11 +357,7 @@ export default function EnquiryPage() {
                 <label style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A", textTransform:"uppercase", letterSpacing:"0.06em" }}>
                   {t.childName} <span style={{ color:"#E8694A" }}>*</span>
                 </label>
-                <button type="button" onClick={() => listening && voiceField==="childName" ? stopVoice() : startVoice("childName")}
-                  style={{ display:"flex", alignItems:"center", gap:"4px", background:voiceField==="childName"?"#E8694A":"rgba(23,143,120,0.1)", border:"none", borderRadius:"20px", padding:"3px 10px", color:voiceField==="childName"?"white":"#178F78", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
-                  {voiceField==="childName" ? <MicOff style={{width:"11px",height:"11px"}}/> : <Mic style={{width:"11px",height:"11px"}}/>}
-                  {voiceField==="childName" ? "Stop" : "Voice"}
-                </button>
+                <VoiceBtn field="childName" />
               </div>
               <input required className={inp} style={inpStyle} placeholder="e.g. Aarav Kumar"
                 value={form.childName} onChange={e => setForm(p=>({...p,childName:e.target.value}))} />
@@ -345,7 +369,7 @@ export default function EnquiryPage() {
                 {t.dob} <span style={{ color:"#E8694A" }}>*</span>
               </label>
               <input required type="date" className={inp} style={inpStyle}
-                max={new Date().toISOString().split("T")[0]}
+                max={maxDate}
                 value={form.dob} onChange={e => setForm(p=>({...p,dob:e.target.value}))} />
               {ageMonths !== null && (
                 <div style={{ marginTop:"6px", display:"flex", alignItems:"center", gap:"6px" }}>
@@ -358,6 +382,22 @@ export default function EnquiryPage() {
                 </div>
               )}
             </div>
+
+            {/* AI Milestone Tip */}
+            {(loadingTip || milestoneTip) && (
+              <div style={{ marginBottom:"16px", borderRadius:"14px", border:"1px solid rgba(99,102,241,0.25)", background:"linear-gradient(135deg,rgba(99,102,241,0.06),rgba(23,143,120,0.06))", padding:"12px 14px", display:"flex", gap:"10px", alignItems:"flex-start" }}>
+                <Sparkles style={{ width:"16px", height:"16px", color:"#6366F1", flexShrink:0, marginTop:"2px" }} />
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:"10px", fontWeight:700, color:"#6366F1", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:"4px" }}>
+                    AI Developmental Insight
+                  </div>
+                  {loadingTip
+                    ? <div style={{ fontSize:"12px", color:"#9CA3AF" }}>Generating insight for your child's age…</div>
+                    : <div style={{ fontSize:"12px", color:"#374151", lineHeight:1.6 }}>{milestoneTip}</div>
+                  }
+                </div>
+              </div>
+            )}
 
             {/* Program suggestions */}
             {suggested.length > 0 && (
@@ -378,18 +418,19 @@ export default function EnquiryPage() {
                     </button>
                   ))}
                 </div>
-                {/* Show all programs option */}
                 {PROGRAMS.filter(p => !suggested.find(s=>s.id===p.id)).length > 0 && (
-                  <details style={{ marginTop:"8px" }}>
-                    <summary style={{ fontSize:"11px", color:"#178F78", fontWeight:600, cursor:"pointer", padding:"4px 0" }}>View all programmes</summary>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px", marginTop:"6px" }}>
+                  <details style={{ marginTop:"10px" }}>
+                    <summary style={{ fontSize:"13px", color:"#178F78", fontWeight:700, cursor:"pointer", padding:"6px 0" }}>View all programmes</summary>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginTop:"8px" }}>
                       {PROGRAMS.filter(p => !suggested.find(s=>s.id===p.id)).map(prog => (
                         <button key={prog.id} type="button" onClick={() => setForm(p=>({...p,program:prog.id}))}
-                          style={{ border:`2px solid ${form.program===prog.id ? prog.color : "#EDE8DF"}`, borderRadius:"12px", padding:"10px", textAlign:"left", background:form.program===prog.id ? prog.bg : "white", cursor:"pointer", opacity:0.7 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:"6px" }}>
-                            <span style={{ fontSize:"16px" }}>{prog.icon}</span>
-                            <span style={{ fontSize:"11px", fontWeight:700, color:form.program===prog.id ? prog.color : "#1A2F4A" }}>{prog.label}</span>
+                          style={{ border:`2px solid ${form.program===prog.id ? prog.color : "#EDE8DF"}`, borderRadius:"14px", padding:"12px", textAlign:"left", background:form.program===prog.id ? prog.bg : "white", cursor:"pointer", opacity:0.8, transition:"all 0.2s" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"3px" }}>
+                            <span style={{ fontSize:"20px" }}>{prog.icon}</span>
+                            <span style={{ fontSize:"13px", fontWeight:700, color:form.program===prog.id ? prog.color : "#1A2F4A" }}>{prog.label}</span>
+                            {form.program===prog.id && <span style={{ marginLeft:"auto", color:prog.color }}>✓</span>}
                           </div>
+                          <div style={{ fontSize:"11px", color:"#6B7A99", paddingLeft:"28px" }}>{prog.time} · Ratio {prog.ratio}</div>
                         </button>
                       ))}
                     </div>
@@ -404,11 +445,7 @@ export default function EnquiryPage() {
                 <label style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A", textTransform:"uppercase", letterSpacing:"0.06em" }}>
                   {t.phone} <span style={{ color:"#E8694A" }}>*</span>
                 </label>
-                <button type="button" onClick={() => listening && voiceField==="phone" ? stopVoice() : startVoice("phone")}
-                  style={{ display:"flex", alignItems:"center", gap:"4px", background:voiceField==="phone"?"#E8694A":"rgba(23,143,120,0.1)", border:"none", borderRadius:"20px", padding:"3px 10px", color:voiceField==="phone"?"white":"#178F78", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
-                  {voiceField==="phone" ? <MicOff style={{width:"11px",height:"11px"}}/> : <Mic style={{width:"11px",height:"11px"}}/>}
-                  Voice
-                </button>
+                <VoiceBtn field="phone" />
               </div>
               <div style={{ display:"flex", gap:"8px" }}>
                 <div style={{ background:"#FAF0E8", border:"1px solid #EDE8DF", borderRadius:"12px", padding:"0 12px", display:"flex", alignItems:"center", flexShrink:0 }}>
@@ -432,27 +469,29 @@ export default function EnquiryPage() {
                   <label style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A", textTransform:"uppercase", letterSpacing:"0.06em" }}>
                     {t.parentName}
                   </label>
-                  <button type="button" onClick={() => listening && voiceField==="parentName" ? stopVoice() : startVoice("parentName")}
-                    style={{ display:"flex", alignItems:"center", gap:"4px", background:voiceField==="parentName"?"#E8694A":"rgba(23,143,120,0.1)", border:"none", borderRadius:"20px", padding:"3px 10px", color:voiceField==="parentName"?"white":"#178F78", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
-                    {voiceField==="parentName" ? <MicOff style={{width:"11px",height:"11px"}}/> : <Mic style={{width:"11px",height:"11px"}}/>}
-                    Voice
-                  </button>
+                  <VoiceBtn field="parentName" />
                 </div>
                 <input className={inp} style={inpStyle} placeholder="e.g. Priya Sharma"
                   value={form.parentName} onChange={e => setForm(p=>({...p,parentName:e.target.value}))} />
               </div>
 
-              <div>
+              <div style={{ marginBottom:"12px" }}>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
                   <label style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A", textTransform:"uppercase", letterSpacing:"0.06em" }}>{t.address}</label>
-                  <button type="button" onClick={() => listening && voiceField==="address" ? stopVoice() : startVoice("address")}
-                    style={{ display:"flex", alignItems:"center", gap:"4px", background:voiceField==="address"?"#E8694A":"rgba(23,143,120,0.1)", border:"none", borderRadius:"20px", padding:"3px 10px", color:voiceField==="address"?"white":"#178F78", fontSize:"11px", fontWeight:600, cursor:"pointer" }}>
-                    {voiceField==="address" ? <MicOff style={{width:"11px",height:"11px"}}/> : <Mic style={{width:"11px",height:"11px"}}/>}
-                    Voice
-                  </button>
+                  <VoiceBtn field="address" />
                 </div>
                 <input className={inp} style={inpStyle} placeholder="Area / Locality"
                   value={form.address} onChange={e => setForm(p=>({...p,address:e.target.value}))} />
+              </div>
+
+              <div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px" }}>
+                  <label style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A", textTransform:"uppercase", letterSpacing:"0.06em" }}>{t.comments}</label>
+                  <VoiceBtn field="comments" />
+                </div>
+                <textarea rows={2} className={inp} style={{ ...inpStyle, resize:"none" }}
+                  placeholder="Any questions, special requirements, or anything else you'd like us to know…"
+                  value={form.comments} onChange={e => setForm(p=>({...p,comments:e.target.value}))} />
               </div>
             </div>
 
@@ -526,7 +565,7 @@ export default function EnquiryPage() {
         </div>
       </div>
 
-      <style>{`
+      <style suppressHydrationWarning>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
         input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }

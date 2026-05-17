@@ -46,7 +46,7 @@ const STAFF_COLS = [
 ];
 
 type ImportType = "students" | "staff";
-type EditableRow = { [key: string]: string; _id: string; _errors: string[]; _saved?: boolean; _saving?: boolean; _saveError?: string; };
+type EditableRow = { [key: string]: string | string[] | boolean | undefined; _id: string; _errors: string[]; _saved?: boolean; _saving?: boolean; _saveError?: string; };
 
 // ── Utility ───────────────────────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2); }
@@ -73,7 +73,7 @@ function parseDate(v: any): string {
 function validateRow(row: EditableRow, cols: typeof STUDENT_COLS): string[] {
   const errors: string[] = [];
   for (const col of cols) {
-    if (col.required && !row[col.key]?.trim()) {
+    if (col.required && !(row[col.key] as string | undefined)?.trim()) {
       errors.push(`${col.label} is required`);
     }
   }
@@ -261,7 +261,7 @@ export default function ExcelImport({ onImported }: Props) {
     const row = rows.find(r => r._id === rowId);
     if (!row || row._errors.length > 0) return;
 
-    setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: true, _saveError: "" } : r));
+    setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: true, _saveError: "" } as EditableRow : r));
     try {
       const endpoint = importType === "students" ? "/api/import/students" : "/api/import/staff";
       const res  = await fetch(endpoint, {
@@ -271,14 +271,14 @@ export default function ExcelImport({ onImported }: Props) {
       });
       const data = await res.json();
       if (data.success && data.results.success > 0) {
-        setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saved: true } : r));
+        setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saved: true } as EditableRow : r));
         onImported();
       } else {
         const errMsg = data.results?.errors?.[0] || data.error || "Save failed";
-        setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saveError: errMsg } : r));
+        setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saveError: errMsg } as EditableRow : r));
       }
     } catch (err: any) {
-      setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saveError: err.message } : r));
+      setRows(prev => prev.map(r => r._id === rowId ? { ...r, _saving: false, _saveError: err.message } as EditableRow : r));
     }
   };
 
@@ -467,7 +467,7 @@ export default function ExcelImport({ onImported }: Props) {
                         {/* Editable cells */}
                         {cols.map(col => {
                           const isEditing = editingCell?.rowId === row._id && editingCell?.col === col.key;
-                          const val       = row[col.key] || "";
+                          const val       = (row[col.key] as string) || "";
 
                           return (
                             <td key={col.key} style={{ padding: "4px 6px", maxWidth: "180px" }}

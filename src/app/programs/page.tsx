@@ -86,10 +86,9 @@ export default function ProgramsPage() {
                   {prog.title}
                 </h2>
                 <p className="text-lg text-stone-500 mb-6 leading-relaxed">{prog.description}</p>
-                {prog.halfDay && (
+                {prog.timing && (
                   <p className="text-sm text-stone-400 mb-6">
-                    <span className="font-semibold text-stone-600">Half-day:</span> {prog.halfDay} &nbsp;·&nbsp;
-                    <span className="font-semibold text-stone-600">Full-day:</span> {prog.fullDay}
+                    <span className="font-semibold text-stone-600">Timing:</span> {prog.timing}
                   </p>
                 )}
                 <ul className="space-y-3 mb-8">
@@ -142,7 +141,7 @@ export default function ProgramsPage() {
                     <div className="flex items-center gap-2 text-xs text-stone-400 mb-5">
                       <Users className="w-3.5 h-3.5" /> {prog.ratio} ratio
                       <span className="mx-1">·</span>
-                      <Clock className="w-3.5 h-3.5" /> {prog.fullDay}
+                      <Clock className="w-3.5 h-3.5" /> {prog.timing}
                     </div>
                     <Link href="/contact"
                       className="w-full flex items-center justify-center gap-2 font-bold py-3 rounded-xl text-white transition-all hover:-translate-y-0.5 text-sm"

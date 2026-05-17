@@ -1,14 +1,12 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowRight, Heart, Shield, Star, ExternalLink, Phone, Mail, MapPin, Clock } from "lucide-react";
+import { ArrowRight, Heart, Shield, Phone, Mail, MapPin, Clock } from "lucide-react";
 import HeroPill from "@/components/HeroPill";
 import GoogleReviews from "@/components/GoogleReviews";
 import site from "@/content/site.json";
 import programs from "@/content/programs.json";
 
-// ─── types ───────────────────────────────────────────────
-type FormStatus = "idle" | "sending" | "success";
 
 // ─── data ────────────────────────────────────────────────
 const progList = programs.filter(p => ["infant","playgroup","nursery","jrkg","srkg"].includes(p.id));
@@ -84,8 +82,6 @@ export default function HomePage() {
   const [aboutSlide, setAboutSlide] = useState(0);
   const [daySlide, setDaySlide]   = useState(0);
   const [galFilter, setGalFilter] = useState("All");
-  const [formStatus, setFormStatus] = useState<FormStatus>("idle");
-  const [form, setForm] = useState({ name:"", phone:"", subject:"", msg:"" });
 
   // ── auto-advance slides ──────────────────────────────
   const progTotal  = progList.length;
@@ -162,23 +158,6 @@ export default function HomePage() {
 
   const filteredGal = galFilter === "All" ? galItems : galItems.filter(g => g.cat === galFilter);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormStatus("sending");
-    try {
-      await fetch("/api/enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          parentName: form.name,
-          phone:      form.phone,
-          notes:      `Subject: ${form.subject}\n\n${form.msg}`,
-          lang:       "en-IN",
-        }),
-      });
-    } catch {}
-    setFormStatus("success");
-  };
 
 // Section height = 100vh - topbar(28px) - navbar(48px)
 // Band height = 56px, Dots height = 36px
@@ -307,16 +286,12 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                             </div>
                           ))}
                         </div>
-                        {/* Schedule boxes */}
-                        <div className="grid grid-cols-2 gap-3 mb-4">
-                          {prog.halfDay && <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
-                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>Half Day</div>
-                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.halfDay}</div>
-                          </div>}
-                          {prog.fullDay && <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
-                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>Full Day</div>
-                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.fullDay}</div>
-                          </div>}
+                        {/* Schedule box */}
+                        <div className="mb-4">
+                          <div className="rounded-xl p-3 text-center" style={{ background:`${c.check}0d` }}>
+                            <div className="text-xs mb-0.5" style={{ color:"#6B7A99" }}>{prog.timingLabel}</div>
+                            <div className="text-sm font-bold" style={{ color:"#1A2F4A" }}>{prog.timing}</div>
+                          </div>
                         </div>
                         {/* Enroll button */}
                         <Link href="/enquiry"
@@ -659,58 +634,47 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
       <div ref={el => { sectionRefs.current[7] = el; }}
         style={{ height:SH, scrollSnapAlign:"start", display:"flex", flexDirection:"column" }}>
         {secBand("✉️","Contact & Admissions","We reply within one business day")}
-        <div className="flex-1 overflow-y-auto p-5" style={{ background:"#FEFCF8", scrollbarWidth:"none" }}>
-          <div className="max-w-5xl mx-auto grid lg:grid-cols-5 gap-5">
-            {/* Form */}
-            <div className="lg:col-span-3 bg-white rounded-2xl border p-5" style={{ borderColor:"#EDE8DF" }}>
-              {formStatus === "success" ? (
-                <div className="flex flex-col items-center justify-center h-full py-10 text-center">
-                  <div className="text-5xl mb-3">✅</div>
-                  <div className="font-bold text-xl mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Application Received!</div>
-                  <p className="text-sm mb-4" style={{ color:"#6B7A99" }}>Our admissions team will call you within 1 business day.</p>
-                  <button onClick={() => { setFormStatus("idle"); setForm({ name:"", phone:"", subject:"", msg:"" }); }} className="font-bold px-6 py-2.5 rounded-full text-white text-sm"
-                    style={{ background:"#E8694A" }}>Send Another</button>
+        <div className="flex-1 flex items-center px-5 py-4 overflow-hidden" style={{ background:"#FEFCF8" }}>
+          <div className="max-w-5xl w-full mx-auto grid lg:grid-cols-5 gap-5 items-center">
+            {/* CTA Panel */}
+            <div className="lg:col-span-3 rounded-2xl overflow-hidden" style={{ background:"linear-gradient(135deg,#178F78,#0f6b5a)" }}>
+              <div className="p-8">
+                <div className="text-4xl mb-4">🌿</div>
+                <div className="font-bold mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:"white", fontSize:"2rem", lineHeight:1.15 }}>
+                  Ready to Enrol Your Child?
                 </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="font-bold text-lg mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Contact Us</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Name *</label>
-                      <input required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="Your full name" value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} />
+                <p className="text-sm mb-6 leading-relaxed" style={{ color:"rgba(255,255,255,0.8)", fontFamily:"'Quicksand',sans-serif" }}>
+                  Fill in our quick enquiry form — takes under 2 minutes. Tell us your child's name, age and the programme you're interested in, and our team will get back to you within 1 business day.
+                </p>
+                <div className="flex flex-wrap gap-3 mb-6">
+                  <Link href="/enquiry"
+                    className="flex items-center gap-2 font-bold px-7 py-3 rounded-full text-sm transition-all hover:-translate-y-0.5"
+                    style={{ background:"#E8694A", color:"white", boxShadow:"0 6px 20px rgba(232,105,74,0.4)", fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
+                    Start Enquiry <ArrowRight className="w-4 h-4" />
+                  </Link>
+                  <a href={`https://wa.me/91${site.phone}?text=Hi! I'd like to enquire about admissions.`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 font-bold px-6 py-3 rounded-full text-sm transition-all hover:-translate-y-0.5"
+                    style={{ background:"#25D366", color:"white", boxShadow:"0 6px 20px rgba(37,211,102,0.35)", fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
+                    💬 WhatsApp Us
+                  </a>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[["🕐","Replies in","1 business day"],["🏫","Free","campus visit"],["🎁","Sibling","10% off"]].map(([icon,l1,l2]) => (
+                    <div key={l1} className="rounded-xl p-3 text-center" style={{ background:"rgba(255,255,255,0.1)" }}>
+                      <div className="text-lg mb-0.5">{icon}</div>
+                      <div className="text-xs" style={{ color:"rgba(255,255,255,0.7)", fontFamily:"'Quicksand',sans-serif" }}>{l1}</div>
+                      <div className="text-xs font-bold" style={{ color:"white", fontFamily:"'Fredoka',sans-serif" }}>{l2}</div>
                     </div>
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Phone *</label>
-                      <input required type="tel" className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="Mobile number" value={form.phone} onChange={e => setForm(p=>({...p,phone:e.target.value}))} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Subject *</label>
-                    <input required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      placeholder="e.g. Admission enquiry, Fee details…" value={form.subject} onChange={e => setForm(p=>({...p,subject:e.target.value}))} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Message *</label>
-                    <textarea required rows={3} className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all resize-none" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      placeholder="Tell us how we can help you…" value={form.msg} onChange={e => setForm(p=>({...p,msg:e.target.value}))} />
-                  </div>
-                  <button type="submit" disabled={formStatus==="sending"}
-                    className="w-full flex items-center justify-center gap-2 py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5 disabled:opacity-60"
-                    style={{ background:"#E8694A", boxShadow:"0 5px 16px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
-                    {formStatus==="sending"
-                      ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"/>Sending…</>
-                      : <>✉️ Send Message</>}
-                  </button>
-                </form>
-              )}
+                  ))}
+                </div>
+              </div>
             </div>
             {/* Sidebar */}
             <div className="lg:col-span-2 space-y-3">
               <div className="rounded-2xl p-4 text-white" style={{ background:"#178F78" }}>
-                <div className="font-bold text-base mb-3" style={{ fontFamily:"'Fredoka',sans-serif" }}>Contact Info</div>
-                <div className="space-y-2 text-xs mb-3" style={{ color:"rgba(255,255,255,0.8)" }}>
+                <div className="font-bold text-base mb-2" style={{ fontFamily:"'Fredoka',sans-serif" }}>Contact Info</div>
+                <div className="space-y-1.5 text-xs mb-3" style={{ color:"rgba(255,255,255,0.8)" }}>
                   <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 flex-shrink-0"/>{site.phone}</div>
                   <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 flex-shrink-0"/>{site.email}</div>
                   <div className="flex items-start gap-2"><MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru 560100</div>
