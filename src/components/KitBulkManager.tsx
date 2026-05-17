@@ -512,10 +512,10 @@ export default function KitBulkManager({ enquiries }:Props) {
     <div>
 
       {/* ── TOP ROW: Programme Template (left) + Summary (right) ── */}
-      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px", marginBottom:"16px", alignItems:"stretch"}}>
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"16px", marginBottom:"16px", alignItems:"start"}}>
 
-        {/* LEFT: Programme Default Template Editor */}
-        <div style={{background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", padding:"14px", display:"flex", flexDirection:"column"}}>
+        {/* LEFT: Programme Default Template Editor — fixed height so item list scrolls inside */}
+        <div style={{background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", padding:"14px", display:"flex", flexDirection:"column", height:"440px"}}>
           <div style={{marginBottom:"10px"}}>
             {/* Title + programme inline */}
             <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"6px"}}>

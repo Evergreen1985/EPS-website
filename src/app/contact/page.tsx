@@ -6,7 +6,7 @@ import site from "@/content/site.json";
 type Status = "idle" | "sending" | "success";
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", childAge: "", program: "", message: "" });
+  const [form, setForm] = useState({ name: "", phone: "", message: "" });
   const [status, setStatus] = useState<Status>("idle");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -86,7 +86,7 @@ export default function ContactPage() {
                 <p className="text-stone-500 text-sm max-w-xs">
                   Thank you! Our team will get back to you within one business day.
                 </p>
-                <button onClick={() => { setStatus("idle"); setForm({ name:"",email:"",phone:"",childAge:"",program:"",message:"" }); }}
+                <button onClick={() => { setStatus("idle"); setForm({ name:"", phone:"", message:"" }); }}
                   className="mt-5 px-6 py-2.5 rounded-full text-white text-sm font-bold transition-all hover:-translate-y-0.5"
                   style={{ background: "#E8694A" }}>
                   Send Another Message
@@ -96,60 +96,25 @@ export default function ContactPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <h2 className="text-xl font-bold mb-1" style={{ fontFamily: "'Fredoka', sans-serif", color: "#178F78" }}>
-                    Send Us a Message
+                    Contact Us
                   </h2>
                   <p className="text-stone-400 text-xs">We reply within one business day.</p>
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Full Name *</label>
-                    <input type="text" name="name" required value={form.name} onChange={handleChange} placeholder="Your full name" className={inp} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Email *</label>
-                    <input type="email" name="email" required value={form.email} onChange={handleChange} placeholder="you@example.com" className={inp} />
-                  </div>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Phone *</label>
-                    <input type="tel" name="phone" required value={form.phone} onChange={handleChange} placeholder="Mobile number" className={inp} />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Child&apos;s Age</label>
-                    <select name="childAge" value={form.childAge} onChange={handleChange} className={inp}>
-                      <option value="">Select age</option>
-                      <option>9 mo – 2 yrs (Infant Care)</option>
-                      <option>2–3 yrs (Playgroup)</option>
-                      <option>3–4 yrs (Nursery)</option>
-                      <option>4–5 yrs (Jr. KG)</option>
-                      <option>5–6 yrs (Sr. KG)</option>
-                      <option>6+ yrs (After-School)</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Parent Name *</label>
+                  <input type="text" name="name" required value={form.name} onChange={handleChange} placeholder="Your full name" className={inp} />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Interested Programme</label>
-                  <select name="program" value={form.program} onChange={handleChange} className={inp}>
-                    <option value="">Select a programme</option>
-                    <option>Infant Care</option>
-                    <option>Playgroup</option>
-                    <option>Nursery</option>
-                    <option>Junior KG</option>
-                    <option>Senior KG</option>
-                    <option>Full-Day Daycare</option>
-                    <option>After-School Program</option>
-                    <option>Holiday Camp</option>
-                  </select>
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Phone *</label>
+                  <input type="tel" name="phone" required value={form.phone} onChange={handleChange} placeholder="Mobile number" className={inp} />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Message *</label>
-                  <textarea name="message" required value={form.message} onChange={handleChange} rows={3}
-                    placeholder="Tell us about your child or anything you'd like to know…"
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Message / Purpose *</label>
+                  <textarea name="message" required value={form.message} onChange={handleChange} rows={4}
+                    placeholder="What would you like to discuss or enquire about?"
                     className={inp + " resize-none"} />
                 </div>
 
