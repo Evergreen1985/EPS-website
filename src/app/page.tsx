@@ -85,7 +85,7 @@ export default function HomePage() {
   const [daySlide, setDaySlide]   = useState(0);
   const [galFilter, setGalFilter] = useState("All");
   const [formStatus, setFormStatus] = useState<FormStatus>("idle");
-  const [form, setForm] = useState({ parent:"", phone:"", child:"", dob:"", program:"", msg:"" });
+  const [form, setForm] = useState({ name:"", phone:"", subject:"", msg:"" });
 
   // ── auto-advance slides ──────────────────────────────
   const progTotal  = progList.length;
@@ -162,12 +162,6 @@ export default function HomePage() {
 
   const filteredGal = galFilter === "All" ? galItems : galItems.filter(g => g.cat === galFilter);
 
-  const programToId: Record<string, string> = {
-    "Infant Care": "infant", "Playgroup": "playgroup", "Nursery": "nursery",
-    "Junior KG": "jrkg", "Senior KG": "srkg",
-    "Full-Day Daycare": "daycare", "After-School Program": "afterschool", "Holiday Camp": "holiday",
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormStatus("sending");
@@ -176,13 +170,10 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          childName:    form.child,
-          dob:          form.dob || null,
-          phone:        form.phone,
-          parentName:   form.parent,
-          program:      programToId[form.program] || null,
-          programLabel: form.program,
-          lang:         "en-IN",
+          parentName: form.name,
+          phone:      form.phone,
+          notes:      `Subject: ${form.subject}\n\n${form.msg}`,
+          lang:       "en-IN",
         }),
       });
     } catch {}
@@ -677,55 +668,40 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                   <div className="text-5xl mb-3">✅</div>
                   <div className="font-bold text-xl mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Application Received!</div>
                   <p className="text-sm mb-4" style={{ color:"#6B7A99" }}>Our admissions team will call you within 1 business day.</p>
-                  <button onClick={() => setFormStatus("idle")} className="font-bold px-6 py-2.5 rounded-full text-white text-sm"
-                    style={{ background:"#E8694A" }}>Submit Another</button>
+                  <button onClick={() => { setFormStatus("idle"); setForm({ name:"", phone:"", subject:"", msg:"" }); }} className="font-bold px-6 py-2.5 rounded-full text-white text-sm"
+                    style={{ background:"#E8694A" }}>Send Another</button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="font-bold text-lg mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Online Admission Form</div>
+                  <div className="font-bold text-lg mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Contact Us</div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Parent Name *</label>
+                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Name *</label>
                       <input required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="Full name" value={form.parent} onChange={e => setForm(p=>({...p,parent:e.target.value}))} />
+                        placeholder="Your full name" value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} />
                     </div>
                     <div>
                       <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Phone *</label>
                       <input required type="tel" className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="WhatsApp number" value={form.phone} onChange={e => setForm(p=>({...p,phone:e.target.value}))} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Child&apos;s Name *</label>
-                      <input required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        placeholder="Child's name" value={form.child} onChange={e => setForm(p=>({...p,child:e.target.value}))} />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Date of Birth *</label>
-                      <input required type="date" className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                        value={form.dob} onChange={e => setForm(p=>({...p,dob:e.target.value}))} />
+                        placeholder="Mobile number" value={form.phone} onChange={e => setForm(p=>({...p,phone:e.target.value}))} />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Programme *</label>
-                    <select required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      value={form.program} onChange={e => setForm(p=>({...p,program:e.target.value}))}>
-                      <option value="">Select a programme</option>
-                      {["Infant Care","Playgroup","Nursery","Junior KG","Senior KG","Full-Day Daycare","After-School Program","Holiday Camp"].map(o => <option key={o}>{o}</option>)}
-                    </select>
+                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Subject *</label>
+                    <input required className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                      placeholder="e.g. Admission enquiry, Fee details…" value={form.subject} onChange={e => setForm(p=>({...p,subject:e.target.value}))} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Message</label>
-                    <textarea rows={2} className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all resize-none" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
-                      placeholder="Any questions or special requirements?" value={form.msg} onChange={e => setForm(p=>({...p,msg:e.target.value}))} />
+                    <label className="text-xs font-bold uppercase tracking-wider block mb-1" style={{ color:"#6B7A99" }}>Message *</label>
+                    <textarea required rows={3} className="w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:border-teal-400 transition-all resize-none" style={{ borderColor:"#EDE8DF", background:"#FAF0E8", fontFamily:"'Quicksand',sans-serif" }}
+                      placeholder="Tell us how we can help you…" value={form.msg} onChange={e => setForm(p=>({...p,msg:e.target.value}))} />
                   </div>
                   <button type="submit" disabled={formStatus==="sending"}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-full text-white font-bold text-sm transition-all hover:-translate-y-0.5 disabled:opacity-60"
                     style={{ background:"#E8694A", boxShadow:"0 5px 16px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                     {formStatus==="sending"
-                      ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"/>Submitting…</>
-                      : <>📋 Submit Application</>}
+                      ? <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"/>Sending…</>
+                      : <>✉️ Send Message</>}
                   </button>
                 </form>
               )}
