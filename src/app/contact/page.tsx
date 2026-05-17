@@ -6,7 +6,7 @@ import site from "@/content/site.json";
 type Status = "idle" | "sending" | "success";
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: "", phone: "", message: "" });
+  const [form, setForm] = useState({ name: "", phone: "", subject: "", message: "" });
   const [status, setStatus] = useState<Status>("idle");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
@@ -86,7 +86,7 @@ export default function ContactPage() {
                 <p className="text-stone-500 text-sm max-w-xs">
                   Thank you! Our team will get back to you within one business day.
                 </p>
-                <button onClick={() => { setStatus("idle"); setForm({ name:"", phone:"", message:"" }); }}
+                <button onClick={() => { setStatus("idle"); setForm({ name:"", phone:"", subject:"", message:"" }); }}
                   className="mt-5 px-6 py-2.5 rounded-full text-white text-sm font-bold transition-all hover:-translate-y-0.5"
                   style={{ background: "#E8694A" }}>
                   Send Another Message
@@ -101,20 +101,26 @@ export default function ContactPage() {
                   <p className="text-stone-400 text-xs">We reply within one business day.</p>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Parent Name *</label>
-                  <input type="text" name="name" required value={form.name} onChange={handleChange} placeholder="Your full name" className={inp} />
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Name *</label>
+                    <input type="text" name="name" required value={form.name} onChange={handleChange} placeholder="Your full name" className={inp} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Phone *</label>
+                    <input type="tel" name="phone" required value={form.phone} onChange={handleChange} placeholder="Mobile number" className={inp} />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Phone *</label>
-                  <input type="tel" name="phone" required value={form.phone} onChange={handleChange} placeholder="Mobile number" className={inp} />
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Subject *</label>
+                  <input type="text" name="subject" required value={form.subject} onChange={handleChange} placeholder="e.g. Admission enquiry, Fee details…" className={inp} />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Message / Purpose *</label>
+                  <label className="text-xs font-bold text-stone-400 uppercase tracking-wider block mb-1">Message *</label>
                   <textarea name="message" required value={form.message} onChange={handleChange} rows={4}
-                    placeholder="What would you like to discuss or enquire about?"
+                    placeholder="Tell us how we can help you…"
                     className={inp + " resize-none"} />
                 </div>
 
