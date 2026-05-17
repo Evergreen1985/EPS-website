@@ -20,10 +20,15 @@ export async function GET(req: Request) {
     .order("due_date", { ascending: false });
 
   if (enquiryId) query = query.eq("enquiry_id", enquiryId);
-  if (status)    query = query.eq("status", status);
+  // Validate status allowlist before passing to DB
+  const VALID_STATUSES = ["pending", "paid", "partial", "waived", "overdue"];
+  if (status && !VALID_STATUSES.includes(status)) {
+    return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
+  }
+  if (status) query = query.eq("status", status);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: "Failed to fetch fees" }, { status: 500 });
   return NextResponse.json(data || []);
 }
 
@@ -60,7 +65,7 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: "Failed to assign fee" }, { status: 500 });
   return NextResponse.json({ success: true, data });
 }
 
@@ -90,6 +95,6 @@ export async function PATCH(req: Request) {
   }
 
   const { error } = await sb().from("fee_assignments").update(updates).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: "Failed to update fee" }, { status: 500 });
   return NextResponse.json({ success: true });
 }

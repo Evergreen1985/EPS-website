@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 
 function sb() {
   return createClient(
@@ -8,35 +9,70 @@ function sb() {
   );
 }
 
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+function generateOTP(): string {
+  // Cryptographically random 6-digit OTP
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return String(100000 + (array[0] % 900000));
 }
 
 // POST: Send OTP via WhatsApp link
 export async function POST(req: Request) {
-  const { phone, role } = await req.json();
-  if (!phone || !role) return NextResponse.json({ error: "Phone and role required" }, { status: 400 });
+  try {
+    // Rate limit: 3 OTP requests per IP per 15 minutes
+    const ip = getClientIp(req);
+    if (!rateLimit(`reset-otp:${ip}`, 3, 15 * 60 * 1000)) {
+      return NextResponse.json({ error: "Too many reset requests. Please try again later." }, { status: 429 });
+    }
 
-  const client = sb();
+    const body = await req.json().catch(() => ({}));
+    const { phone, role } = body;
 
-  // Check account exists
-  if (role === "parent") {
-    const { data } = await client.from("parent_accounts").select("id").eq("phone", phone.trim()).maybeSingle();
-    if (!data) return NextResponse.json({ error: "No account found with this phone number" }, { status: 404 });
-  } else if (role === "teacher") {
-    const { data } = await client.from("teacher_accounts").select("id").eq("username", phone.trim().toLowerCase()).maybeSingle();
-    if (!data) return NextResponse.json({ error: "No teacher account found with this username" }, { status: 404 });
+    if (!phone || !role) {
+      return NextResponse.json({ error: "Phone and role required" }, { status: 400 });
+    }
+
+    // Validate role
+    if (!["parent", "teacher"].includes(role)) {
+      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    const client  = sb();
+    const phoneId = String(phone).trim();
+
+    // Check account exists — return a generic message either way to prevent enumeration
+    if (role === "parent") {
+      const { data } = await client.from("parent_accounts").select("id").eq("phone", phoneId).maybeSingle();
+      if (!data) {
+        // Return success to prevent phone number enumeration
+        return NextResponse.json({ success: true, waLink: null });
+      }
+    } else {
+      const { data } = await client.from("teacher_accounts").select("id").eq("username", phoneId.toLowerCase()).maybeSingle();
+      if (!data) {
+        return NextResponse.json({ success: true, waLink: null });
+      }
+    }
+
+    const otp       = generateOTP();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Save OTP
+    await client.from("password_resets").insert({
+      phone: phoneId,
+      role,
+      otp,
+      expires_at: expiresAt.toISOString(),
+    });
+
+    // Generate WhatsApp link with OTP
+    const message = `🔐 *Evergreen Preschool — Password Reset*\n\nYour OTP is: *${otp}*\n\nThis OTP is valid for 10 minutes.\nDo not share with anyone.\n\n*Evergreen Preschool & Daycare*`;
+    const waLink  = `https://wa.me/917411574504?text=${encodeURIComponent(message)}`;
+
+    // OTP is NOT returned in the response — it is delivered only via WhatsApp
+    return NextResponse.json({ success: true, waLink });
+
+  } catch {
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-
-  const otp       = generateOTP();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-  // Save OTP
-  await client.from("password_resets").insert({ phone: phone.trim(), role, otp, expires_at: expiresAt.toISOString() });
-
-  // Generate WhatsApp link with OTP
-  const message = `🔐 *Evergreen Preschool — Password Reset*\n\nYour OTP is: *${otp}*\n\nThis OTP is valid for 10 minutes.\nDo not share with anyone.\n\n*Evergreen Preschool & Daycare*`;
-  const waLink  = `https://wa.me/917411574504?text=${encodeURIComponent(message)}`;
-
-  return NextResponse.json({ success: true, waLink, otp }); // remove otp from response in production
 }

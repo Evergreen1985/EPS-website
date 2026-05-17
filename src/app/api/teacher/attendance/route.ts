@@ -17,6 +17,11 @@ export async function GET(req: Request) {
 
   if (!sectionId) return NextResponse.json({ error: "sectionId required" }, { status: 400 });
 
+  // Validate date params — must be YYYY-MM-DD format if provided
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  if (from && !DATE_RE.test(from)) return NextResponse.json({ error: "Invalid from date" }, { status: 400 });
+  if (to   && !DATE_RE.test(to))   return NextResponse.json({ error: "Invalid to date" },   { status: 400 });
+
   const { data: children } = await sb()
     .from("enquiries")
     .select("id, child_name")
@@ -43,8 +48,14 @@ export async function GET(req: Request) {
 // Mark/update attendance for a student
 export async function POST(req: Request) {
   try {
-    const { studentId, date, status, checkInTime, checkOutTime } = await req.json();
+    const { studentId, date, status, checkInTime, checkOutTime } = await req.json().catch(() => ({}));
     if (!studentId || !date || !status) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (!DATE_RE.test(date)) return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+    if (!["present", "absent", "late"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
 
     // Upsert attendance
     const { data, error } = await sb()

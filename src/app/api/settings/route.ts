@@ -1,6 +1,7 @@
 // src/app/api/settings/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifySession, COOKIE_NAME } from "@/lib/adminSession";
 
 function getSupabase() {
   // Try server-side vars first, fall back to public vars (same pattern as other routes in this project)
@@ -31,9 +32,16 @@ export async function GET() {
   }
 }
 
-// POST /api/settings
+// POST /api/settings — admin only
 export async function POST(req: NextRequest) {
   try {
+    // Verify admin session (middleware covers /api/settings but double-check here)
+    const token   = req.cookies.get(COOKIE_NAME)?.value ?? "";
+    const session = token ? await verifySession(token) : null;
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+    }
+
     const supabase = getSupabase();
     const body = await req.json();
     const { id: _id, updated_at: _u, created_at: _c, ...fields } = body;

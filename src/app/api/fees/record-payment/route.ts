@@ -25,8 +25,14 @@ export async function POST(req: Request) {
       discountReason,  // reason string
     } = body;
 
-    if (!feeId || !paidAmount || !paymentMode) {
+    if (!feeId || paidAmount === undefined || paidAmount === null || !paymentMode) {
       return NextResponse.json({ error: "feeId, paidAmount and paymentMode are required" }, { status: 400 });
+    }
+
+    // Validate payment amount
+    const ALLOWED_MODES = ["cash", "cheque", "bank_transfer", "upi"];
+    if (!ALLOWED_MODES.includes(paymentMode)) {
+      return NextResponse.json({ error: "Invalid payment mode" }, { status: 400 });
     }
 
     const client = sb();
@@ -43,9 +49,17 @@ export async function POST(req: Request) {
     }
 
     // Calculate effective amount after discount
-    const discount   = applyDiscount ? (discountAmount || 0) : 0;
-    const netAmount  = fee.amount - discount;
-    const paid       = parseFloat(paidAmount);
+    const discount  = applyDiscount ? Math.max(0, parseFloat(discountAmount) || 0) : 0;
+    const netAmount = fee.amount - discount;
+    const paid      = parseFloat(paidAmount);
+
+    if (isNaN(paid) || paid <= 0) {
+      return NextResponse.json({ error: "paidAmount must be a positive number" }, { status: 400 });
+    }
+    if (paid > fee.amount * 2) {
+      return NextResponse.json({ error: "paidAmount exceeds fee amount" }, { status: 400 });
+    }
+
     const isFullPaid = paid >= netAmount;
 
     // Generate receipt number for this payment
