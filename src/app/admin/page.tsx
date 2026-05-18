@@ -13,6 +13,7 @@ import ExcelImport        from "@/components/ExcelImport";
 import KitBulkManager     from "@/components/KitBulkManager";
 import AttendanceReport   from "@/components/AttendanceReport";
 import SitePhotosManager  from "@/components/SitePhotosManager";
+import TransportStaffView from "@/components/TransportStaffView";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -27,12 +28,13 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
 const EVENT_COLORS = { holiday:"#E8694A", festival:"#F5B829", activity:"#178F78", exam:"#6366F1", ptm:"#EC4899", sports:"#0F766E" };
 const STATUS_COLORS: Record<string,string> = { new:"#6366F1", called:"#F5B829", visited:"#0F766E", enrolled:"#178F78", "not-interested":"#6B7A99" };
+
 
 export default function AdminPage() {
   const router = useRouter();
@@ -506,6 +508,7 @@ export default function AdminPage() {
           { key:"announcements", label:"📢 Announcements", count: announcements.length     },
           { key:"expenses",      label:"💸 Expenses",      count: 0                         },
           { key:"reports",       label:"📊 Reports",       count: 0                         },
+          { key:"transport",     label:"🚌 Transport",     count: 0                         },
         ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -1565,6 +1568,13 @@ export default function AdminPage() {
         <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
           <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#1A2F4A", marginBottom:"20px" }}>📊 Attendance Reports</div>
           <AttendanceReport theme="light" />
+        </div>
+      )}
+
+      {/* ══ TRANSPORT TAB ══ */}
+      {tab === "transport" && (
+        <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+          <TransportStaffView session={session} isAdmin={true} />
         </div>
       )}
 

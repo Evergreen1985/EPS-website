@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import ParentDocumentsTab from "@/components/ParentDocumentsTab";
 import KitChecklist from "@/components/KitChecklist";
+import TransportParentView from "@/components/TransportParentView";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -238,7 +239,7 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport">("home");
   const [paidFees, setPaidFees]      = useState<any[]>([]);
   const [paidLoading, setPaidLoading]= useState(false);
   const [doneHW, setDoneHW]         = useState<Set<string>>(() => {
@@ -413,7 +414,7 @@ export default function ParentDashboardPage() {
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -764,6 +765,11 @@ export default function ParentDashboardPage() {
                   issuedBy={session?.phone || "Parent"}
                 />
               </div>
+            )}
+
+            {/* ══ TRANSPORT TAB ══ */}
+            {tab === "transport" && (
+              <TransportParentView fixedChild={selectedChild} session={session} />
             )}
 
             {/* ══ PROFILE TAB ══ */}

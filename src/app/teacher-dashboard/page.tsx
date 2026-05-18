@@ -5,8 +5,9 @@ import { LogOut, Plus, Trash2, MessageSquare, Send, Clock } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
 import FaceAutoTagger from "@/components/FaceAutoTagger";
 import TeacherKitTab from "@/components/TeacherKitTab";
+import TransportStaffView from "@/components/TransportStaffView";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport";
 
 const TD_TABS = [
   { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
@@ -15,6 +16,7 @@ const TD_TABS = [
   { key: "photos"     as TeacherTab, icon: "📸", label: "Photos"     },
   { key: "kit"        as TeacherTab, icon: "🎒", label: "Kit"        },
   { key: "messages"   as TeacherTab, icon: "💬", label: "Messages"   },
+  { key: "transport"  as TeacherTab, icon: "🚌", label: "Transport"  },
 ];
 
 const ATT_STATUS = [
@@ -194,11 +196,21 @@ export default function TeacherDashboardPage() {
   // ── Mark attendance ───────────────────────────────────
   const markAtt = async (childId: string, status: string) => {
     setSaving(childId);
-    setAtt(p => ({ ...p, [childId]: status }));
-    await fetch("/api/teacher/attendance", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ studentId: childId, date: today, status }),
-    });
+    const prev = attendance[childId];
+    setAtt(p => ({ ...p, [childId]: status }));  // optimistic update
+    try {
+      const res = await fetch("/api/teacher/attendance", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: childId, date: today, status }),
+      });
+      if (!res.ok) {
+        setAtt(p => ({ ...p, [childId]: prev }));  // revert on failure
+        const d = await res.json().catch(() => ({}));
+        alert(`Failed to save attendance: ${d.error || res.statusText}`);
+      }
+    } catch {
+      setAtt(p => ({ ...p, [childId]: prev }));  // revert on network error
+    }
     setSaving(null);
   };
 
@@ -291,8 +303,9 @@ export default function TeacherDashboardPage() {
 
   // undefined (loading) or null (role not in DB) → show all tabs
   // string[] → show only what's configured for this role (may be empty)
+  // transport is always visible for all staff regardless of permissions
   const visibleTabs = Array.isArray(permissions)
-    ? TD_TABS.filter(t => permissions.includes(`td:${t.key}`))
+    ? TD_TABS.filter(t => t.key === "transport" || permissions.includes(`td:${t.key}`))
     : TD_TABS;
 
   // True only when role is found AND has at least one non-td: permission
@@ -804,6 +817,11 @@ export default function TeacherDashboardPage() {
               </div>
             )}
           </div>
+        )}
+
+        {/* ══ TRANSPORT TAB ══ */}
+        {tab === "transport" && (
+          <TransportStaffView session={session} />
         )}
 
       </div>

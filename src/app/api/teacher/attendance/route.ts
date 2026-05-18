@@ -57,8 +57,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid status" }, { status: 400 });
     }
 
-    // Upsert attendance
-    const { data, error } = await sb()
+    // Upsert attendance — no .select().single() to avoid RLS read-back failures
+    const { error } = await sb()
       .from("attendance")
       .upsert({
         student_id:      studentId,
@@ -66,12 +66,55 @@ export async function POST(req: Request) {
         status,
         check_in_time:   checkInTime  || null,
         check_out_time:  checkOutTime || null,
-      }, { onConflict: "student_id,date" })
-      .select()
-      .single();
+      }, { onConflict: "student_id,date" });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ success: true, data });
+
+    // Sync to transport ride_logs (fire-and-forget — don't fail the attendance save if transport sync fails)
+    try {
+      if (status === "absent") {
+        // Fetch child name and verify opt-in is active for today
+        const [{ data: child }, { data: optIn }] = await Promise.all([
+          sb().from("enquiries").select("child_name").eq("id", studentId).single(),
+          sb().from("transport_opt_ins")
+            .select("child_id, mode, end_date")
+            .eq("child_id", studentId)
+            .eq("opted_in", true)
+            .maybeSingle(),
+        ]);
+
+        // Check that the opt-in is actually active for today's date
+        const isActive = optIn && (
+          optIn.mode === "permanent" ||
+          !optIn.end_date ||
+          optIn.end_date >= date
+        );
+
+        if (isActive && child) {
+          const now  = new Date().toISOString();
+          const base = { child_id: studentId, child_name: child.child_name, date, status: "absent", checked_by: "teacher-sync", updated_at: now };
+
+          // Try new constraint (requires migration Section 9); fall back to old constraint
+          const upsertRoute = async (route_id: string) => {
+            const { error } = await sb().from("ride_logs").upsert({ ...base, route_id }, { onConflict: "child_id,date,route_id" });
+            if (error && error.message.includes("route_id")) {
+              await sb().from("ride_logs").upsert(base, { onConflict: "child_id,date" });
+            }
+          };
+          await Promise.all([upsertRoute("route_morning"), upsertRoute("route_afternoon")]);
+        }
+      } else {
+        // Teacher corrected to present/late — remove any auto-synced absent records
+        await sb().from("ride_logs")
+          .delete()
+          .eq("child_id", studentId)
+          .eq("date", date)
+          .eq("status", "absent")
+          .eq("checked_by", "teacher-sync");
+      }
+    } catch { /* transport sync failure must not affect attendance save */ }
+
+    return NextResponse.json({ success: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message }, { status: 500 });
   }
