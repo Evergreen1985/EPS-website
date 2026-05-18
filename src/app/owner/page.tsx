@@ -7,8 +7,9 @@ import {
   AlertCircle, CheckCircle, Clock, Plus, Trash2, Send, RefreshCw, ShieldAlert,
 } from "lucide-react";
 import AttendanceReport from "@/components/AttendanceReport";
+import OwnerTestRunner from "@/components/OwnerTestRunner";
 
-type OwnerTab = "overview" | "admissions" | "fees" | "expenses" | "attendance" | "staff" | "messages" | "insights" | "roles" | "cleanup";
+type OwnerTab = "overview" | "admissions" | "fees" | "expenses" | "attendance" | "staff" | "messages" | "insights" | "roles" | "cleanup" | "tests";
 
 const TABS: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
   { id: "overview",    label: "Overview",    icon: <LayoutDashboard size={16} /> },
@@ -21,6 +22,7 @@ const TABS: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
   { id: "insights",    label: "AI Insights", icon: <Lightbulb size={16} /> },
   { id: "roles",       label: "Staff Roles",  icon: <UserCheck size={16} /> },
   { id: "cleanup",     label: "Data Cleanup", icon: <ShieldAlert size={16} /> },
+  { id: "tests",       label: "🔬 Tests",      icon: null },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -47,6 +49,7 @@ const ALL_ADMIN_TABS = [
   { key: "announcements", label: "📢 Announcements"  },
   { key: "expenses",      label: "💸 Expenses"       },
   { key: "reports",       label: "📊 Reports"        },
+  { key: "transport",     label: "🚌 Transport"      },
 ];
 
 const ALL_TD_TABS = [
@@ -1352,6 +1355,9 @@ Object.keys(cleanupMeta.errors).map(t => `GRANT ALL ON ${t} TO anon;`).join("\n"
             )}
           </div>
         )}
+
+        {/* ── TESTS TAB ───────────────────────────────────────────────────── */}
+        {tab === "tests" && <OwnerTestRunner />}
 
         <div style={{ height: "40px" }} />
       </div>

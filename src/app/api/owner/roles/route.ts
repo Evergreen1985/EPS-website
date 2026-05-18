@@ -24,6 +24,7 @@ const ALL_ADMIN_TABS = [
   { key: "announcements",label: "📢 Announcements"  },
   { key: "expenses",     label: "💸 Expenses"       },
   { key: "reports",      label: "📊 Reports"        },
+  { key: "transport",    label: "🚌 Transport"      },
 ];
 
 const ALL_TD_TABS = [
@@ -41,6 +42,7 @@ const ALL_TD_KEYS    = ALL_TD_TABS.map(t => t.key);
 const DEFAULT_ROLES = [
   { name: "Teacher",       color: "#178F78", permissions: [...ALL_TD_KEYS] },
   { name: "Class Teacher", color: "#178F78", permissions: [...ALL_TD_KEYS, "enquiries", "calendar", "photos", "announcements"] },
+  { name: "Coordinator",   color: "#6366F1", permissions: ["enquiries", "sections", "calendar", "announcements", "transport"] },
   { name: "Admin",         color: "#E8694A", permissions: [...ALL_TD_KEYS, ...ALL_ADMIN_KEYS] },
   { name: "Helper",        color: "#6366F1", permissions: [] },
   { name: "Driver",        color: "#F5B829", permissions: [] },

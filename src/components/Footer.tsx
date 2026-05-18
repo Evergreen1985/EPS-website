@@ -36,7 +36,7 @@ export default function Footer() {
           <div>
             <h4 className="font-display font-bold text-xl text-white mb-6">Programs</h4>
             <ul className="space-y-3 text-sm">
-              {["Playgroup (2–3 yrs)", "Nursery (3–4 yrs)", "Junior KG (4–5 yrs)", "Senior KG (5–6 yrs)", "Full-Day Daycare", "After-School Program", "Holiday Camps"].map(p => (
+              {["Infant Care (1–2 yrs)", "Playgroup (2–3 yrs)", "Nursery (3–4 yrs)", "Junior KG (4–5 yrs)", "Senior KG (5–6 yrs)", "Full-Day Daycare", "After-School Program", "Holiday Camps"].map(p => (
                 <li key={p}><Link href="/programs" className="text-secondary-foreground/75 hover:text-white transition-colors">{p}</Link></li>
               ))}
             </ul>
@@ -46,14 +46,9 @@ export default function Footer() {
             <h4 className="font-display font-bold text-xl text-white mb-6">Quick Links</h4>
             <ul className="space-y-3 text-sm">
               {[
-                ["About Us",       "/about"],
-                ["Programs",       "/programs"],
-                ["Admissions",     "/admissions"],
-                ["Daycare",        "/daycare"],
-                ["Gallery",        "/gallery"],
-                ["Parent Portal",  "/parent-portal"],
-                ["Contact",        "/contact"],
                 ["Enquiry / Enroll", "/enquiry"],
+                ["Admin Login",    "/admin-login"],
+                ["Owner Login",    "/owner-login"],
               ].map(([l,h]) => (
                 <li key={h}><Link href={h} className="text-secondary-foreground/75 hover:text-white transition-colors">{l}</Link></li>
               ))}
