@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import FooterWrapper from "@/components/FooterWrapper";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import site from "@/content/site.json";
 
 export const metadata: Metadata = {
@@ -26,8 +27,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#178F78" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Evergreen" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body style={{ margin:0, padding:0 }}>
+        <ServiceWorkerRegistration />
         <Navbar />
         <main>{children}</main>
         <FooterWrapper />

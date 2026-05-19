@@ -2,11 +2,20 @@
 import { usePathname } from "next/navigation";
 import Footer from "@/components/Footer";
 
-// These pages are full-screen — no footer or body scroll
-const FULLSCREEN_PAGES = ["/", "/ai-tools"];
+// Hide footer only on full-screen snap-scroll and portal/dashboard pages
+const FULLSCREEN_PAGES = [
+  "/",                  // full-screen snap-scroll design — footer breaks layout
+  "/ai-tools",
+  "/admin",
+  "/owner",
+  "/owner-login",
+  "/parent-dashboard",
+  "/teacher-dashboard",
+];
 
 export default function FooterWrapper() {
   const pathname = usePathname();
-  if (FULLSCREEN_PAGES.includes(pathname)) return null;
+  const hide = FULLSCREEN_PAGES.some(p => pathname === p || pathname.startsWith(p + "/"));
+  if (hide) return null;
   return <Footer />;
 }

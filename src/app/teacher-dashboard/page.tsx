@@ -72,10 +72,14 @@ export default function TeacherDashboardPage() {
   const [medicalMap, setMedicalMap]   = useState<Record<string, any>>({});
   const [medExpanded, setMedExpanded] = useState<string | null>(null);
 
+  // Pickup authorizations (keyed by enquiry_id)
+  const [pickupMap, setPickupMap]       = useState<Record<string, any[]>>({});
+  const [pickupExpanded, setPickupExp]  = useState<string | null>(null);
+
   const today = new Date().toISOString().split("T")[0];
   const todayFmt = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
 
-  // Fetch medical records for all children in section when Students tab opens
+  // Fetch medical + pickup records for all children when Students tab opens
   useEffect(() => {
     if (tab !== "students" || children.length === 0) return;
     Promise.all(
@@ -86,6 +90,15 @@ export default function TeacherDashboardPage() {
       const map: Record<string, any> = {};
       results.forEach(r => { if (r.data) map[r.id] = r.data; });
       setMedicalMap(map);
+    });
+    Promise.all(
+      children.map(c =>
+        fetch(`/api/pickup?enquiryId=${c.id}`).then(r => r.json()).then(d => ({ id: c.id, data: d })).catch(() => ({ id: c.id, data: [] }))
+      )
+    ).then(results => {
+      const map: Record<string, any[]> = {};
+      results.forEach(r => { map[r.id] = Array.isArray(r.data) ? r.data : []; });
+      setPickupMap(map);
     });
   }, [tab, children]);
 
@@ -768,6 +781,36 @@ export default function TeacherDashboardPage() {
                           )}
                         </div>
                       )}
+
+                      {/* Pickup authorization info */}
+                      {(() => {
+                        const pickups = (pickupMap[child.id] || []).filter((p: any) => p.is_active);
+                        const isPickupOpen = pickupExpanded === child.id + "-pickup";
+                        return (
+                          <>
+                            <button
+                              onClick={() => setPickupExp(isPickupOpen ? null : child.id + "-pickup")}
+                              style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", width:"100%", marginTop:"8px", background:"rgba(99,102,241,0.07)", border:"1px solid rgba(99,102,241,0.2)", borderRadius:"10px", padding:"7px", fontSize:"11px", fontWeight:700, color:"#6366F1", cursor:"pointer" }}>
+                              🚗 {isPickupOpen ? "Hide" : "View"} Pickup Auth {pickups.length > 0 ? `(${pickups.length})` : ""}
+                            </button>
+                            {isPickupOpen && (
+                              <div style={{ marginTop:"8px", padding:"10px 12px", background:"rgba(99,102,241,0.04)", borderRadius:"12px", border:"1px solid rgba(99,102,241,0.15)" }}>
+                                {pickups.length === 0 ? (
+                                  <div style={{ fontSize:"11px", color:"#9CA3AF", textAlign:"center", padding:"8px 0" }}>No authorized pickup persons on record.</div>
+                                ) : pickups.map((p: any) => (
+                                  <div key={p.id} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"6px" }}>
+                                    <span style={{ fontSize:"18px" }}>👤</span>
+                                    <div style={{ flex:1 }}>
+                                      <div style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{p.authorized_name} <span style={{ fontWeight:400, color:"#6B7A99" }}>({p.relation})</span></div>
+                                      <a href={`tel:${p.phone}`} style={{ fontSize:"11px", color:"#178F78", fontWeight:600, textDecoration:"none" }}>{p.phone}</a>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
 
                       <a href={`https://wa.me/91${child.phone}`} target="_blank" rel="noopener noreferrer"
                         style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", marginTop:"8px", background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.25)", borderRadius:"10px", padding:"7px", color:"#128C7E", fontSize:"11px", fontWeight:700, textDecoration:"none" }}>

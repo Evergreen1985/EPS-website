@@ -29,12 +29,113 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
 const EVENT_COLORS = { holiday:"#E8694A", festival:"#F5B829", activity:"#178F78", exam:"#6366F1", ptm:"#EC4899", sports:"#0F766E" };
 const STATUS_COLORS: Record<string,string> = { new:"#6366F1", called:"#F5B829", visited:"#0F766E", enrolled:"#178F78", "not-interested":"#6B7A99" };
+
+// ── Admin Pickup Authorization Panel ─────────────────────────
+function AdminPickupPanel() {
+  const [records, setRecords]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/pickup?all=true")
+      .then(r => r.json())
+      .then(d => setRecords(Array.isArray(d) ? d : []))
+      .catch(() => setRecords([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Group by enquiry_id
+  const grouped = records.reduce((acc: Record<string, any>, r) => {
+    const key = r.enquiry_id;
+    if (!acc[key]) acc[key] = { child: r.enquiries || {}, childName: r.child_name, auths: [] };
+    acc[key].auths.push(r);
+    return acc;
+  }, {});
+
+  const entries = Object.entries(grouped).filter(([, g]: [string, any]) => {
+    const q = search.toLowerCase();
+    return !q || (g.childName || "").toLowerCase().includes(q) || (g.child.phone || "").includes(q);
+  });
+
+  return (
+    <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px", flexWrap:"wrap", gap:"10px" }}>
+        <div>
+          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#178F78" }}>🚗 Pickup Authorizations</div>
+          <div style={{ fontSize:"12px", color:"#6B7A99" }}>{entries.length} children with pickup records</div>
+        </div>
+        <div style={{ position:"relative" }}>
+          <Search style={{ position:"absolute", left:"10px", top:"50%", transform:"translateY(-50%)", width:"15px", height:"15px", color:"#9CA3AF" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone…"
+            style={{ paddingLeft:"32px", paddingRight:"12px", height:"36px", border:"1px solid #EDE8DF", borderRadius:"20px", fontSize:"12px", color:"#1A2F4A", outline:"none", width:"220px" }} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign:"center", padding:"60px", color:"#6B7A99" }}>
+          <div style={{ width:"36px", height:"36px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 12px" }} />
+          Loading…
+        </div>
+      ) : entries.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"60px", color:"#6B7A99", background:"white", borderRadius:"20px", border:"1px solid #EDE8DF" }}>
+          <div style={{ fontSize:"40px", marginBottom:"12px" }}>🚗</div>
+          <div style={{ fontWeight:700, fontSize:"15px", marginBottom:"6px" }}>{search ? "No records match" : "No pickup authorizations yet"}</div>
+          <div style={{ fontSize:"12px" }}>Parents add authorized pickup persons from their dashboard.</div>
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+          {entries.map(([enquiryId, g]: [string, any]) => {
+            const isOpen = expanded === enquiryId;
+            return (
+              <div key={enquiryId} style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", overflow:"hidden" }}>
+                <div onClick={() => setExpanded(isOpen ? null : enquiryId)}
+                  style={{ display:"flex", alignItems:"center", gap:"14px", padding:"14px 18px", cursor:"pointer", flexWrap:"wrap" }}>
+                  <div style={{ width:"38px", height:"38px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(99,102,241,0.15),rgba(23,143,120,0.15))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>🧒</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{g.childName || g.child.child_name || "Unknown"}</div>
+                    <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+                      {g.child.program_label || ""}{g.child.section_name ? ` · ${g.child.section_name}` : ""}
+                      {g.child.phone ? ` · ${g.child.phone}` : ""}
+                    </div>
+                  </div>
+                  <span style={{ fontSize:"11px", fontWeight:700, background:"rgba(99,102,241,0.1)", color:"#6366F1", borderRadius:"20px", padding:"2px 10px" }}>
+                    🚗 {g.auths.length} authorized
+                  </span>
+                  <span style={{ color:"#9CA3AF", fontSize:"18px" }}>{isOpen ? "▲" : "▼"}</span>
+                </div>
+                {isOpen && (
+                  <div style={{ borderTop:"1px solid #EDE8DF", padding:"16px 18px", background:"#FEFCF8" }}>
+                    {g.auths.map((a: any) => (
+                      <div key={a.id} style={{ display:"flex", alignItems:"center", gap:"12px", padding:"10px 0", borderBottom:"1px solid #EDE8DF" }}>
+                        <div style={{ width:"36px", height:"36px", borderRadius:"50%", background:"rgba(99,102,241,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>👤</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{a.authorized_name} <span style={{ fontWeight:400, color:"#6B7A99" }}>({a.relation})</span></div>
+                          <a href={`tel:${a.phone}`} style={{ fontSize:"11px", color:"#178F78", fontWeight:600, textDecoration:"none" }}>{a.phone}</a>
+                          {a.id_number && <span style={{ fontSize:"10px", color:"#9CA3AF", marginLeft:"8px", fontFamily:"monospace" }}>{a.id_type}: {a.id_number}</span>}
+                          {a.notes && <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px", fontStyle:"italic" }}>{a.notes}</div>}
+                        </div>
+                        <span style={{ fontSize:"10px", fontWeight:700, background: a.is_active ? "rgba(23,143,120,0.1)" : "rgba(220,38,38,0.08)", color: a.is_active ? "#178F78" : "#DC2626", borderRadius:"20px", padding:"2px 10px" }}>
+                          {a.is_active ? "Active" : "Paused"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ── Admin Medical Records Panel ──────────────────────────────
 function AdminMedicalPanel() {
@@ -625,6 +726,7 @@ export default function AdminPage() {
           { key:"reports",       label:"📊 Reports",       count: 0                         },
           { key:"transport",     label:"🚌 Transport",     count: 0                         },
           { key:"medical",       label:"🩺 Medical",       count: 0                         },
+          { key:"pickup",        label:"🚗 Pickup Auth",   count: 0                         },
         ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -1697,6 +1799,11 @@ export default function AdminPage() {
       {/* ══ MEDICAL TAB ══ */}
       {tab === "medical" && (
         <AdminMedicalPanel />
+      )}
+
+      {/* ══ PICKUP TAB ══ */}
+      {tab === "pickup" && (
+        <AdminPickupPanel />
       )}
 
     </div>

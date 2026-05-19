@@ -1,0 +1,28 @@
+{
+  "name": "Evergreen Preschool & Daycare",
+  "short_name": "Evergreen",
+  "description": "Parent portal for Evergreen Preschool & Daycare, Electronic City Bengaluru",
+  "start_url": "/parent-dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FEFCF8",
+  "theme_color": "#178F78",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["education", "kids"],
+  "lang": "en-IN"
+}
