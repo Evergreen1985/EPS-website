@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import CommunityHub from "@/components/CommunityHub";
 
 const events = [
   { month: "Jan", day: "15", title: "Annual Day & Prize Distribution",        cat: "Event",    time: "10:00 AM", desc: "A celebration of our children's achievements with performances, prizes and proud parents!" },
@@ -27,7 +28,12 @@ const portals = [
 
 export default function CommunityPage() {
   return (
-    <div className="pb-24" style={{ fontFamily: "'Quicksand', sans-serif" }}>
+    <div style={{ fontFamily: "'Quicksand', sans-serif" }}>
+
+      {/* ── Community Chat Hub ── */}
+      <CommunityHub />
+
+      <div className="pb-24">
 
       {/* Hero */}
       <div className="py-16 md:py-24 border-b" style={{ background: "rgba(245,184,41,0.12)", borderColor: "rgba(245,184,41,0.2)" }}>
@@ -144,6 +150,7 @@ export default function CommunityPage() {
           </Link>
         </div>
       </section>
+      </div>
     </div>
   );
 }
