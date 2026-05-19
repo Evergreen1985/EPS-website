@@ -8,8 +8,15 @@ import { X, ArrowLeft, Send, Sparkles, ImageIcon } from "lucide-react";
 interface Channel { id:string; slug:string; name:string; description:string; icon:string; access:string; message_count:number; }
 interface Member   { id:string; display_name:string; avatar_emoji:string; user_type:string; }
 interface Message  { id:string; member_id:string; display_name:string; avatar_emoji:string; content:string|null; msg_type:string; image_url:string|null; created_at:string; reactions:Record<string,number>; }
-interface MyUser   { user_type:string; user_ref:string|null; default_name:string|null; }
-interface CommPhone { phone:string; verifiedAt:number; }
+interface MyUser     { user_type:string; user_ref:string|null; default_name:string|null; enquiryId?:string; }
+interface CommPhone  { phone:string; verifiedAt:number; }
+interface SectionChans {
+  childChannel:  Channel;
+  parentChannel: Channel;
+  sectionName:   string;
+  ayLabel:       string;
+  childName:     string;
+}
 
 const sbBrowser = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -43,7 +50,7 @@ function fmtTime(iso:string){ return new Date(iso).toLocaleTimeString("en-IN",{h
 export default function CommunityChatBubble() {
   const pathname  = usePathname();
   const [open,       setOpen]       = useState(false);
-  const [view,       setView]       = useState<"channels"|"phone"|"otp"|"label"|"chat">("channels");
+  const [view,       setView]       = useState<"channels"|"phone"|"otp"|"role-select"|"label"|"chat">("channels");
   const [channels,   setChannels]   = useState<Channel[]>([]);
   const [myUser,     setMyUser]     = useState<MyUser|null>(null);
   const [channel,    setChannel]    = useState<Channel|null>(null);
@@ -64,6 +71,7 @@ export default function CommunityChatBubble() {
   const [aiPrompt,   setAiPrompt]   = useState("");
   const [aiLoading,  setAiLoading]  = useState(false);
   const [pickerFor,  setPickerFor]  = useState<string|null>(null);
+  const [sectionChans, setSectionChans] = useState<SectionChans|null>(null);
   const [teaserIdx,  setTeaserIdx]  = useState(0);
   const [appeared,   setAppeared]   = useState(false);
 
@@ -105,7 +113,15 @@ export default function CommunityChatBubble() {
 
   useEffect(() => {
     if (!open) return;
-    fetch("/api/community/me").then(r=>r.json()).then(setMyUser).catch(()=>setMyUser({user_type:"community",user_ref:null,default_name:null}));
+    fetch("/api/community/me").then(r=>r.json()).then(user => {
+      setMyUser(user);
+      if (user.user_type === "parent") {
+        fetch("/api/community/section-channels")
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d?.childChannel) setSectionChans(d as SectionChans); })
+          .catch(() => {});
+      }
+    }).catch(() => setMyUser({ user_type:"community", user_ref:null, default_name:null }));
     fetch("/api/community/channels").then(r=>r.json()).then(d=>setChannels(d.channels||[]));
   }, [open]);
 
@@ -158,14 +174,15 @@ export default function CommunityChatBubble() {
     await enterChannel(ch, myUser.user_type, getUserRef());
   }
 
-  async function enterChannel(ch:Channel, ut:string, ur:string) {
+  async function enterChannel(ch:Channel, ut:string, ur:string, defName?:string) {
     setChannel(ch);
     const r = await fetch(`/api/community/members?channel_id=${ch.id}&user_type=${ut}&user_ref=${encodeURIComponent(ur)}`);
     const d = await r.json();
     if (d.member) { setMember(d.member); await loadMessages(ch.id); setView("chat"); }
     else {
-      const defEmoji = ch.slug==="children" ? AVATARS.children[0] : (AVATARS[ut]?.[0]||"😊");
-      setLabelName(myUser?.default_name||localStorage.getItem("ep_community_name")||"");
+      const isChildCh = ch.slug==="children" || ch.slug.startsWith("sect_child_");
+      const defEmoji  = isChildCh ? AVATARS.children[0] : (AVATARS[ut]?.[0]||"😊");
+      setLabelName(defName ?? myUser?.default_name ?? localStorage.getItem("ep_community_name") ?? "");
       setLabelEmoji(defEmoji);
       setView("label");
     }
@@ -282,9 +299,10 @@ export default function CommunityChatBubble() {
               <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                 {view!=="channels" && (
                   <button onClick={()=>{
-                    if(view==="otp")        setView("phone");
-                    else if(view==="phone") { setView("channels"); setPendingChannel(null); }
-                    else if(view==="label") setView("channels");
+                    if(view==="otp")          setView("phone");
+                    else if(view==="phone")   { setView("channels"); setPendingChannel(null); }
+                    else if(view==="role-select") setView("channels");
+                    else if(view==="label")   { channel?.slug?.startsWith("sect_") ? setView("role-select") : setView("channels"); }
                     else resetWidget();
                   }}
                     style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:"50%",width:"28px",height:"28px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"white",flexShrink:0}}>
@@ -294,17 +312,19 @@ export default function CommunityChatBubble() {
                 <div style={{flex:1,textAlign:view==="channels"?"center":"left"}}>
                   {view==="channels" && <div style={{fontSize:"22px",marginBottom:"2px"}}>💬</div>}
                   <div style={{color:"white",fontWeight:700,fontSize:"15px",fontFamily:"'Fredoka',sans-serif",lineHeight:1.2}}>
-                    {view==="channels" ? "Community Chat"       :
-                     view==="phone"    ? "Verify Your Phone"   :
-                     view==="otp"      ? "Enter Your OTP"      :
-                     view==="label"    ? `Join ${channel?.name}` :
+                    {view==="channels"    ? "Community Chat"                    :
+                     view==="phone"       ? "Verify Your Phone"                :
+                     view==="otp"         ? "Enter Your OTP"                   :
+                     view==="role-select" ? `${sectionChans?.sectionName}`     :
+                     view==="label"       ? `Join ${channel?.name}`            :
                      channel?.name}
                   </div>
                   <div style={{color:"rgba(255,255,255,0.75)",fontSize:"11px",fontFamily:"'Quicksand',sans-serif"}}>
-                    {view==="channels" ? "Live · 4 groups active"                        :
-                     view==="phone"    ? "OTP will arrive via WhatsApp"                  :
-                     view==="otp"      ? `Sent to +91 ••••••${otpPhone.slice(-4)}`       :
-                     view==="label"    ? "Choose your display name"                      :
+                    {view==="channels"    ? "Live · 4 groups active"                              :
+                     view==="phone"       ? "OTP will arrive via WhatsApp"                        :
+                     view==="otp"         ? `Sent to +91 ••••••${otpPhone.slice(-4)}`             :
+                     view==="role-select" ? `${sectionChans?.ayLabel} · Who are you chatting as?` :
+                     view==="label"       ? "Choose your display name"                            :
                      `You: ${member?.avatar_emoji} ${member?.display_name}`}
                   </div>
                 </div>
@@ -335,6 +355,30 @@ export default function CommunityChatBubble() {
             {/* ── CHANNELS VIEW ──────────────────────────────────────────── */}
             {view==="channels" && (
               <div style={{flex:1,overflowY:"auto",padding:"12px"}}>
+
+                {/* Section card — parents only */}
+                {myUser?.user_type==="parent" && sectionChans && (
+                  <button onClick={()=>setView("role-select")}
+                    style={{width:"100%",marginBottom:"10px",background:"linear-gradient(135deg,rgba(59,130,246,0.08),rgba(137,87,229,0.12))",
+                      border:"2px solid rgba(137,87,229,0.3)",borderRadius:"16px",padding:"12px 14px",
+                      textAlign:"left",cursor:"pointer",fontFamily:"'Quicksand',sans-serif",
+                      display:"flex",alignItems:"center",gap:"12px",boxSizing:"border-box"}}>
+                    <div style={{fontSize:"28px",flexShrink:0}}>📚</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:"9px",fontWeight:700,color:"#8957E5",textTransform:"uppercase",letterSpacing:"0.07em"}}>
+                        {sectionChans.ayLabel}
+                      </div>
+                      <div style={{fontSize:"13px",fontWeight:700,color:"#1A2F4A",marginTop:"1px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {sectionChans.sectionName}
+                      </div>
+                      <div style={{fontSize:"10px",color:"#888",marginTop:"2px"}}>
+                        👶 Children · 👪 Parents — tap to join
+                      </div>
+                    </div>
+                    <div style={{fontSize:"16px",color:"#8957E5",flexShrink:0}}>›</div>
+                  </button>
+                )}
+
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
                   {channels.map(ch=>{
                     const c = CH_COLOR[ch.slug]||CH_COLOR.community;
@@ -476,6 +520,57 @@ export default function CommunityChatBubble() {
                     Resend OTP
                   </button>
                   {" · "}Valid for 10 minutes
+                </div>
+              </div>
+            )}
+
+            {/* ── ROLE SELECT (parent choosing child vs parent channel) ───── */}
+            {view==="role-select" && sectionChans && (
+              <div style={{flex:1,overflowY:"auto",padding:"16px",fontFamily:"'Quicksand',sans-serif"}}>
+                <div style={{textAlign:"center",marginBottom:"18px"}}>
+                  <div style={{fontSize:"11px",fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+                    Who are you joining as?
+                  </div>
+                </div>
+
+                {/* As Child */}
+                <button
+                  onClick={()=>enterChannel(sectionChans.childChannel,"parent",getUserRef(),sectionChans.childName)}
+                  style={{width:"100%",padding:"16px",marginBottom:"10px",background:"#FFF8E7",
+                    border:"2px solid #F5B829",borderRadius:"16px",cursor:"pointer",
+                    display:"flex",alignItems:"center",gap:"14px",textAlign:"left",
+                    fontFamily:"'Quicksand',sans-serif",boxSizing:"border-box",transition:"transform 0.15s"}}>
+                  <div style={{fontSize:"36px",flexShrink:0}}>👶</div>
+                  <div>
+                    <div style={{fontSize:"15px",fontWeight:700,color:"#B8860B"}}>
+                      As {sectionChans.childName}
+                    </div>
+                    <div style={{fontSize:"11px",color:"#888",marginTop:"3px"}}>
+                      Join the children's group · chat with child's name
+                    </div>
+                  </div>
+                </button>
+
+                {/* As Parent */}
+                <button
+                  onClick={()=>enterChannel(sectionChans.parentChannel,"parent",getUserRef(),`Parent of ${sectionChans.childName}`)}
+                  style={{width:"100%",padding:"16px",background:"#EFF6FF",
+                    border:"2px solid #3B82F6",borderRadius:"16px",cursor:"pointer",
+                    display:"flex",alignItems:"center",gap:"14px",textAlign:"left",
+                    fontFamily:"'Quicksand',sans-serif",boxSizing:"border-box",transition:"transform 0.15s"}}>
+                  <div style={{fontSize:"36px",flexShrink:0}}>👪</div>
+                  <div>
+                    <div style={{fontSize:"15px",fontWeight:700,color:"#1D4ED8"}}>
+                      As Parent
+                    </div>
+                    <div style={{fontSize:"11px",color:"#888",marginTop:"3px"}}>
+                      Join the parents' group · use your own name
+                    </div>
+                  </div>
+                </button>
+
+                <div style={{marginTop:"16px",textAlign:"center",fontSize:"10px",color:"#CCC"}}>
+                  You can join both groups with different display names
                 </div>
               </div>
             )}

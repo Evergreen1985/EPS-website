@@ -12,6 +12,7 @@ export async function GET() {
     .from("community_channels")
     .select("*")
     .eq("is_active", true)
+    .not("slug", "ilike", "sect_%")
     .order("sort_order");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

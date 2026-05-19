@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const parentToken = req.cookies.get(PARENT_COOKIE_NAME)?.value ?? "";
   if (parentToken) {
     const s = await verifyParentSession(parentToken);
-    if (s) return NextResponse.json({ user_type: "parent", user_ref: s.phone, default_name: s.childName });
+    if (s) return NextResponse.json({ user_type: "parent", user_ref: s.phone, default_name: s.childName, enquiryId: s.enquiryId });
   }
 
   return NextResponse.json({ user_type: "community", user_ref: null, default_name: null });
