@@ -68,8 +68,26 @@ export default function TeacherDashboardPage() {
   const [clockRecord, setClockRecord] = useState<any>(null);
   const [clockLoading, setClockLoading] = useState(false);
 
+  // Medical records (keyed by enquiry_id) — loaded when students tab opens
+  const [medicalMap, setMedicalMap]   = useState<Record<string, any>>({});
+  const [medExpanded, setMedExpanded] = useState<string | null>(null);
+
   const today = new Date().toISOString().split("T")[0];
   const todayFmt = new Date().toLocaleDateString("en-IN", { weekday:"long", day:"numeric", month:"long", year:"numeric" });
+
+  // Fetch medical records for all children in section when Students tab opens
+  useEffect(() => {
+    if (tab !== "students" || children.length === 0) return;
+    Promise.all(
+      children.map(c =>
+        fetch(`/api/medical?enquiryId=${c.id}`).then(r => r.json()).then(d => ({ id: c.id, data: d })).catch(() => ({ id: c.id, data: null }))
+      )
+    ).then(results => {
+      const map: Record<string, any> = {};
+      results.forEach(r => { if (r.data) map[r.id] = r.data; });
+      setMedicalMap(map);
+    });
+  }, [tab, children]);
 
   // ── Auth ──────────────────────────────────────────────
   useEffect(() => {
@@ -651,19 +669,41 @@ export default function TeacherDashboardPage() {
             ) : (
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:"10px" }}>
                 {children.map(child => {
-                  const attToday = attendance[child.id];
+                  const attToday  = attendance[child.id];
+                  const med       = medicalMap[child.id];
+                  const allergies = med?.allergies || [];
+                  const contacts  = med?.emergency_contacts || [];
+                  const isMedOpen = medExpanded === child.id;
+                  const hasAlert  = allergies.length > 0 || med?.medical_conditions;
+                  const SEV_COLOR: Record<string,string> = { mild:"#F5B829", moderate:"#E8694A", severe:"#DC2626" };
                   return (
-                    <div key={child.id} style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", padding:"14px" }}>
+                    <div key={child.id} style={{ background:"white", borderRadius:"16px", border:`1px solid ${hasAlert ? "rgba(220,38,38,0.25)" : "#EDE8DF"}`, padding:"14px" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"10px" }}>
                         <div style={{ width:"44px", height:"44px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(232,105,74,0.2),rgba(23,143,120,0.2))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0 }}>🧒</div>
-                        <div>
+                        <div style={{ flex:1 }}>
                           <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{child.child_name}</div>
                           <div style={{ fontSize:"10px", color:"#6B7A99" }}>
                             {child.child_age_months ? `${Math.floor(child.child_age_months/12)}y ${child.child_age_months%12}m` : "Age not set"}
                           </div>
+                          {/* Allergy / medical alert badges */}
+                          {hasAlert && (
+                            <div style={{ display:"flex", gap:"4px", flexWrap:"wrap", marginTop:"4px" }}>
+                              {allergies.length > 0 && (
+                                <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"2px 7px" }}>
+                                  ⚠️ {allergies.length} allerg{allergies.length > 1 ? "ies" : "y"}
+                                </span>
+                              )}
+                              {med?.medical_conditions && (
+                                <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(245,184,41,0.15)", color:"#B08000", borderRadius:"20px", padding:"2px 7px" }}>🏥 Condition</span>
+                              )}
+                              {med?.blood_group && med.blood_group !== "unknown" && (
+                                <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(220,38,38,0.08)", color:"#DC2626", borderRadius:"20px", padding:"2px 7px" }}>🩸 {med.blood_group}</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {attToday && (
-                          <div style={{ marginLeft:"auto", fontSize:"18px" }}>
+                          <div style={{ fontSize:"18px", flexShrink:0 }}>
                             {attToday==="present"?"✅":attToday==="absent"?"❌":"⏰"}
                           </div>
                         )}
@@ -678,6 +718,57 @@ export default function TeacherDashboardPage() {
                           <div style={{ fontSize:"11px", fontWeight:700, color:"#178F78", textTransform:"capitalize" }}>{child.status || "Enquired"}</div>
                         </div>
                       </div>
+
+                      {/* Medical detail toggle — show if any health info exists */}
+                      {med && (
+                        <button
+                          onClick={() => setMedExpanded(isMedOpen ? null : child.id)}
+                          style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", width:"100%", marginTop:"8px", background: hasAlert ? "rgba(220,38,38,0.07)" : "rgba(23,143,120,0.07)", border:`1px solid ${hasAlert ? "rgba(220,38,38,0.2)" : "rgba(23,143,120,0.2)"}`, borderRadius:"10px", padding:"7px", fontSize:"11px", fontWeight:700, color: hasAlert ? "#DC2626" : "#178F78", cursor:"pointer" }}>
+                          🩺 {isMedOpen ? "Hide" : "View"} Health Info {hasAlert ? "⚠️" : ""}
+                        </button>
+                      )}
+
+                      {/* Expanded medical detail (read-only) */}
+                      {isMedOpen && med && (
+                        <div style={{ marginTop:"10px", padding:"12px", background:"#FEFCF8", borderRadius:"12px", border:"1px solid #EDE8DF" }}>
+                          {allergies.length > 0 && (
+                            <div style={{ marginBottom:"10px" }}>
+                              <div style={{ fontSize:"10px", fontWeight:700, color:"#DC2626", textTransform:"uppercase", marginBottom:"6px" }}>⚠️ Allergies</div>
+                              {allergies.map((a: any, i: number) => (
+                                <div key={i} style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"4px" }}>
+                                  <span style={{ fontSize:"11px", fontWeight:700, color:"#1A2F4A", textTransform:"capitalize" }}>{a.name}</span>
+                                  <span style={{ fontSize:"9px", color:"#6B7A99", textTransform:"capitalize" }}>{a.type}</span>
+                                  <span style={{ fontSize:"9px", fontWeight:700, background:`${SEV_COLOR[a.severity] || "#6B7A99"}18`, color:SEV_COLOR[a.severity] || "#6B7A99", borderRadius:"20px", padding:"1px 6px", textTransform:"capitalize" }}>{a.severity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {med.medical_conditions && (
+                            <div style={{ marginBottom:"10px" }}>
+                              <div style={{ fontSize:"10px", fontWeight:700, color:"#B08000", textTransform:"uppercase", marginBottom:"4px" }}>🏥 Medical Conditions</div>
+                              <div style={{ fontSize:"12px", color:"#1A2F4A" }}>{med.medical_conditions}</div>
+                            </div>
+                          )}
+                          {contacts.length > 0 && (
+                            <div>
+                              <div style={{ fontSize:"10px", fontWeight:700, color:"#6366F1", textTransform:"uppercase", marginBottom:"6px" }}>📞 Emergency Contacts</div>
+                              {contacts.map((c: any, i: number) => (
+                                <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"4px" }}>
+                                  <span style={{ fontSize:"11px", fontWeight:700, color:"#1A2F4A" }}>{c.name} <span style={{ fontWeight:400, color:"#6B7A99" }}>({c.relation})</span></span>
+                                  <a href={`tel:${c.phone}`} style={{ fontSize:"11px", fontWeight:700, color:"#178F78", textDecoration:"none" }}>{c.phone}</a>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {med.special_needs && (
+                            <div style={{ marginTop:"8px" }}>
+                              <div style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase", marginBottom:"4px" }}>🍽️ Special Needs</div>
+                              <div style={{ fontSize:"12px", color:"#1A2F4A" }}>{med.special_needs}</div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <a href={`https://wa.me/91${child.phone}`} target="_blank" rel="noopener noreferrer"
                         style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", marginTop:"8px", background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.25)", borderRadius:"10px", padding:"7px", color:"#128C7E", fontSize:"11px", fontWeight:700, textDecoration:"none" }}>
                         💬 Message Parent

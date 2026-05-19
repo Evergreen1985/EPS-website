@@ -6,7 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report tests/reports/html",
+    "test:e2e:auth": "playwright test tests/e2e/specs/auth.spec.ts",
+    "test:e2e:teacher": "playwright test tests/e2e/specs/teacher-attendance.spec.ts tests/e2e/specs/teacher-homework.spec.ts",
+    "test:e2e:transport": "playwright test tests/e2e/specs/transport-roster.spec.ts tests/e2e/specs/transport-pdpp.spec.ts",
+    "test:e2e:admin": "playwright test tests/e2e/specs/admin-portal.spec.ts tests/e2e/specs/fees.spec.ts tests/e2e/specs/owner-cleanup.spec.ts",
+    "test:e2e:security": "playwright test tests/e2e/specs/security.spec.ts",
+    "test:e2e:e2e": "playwright test tests/e2e/specs/e2e-scenarios.spec.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
@@ -25,6 +35,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",

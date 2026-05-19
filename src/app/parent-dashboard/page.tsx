@@ -6,6 +6,7 @@ import { LogOut } from "lucide-react";
 import ParentDocumentsTab from "@/components/ParentDocumentsTab";
 import KitChecklist from "@/components/KitChecklist";
 import TransportParentView from "@/components/TransportParentView";
+import ChildMedicalTab from "@/components/ChildMedicalTab";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -31,7 +32,7 @@ function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childNam
 
   const loadFees = () => {
     if (!enquiryId) return;
-    fetch(`/api/fees/assignments?enquiryId=${enquiryId}&status=pending`)
+    fetch(`/api/fees/assignments?enquiryId=${enquiryId}&status=pending,overdue`)
       .then(r => r.json())
       .then(data => setFees(Array.isArray(data) ? data : []));
   };
@@ -239,9 +240,14 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport">("home");
-  const [paidFees, setPaidFees]      = useState<any[]>([]);
-  const [paidLoading, setPaidLoading]= useState(false);
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical">("home");
+  const [paidFees, setPaidFees]         = useState<any[]>([]);
+  const [paidLoading, setPaidLoading]   = useState(false);
+  const [pendingFees, setPendingFees]   = useState<any[]>([]);
+  const [pendingLoading, setPendingLoad]= useState(false);
+  const [tabPayError, setTabPayError]   = useState("");
+  const [tabPaying, setTabPaying]       = useState<string | null>(null);
+  const [tabPaidIds, setTabPaidIds]     = useState<string[]>([]);
   const [doneHW, setDoneHW]         = useState<Set<string>>(() => {
     try { return new Set(JSON.parse(localStorage.getItem("ep_hw_done") || "[]")); } catch { return new Set(); }
   });
@@ -322,12 +328,19 @@ export default function ParentDashboardPage() {
 
   useEffect(() => {
     if (tab !== "payments" || !selectedChild?.id) return;
+    setTabPayError(""); setTabPaidIds([]);
     setPaidLoading(true);
+    setPendingLoad(true);
     fetch(`/api/fees/history?enquiryId=${selectedChild.id}`)
       .then(r => r.json())
       .then(d => setPaidFees(Array.isArray(d) ? d : []))
       .catch(() => setPaidFees([]))
       .finally(() => setPaidLoading(false));
+    fetch(`/api/fees/assignments?enquiryId=${selectedChild.id}&status=pending,overdue`)
+      .then(r => r.json())
+      .then(d => setPendingFees(Array.isArray(d) ? d : []))
+      .catch(() => setPendingFees([]))
+      .finally(() => setPendingLoad(false));
   }, [tab, selectedChild?.id]);
 
   const markHomeworkDone = (hwId: string) => {
@@ -339,11 +352,78 @@ export default function ParentDashboardPage() {
     });
   };
 
-  const logout     = async () => {
+  const logout = async () => {
     localStorage.removeItem("ep_parent_session");
     await fetch("/api/auth/parent-logout", { method: "POST" }).catch(() => {});
     router.replace("/parent-login");
   };
+
+  const handleTabPay = async (fee: any) => {
+    setTabPayError(""); setTabPaying(fee.id);
+    const loaded = await loadRazorpayScript();
+    if (!loaded) { setTabPayError("Failed to load payment gateway. Check your connection."); setTabPaying(null); return; }
+    const res = await fetch("/api/fees/pay", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feeId: fee.id, amount: fee.amount, childName: selectedChild?.child_name || fee.child_name, phone: session?.phone || "" }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { setTabPayError(data.error || "Could not create payment order."); setTabPaying(null); return; }
+    const { order, keyId } = data;
+    const rzp = new window.Razorpay({
+      key: keyId, amount: order.amount, currency: order.currency,
+      name: "Evergreen Preschool & Daycare",
+      description: `${fee.period_label || fee.fee_type} — ${selectedChild?.child_name || fee.child_name}`,
+      order_id: order.id,
+      prefill: { contact: session?.phone || "", name: selectedChild?.child_name || fee.child_name },
+      theme: { color: "#178F78" },
+      modal: { ondismiss: () => setTabPaying(null) },
+      handler: async (response: any) => {
+        const vr = await fetch("/api/fees/pay", {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ feeId: fee.id, paymentId: response.razorpay_payment_id, orderId: response.razorpay_order_id, signature: response.razorpay_signature }),
+        });
+        const vd = await vr.json();
+        if (vd.success) {
+          setTabPaidIds(p => [...p, fee.id]);
+          setPendingFees(prev => prev.filter(f => f.id !== fee.id));
+          // refresh history
+          fetch(`/api/fees/history?enquiryId=${selectedChild?.id}`)
+            .then(r => r.json()).then(d => setPaidFees(Array.isArray(d) ? d : []));
+        } else {
+          setTabPayError("Payment received but verification failed. Contact school with payment ID: " + response.razorpay_payment_id);
+        }
+        setTabPaying(null);
+      },
+    });
+    rzp.on("payment.failed", (response: any) => { setTabPayError("Payment failed: " + response.error.description); setTabPaying(null); });
+    rzp.open();
+  };
+
+  const printReceipt = (f: any) => {
+    const w = window.open("", "_blank", "width=600,height=700");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>Receipt ${f.receipt_number || f.receipt_no || ""}</title>
+<style>body{font-family:Arial,sans-serif;max-width:500px;margin:40px auto;padding:20px;color:#1A2F4A}
+h2{color:#178F78;margin:0 0 4px}p{margin:4px 0;font-size:13px}.divider{border-top:1px dashed #ccc;margin:12px 0}
+.label{color:#6B7A99;font-size:11px;text-transform:uppercase}.amount{font-size:28px;font-weight:700;color:#178F78}
+.footer{font-size:10px;color:#9CA3AF;margin-top:16px;text-align:center}</style></head><body>
+<h2>🌿 Evergreen Preschool & Daycare</h2>
+<p style="font-size:11px;color:#6B7A99">Electronic City, Bengaluru</p>
+<div class="divider"></div>
+<p class="label">Receipt No.</p><p style="font-family:monospace;font-weight:700">${f.receipt_number || f.receipt_no || "—"}</p>
+<p class="label">Child</p><p style="font-weight:700">${f.child_name || selectedChild?.child_name || ""}</p>
+<p class="label">Description</p><p>${f.period_label || f.fee_type || "Fee"}</p>
+<p class="label">Payment Date</p><p>${f.payment_date ? new Date(f.payment_date).toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" }) : (f.paid_at ? new Date(f.paid_at).toLocaleDateString("en-IN", { day:"2-digit", month:"long", year:"numeric" }) : "—")}</p>
+<p class="label">Mode</p><p>${(f.payment_mode || "").toUpperCase() || "—"}</p>
+${f.reference_number ? `<p class="label">Reference</p><p style="font-family:monospace">${f.reference_number}</p>` : ""}
+<div class="divider"></div>
+<p class="label">Amount Paid</p><p class="amount">₹${Number(f.paid_amount || f.amount || 0).toLocaleString("en-IN")}</p>
+<div class="divider"></div>
+<div class="footer"><p>Thank you for your payment!</p><p>This is a computer-generated receipt.</p></div>
+<script>window.onload=()=>{window.print();}</script></body></html>`);
+    w.document.close();
+  };
+
   const prog       = selectedChild ? PROGRAMS[selectedChild.program_id] || PROGRAMS["nursery"] : null;
   const hasSection = !!selectedChild?.section_id;
 
@@ -414,7 +494,7 @@ export default function ParentDashboardPage() {
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -681,63 +761,159 @@ export default function ParentDashboardPage() {
 
             {/* ══ PAYMENTS TAB ══ */}
             {tab === "payments" && (
-              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
-                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>💳 Payment History</div>
-                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>All completed fee payments for {selectedChild.child_name}</div>
-                {paidLoading ? (
-                  <div style={{ textAlign:"center", padding:"30px", color:"#6B7A99" }}>
-                    <div style={{ width:"32px", height:"32px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
-                    Loading…
-                  </div>
-                ) : paidFees.length === 0 ? (
-                  <div style={{ textAlign:"center", padding:"32px", color:"#6B7A99" }}>
-                    <div style={{ fontSize:"32px", marginBottom:"8px" }}>💳</div>
-                    <div style={{ fontWeight:700, fontSize:"14px" }}>No payment history yet</div>
-                    <div style={{ fontSize:"11px", marginTop:"4px" }}>Completed payments will appear here.</div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Summary */}
-                    <div style={{ background:"rgba(23,143,120,0.08)", borderRadius:"16px", padding:"14px", marginBottom:"16px", display:"flex", gap:"20px", flexWrap:"wrap" }}>
-                      <div>
-                        <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Total Paid</div>
-                        <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
-                          ₹{paidFees.reduce((s,f) => s + Number(f.paid_amount || f.amount || 0), 0).toLocaleString("en-IN")}
+              <div style={{ display:"flex", flexDirection:"column", gap:"12px" }}>
+
+                {/* ── Due / Overdue Fees ── */}
+                {(pendingLoading || pendingFees.length > 0 || tabPaidIds.length > 0) && (
+                  <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                    <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"12px" }}>📋 Fees Due</div>
+
+                    {tabPayError && (
+                      <div style={{ background:"rgba(220,38,38,0.08)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:"10px", padding:"9px 12px", fontSize:"11px", color:"#DC2626", marginBottom:"12px" }}>
+                        ⚠️ {tabPayError}
+                      </div>
+                    )}
+
+                    {pendingLoading ? (
+                      <div style={{ textAlign:"center", padding:"20px", color:"#6B7A99" }}>
+                        <div style={{ width:"28px", height:"28px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 8px" }} />
+                        Loading…
+                      </div>
+                    ) : pendingFees.length === 0 ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:"12px", background:"rgba(23,143,120,0.07)", borderRadius:"14px", padding:"14px 16px" }}>
+                        <span style={{ fontSize:"24px" }}>✅</span>
+                        <div>
+                          <div style={{ fontWeight:700, fontSize:"13px", color:"#178F78" }}>All fees are paid!</div>
+                          <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>No pending dues for {selectedChild.child_name}.</div>
                         </div>
                       </div>
-                      <div>
-                        <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Receipts</div>
-                        <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>{paidFees.length}</div>
+                    ) : (
+                      <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+                        {pendingFees.map((f: any) => {
+                          const isOverdue = f.status === "overdue" || new Date(f.due_date) < new Date();
+                          const isPaying  = tabPaying === f.id;
+                          return (
+                            <div key={f.id} style={{ border:`1px solid ${isOverdue ? "rgba(220,38,38,0.25)" : "rgba(245,184,41,0.35)"}`, borderRadius:"14px", padding:"14px 16px", background: isOverdue ? "rgba(220,38,38,0.03)" : "rgba(245,184,41,0.04)" }}>
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
+                                <div style={{ flex:1 }}>
+                                  <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{f.period_label || f.fee_type || "Fee"}</div>
+                                  <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"3px" }}>
+                                    Due:{" "}
+                                    <span style={{ fontWeight:600, color: isOverdue ? "#DC2626" : "#B08000" }}>
+                                      {new Date(f.due_date).toLocaleDateString("en-IN")}
+                                    </span>
+                                    {isOverdue && (
+                                      <span style={{ marginLeft:"6px", background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>OVERDUE</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"8px" }}>
+                                  <div style={{ fontSize:"20px", fontWeight:700, color: isOverdue ? "#DC2626" : "#1A2F4A" }}>
+                                    ₹{Number(f.amount).toLocaleString("en-IN")}
+                                  </div>
+                                  <button
+                                    onClick={() => handleTabPay(f)}
+                                    disabled={!!tabPaying}
+                                    style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", background: isPaying ? "#b2dfdb" : "#178F78", color:"white", border:"none", borderRadius:"14px", padding:"9px 20px", fontSize:"13px", fontWeight:700, cursor: tabPaying ? "not-allowed" : "pointer", boxShadow: isPaying ? "none" : "0 4px 14px rgba(23,143,120,0.4)", transition:"all 0.2s", whiteSpace:"nowrap" as const, minWidth:"120px" }}>
+                                    {isPaying ? (
+                                      <><span style={{ width:"13px", height:"13px", border:"2px solid rgba(255,255,255,0.35)", borderTopColor:"white", borderRadius:"50%", display:"inline-block", animation:"spin 0.8s linear infinite" }} />Processing…</>
+                                    ) : <>💳 Pay Now</>}
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ display:"flex", gap:"5px", flexWrap:"wrap", marginTop:"8px" }}>
+                                {["UPI / GPay / PhonePe", "Credit Card", "Debit Card", "Net Banking"].map(m => (
+                                  <span key={m} style={{ fontSize:"9px", fontWeight:600, background:"rgba(23,143,120,0.07)", color:"#178F78", borderRadius:"20px", padding:"2px 8px", border:"1px solid rgba(23,143,120,0.15)" }}>{m}</span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div style={{ fontSize:"10px", color:"#9CA3AF", display:"flex", alignItems:"center", gap:"5px", paddingTop:"4px" }}>
+                          🔒 Secured by Razorpay · All payments are encrypted
+                        </div>
                       </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Payment History ── */}
+                <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                  <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🧾 Payment History</div>
+                  <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>All completed fee payments for {selectedChild.child_name}</div>
+
+                  {paidLoading ? (
+                    <div style={{ textAlign:"center", padding:"30px", color:"#6B7A99" }}>
+                      <div style={{ width:"32px", height:"32px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 10px" }} />
+                      Loading…
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
-                      {paidFees.map((f:any) => (
-                        <div key={f.id} style={{ border:"1px solid #EDE8DF", borderRadius:"14px", padding:"14px 16px" }}>
-                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
-                            <div style={{ flex:1 }}>
-                              <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{f.period_label || f.fee_type || "Fee"}</div>
-                              <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"3px" }}>
-                                {f.payment_date && `Paid: ${new Date(f.payment_date).toLocaleDateString("en-IN")}`}
-                                {f.payment_mode && ` · ${f.payment_mode.toUpperCase()}`}
-                              </div>
-                              {f.receipt_number && (
-                                <div style={{ fontSize:"10px", color:"#6366F1", marginTop:"2px", fontFamily:"monospace" }}>#{f.receipt_number}</div>
-                              )}
-                            </div>
-                            <div style={{ textAlign:"right" }}>
-                              <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
-                                ₹{Number(f.paid_amount || f.amount || 0).toLocaleString("en-IN")}
-                              </div>
-                              <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"2px 8px", textTransform:"uppercase" }}>
-                                {f.status}
-                              </span>
-                            </div>
+                  ) : paidFees.length === 0 ? (
+                    <div style={{ textAlign:"center", padding:"32px", color:"#6B7A99" }}>
+                      <div style={{ fontSize:"32px", marginBottom:"8px" }}>🧾</div>
+                      <div style={{ fontWeight:700, fontSize:"14px" }}>No payment history yet</div>
+                      <div style={{ fontSize:"11px", marginTop:"4px" }}>Completed payments will appear here.</div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ background:"rgba(23,143,120,0.08)", borderRadius:"16px", padding:"14px", marginBottom:"16px", display:"flex", gap:"20px", flexWrap:"wrap" }}>
+                        <div>
+                          <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Total Paid</div>
+                          <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
+                            ₹{paidFees.reduce((s, f) => s + Number(f.paid_amount || f.amount || 0), 0).toLocaleString("en-IN")}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                        <div>
+                          <div style={{ fontSize:"10px", color:"#6B7A99", textTransform:"uppercase" }}>Receipts</div>
+                          <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>{paidFees.length}</div>
+                        </div>
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                        {paidFees.map((f: any) => (
+                          <div key={f.id} style={{ border:"1px solid #EDE8DF", borderRadius:"14px", padding:"14px 16px" }}>
+                            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{f.period_label || f.fee_type || "Fee"}</div>
+                                <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"3px" }}>
+                                  {(f.payment_date || f.paid_at) && `Paid: ${new Date(f.payment_date || f.paid_at).toLocaleDateString("en-IN")}`}
+                                  {f.payment_mode && ` · ${f.payment_mode.toUpperCase()}`}
+                                </div>
+                                {(f.receipt_number || f.receipt_no) && (
+                                  <div style={{ fontSize:"10px", color:"#6366F1", marginTop:"2px", fontFamily:"monospace" }}>#{f.receipt_number || f.receipt_no}</div>
+                                )}
+                              </div>
+                              <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"6px" }}>
+                                <div style={{ fontWeight:700, fontSize:"18px", color:"#178F78" }}>
+                                  ₹{Number(f.paid_amount || f.amount || 0).toLocaleString("en-IN")}
+                                </div>
+                                <span style={{ fontSize:"9px", fontWeight:700, background:"rgba(23,143,120,0.1)", color:"#178F78", borderRadius:"20px", padding:"2px 8px", textTransform:"uppercase" }}>
+                                  {f.status}
+                                </span>
+                                <button
+                                  onClick={() => printReceipt(f)}
+                                  style={{ display:"flex", alignItems:"center", gap:"4px", background:"transparent", border:"1px solid #EDE8DF", borderRadius:"10px", padding:"4px 10px", fontSize:"10px", fontWeight:600, color:"#6B7A99", cursor:"pointer", whiteSpace:"nowrap" as const }}>
+                                  🖨️ Receipt
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ══ MEDICAL TAB ══ */}
+            {tab === "medical" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🩺 Medical Records</div>
+                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>Health information for {selectedChild.child_name}. Kept confidential and shared only with school staff.</div>
+                <ChildMedicalTab
+                  enquiryId={selectedChild.id}
+                  childName={selectedChild.child_name}
+                  updatedBy={session?.phone || "parent"}
+                />
               </div>
             )}
 

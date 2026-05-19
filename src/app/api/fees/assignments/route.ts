@@ -17,15 +17,19 @@ export async function GET(req: Request) {
   let query = sb()
     .from("fee_assignments")
     .select("*, fee_structures(name, fee_type)")
-    .order("due_date", { ascending: false });
+    .order("due_date", { ascending: true });
 
   if (enquiryId) query = query.eq("enquiry_id", enquiryId);
-  // Validate status allowlist before passing to DB
+
+  // Support comma-separated statuses: ?status=pending,overdue
   const VALID_STATUSES = ["pending", "paid", "partial", "waived", "overdue"];
-  if (status && !VALID_STATUSES.includes(status)) {
-    return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
+  if (status) {
+    const statuses = status.split(",").map(s => s.trim()).filter(Boolean);
+    const invalid = statuses.find(s => !VALID_STATUSES.includes(s));
+    if (invalid) return NextResponse.json({ error: "Invalid status filter" }, { status: 400 });
+    if (statuses.length === 1) query = query.eq("status", statuses[0]);
+    else query = query.in("status", statuses);
   }
-  if (status) query = query.eq("status", status);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "Failed to fetch fees" }, { status: 500 });

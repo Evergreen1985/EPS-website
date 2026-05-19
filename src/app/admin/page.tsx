@@ -14,6 +14,7 @@ import KitBulkManager     from "@/components/KitBulkManager";
 import AttendanceReport   from "@/components/AttendanceReport";
 import SitePhotosManager  from "@/components/SitePhotosManager";
 import TransportStaffView from "@/components/TransportStaffView";
+import ChildMedicalTab from "@/components/ChildMedicalTab";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -28,13 +29,127 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
 const EVENT_COLORS = { holiday:"#E8694A", festival:"#F5B829", activity:"#178F78", exam:"#6366F1", ptm:"#EC4899", sports:"#0F766E" };
 const STATUS_COLORS: Record<string,string> = { new:"#6366F1", called:"#F5B829", visited:"#0F766E", enrolled:"#178F78", "not-interested":"#6B7A99" };
 
+// ── Admin Medical Records Panel ──────────────────────────────
+function AdminMedicalPanel() {
+  const [records, setRecords]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/medical?all=true")
+      .then(r => r.json())
+      .then(d => setRecords(Array.isArray(d) ? d : []))
+      .catch(() => setRecords([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const SEV_COLOR: Record<string, string> = { mild:"#F5B829", moderate:"#E8694A", severe:"#DC2626" };
+
+  const filtered = records.filter(r => {
+    const q = search.toLowerCase();
+    const child = r.enquiries || {};
+    return !q
+      || (r.child_name || child.child_name || "").toLowerCase().includes(q)
+      || (child.phone || "").includes(q)
+      || (child.program_label || "").toLowerCase().includes(q);
+  });
+
+  return (
+    <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:"20px", flexWrap:"wrap", gap:"10px" }}>
+        <div>
+          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:"#178F78" }}>🩺 Child Medical Records</div>
+          <div style={{ fontSize:"12px", color:"#6B7A99" }}>{records.length} records on file</div>
+        </div>
+        <div style={{ position:"relative" }}>
+          <Search style={{ position:"absolute", left:"10px", top:"50%", transform:"translateY(-50%)", width:"15px", height:"15px", color:"#9CA3AF" }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or phone…"
+            style={{ paddingLeft:"32px", paddingRight:"12px", height:"36px", border:"1px solid #EDE8DF", borderRadius:"20px", fontSize:"12px", color:"#1A2F4A", outline:"none", width:"220px" }} />
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign:"center", padding:"60px", color:"#6B7A99" }}>
+          <div style={{ width:"36px", height:"36px", border:"3px solid #EDE8DF", borderTopColor:"#178F78", borderRadius:"50%", animation:"spin 0.8s linear infinite", margin:"0 auto 12px" }} />
+          Loading…
+        </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign:"center", padding:"60px", color:"#6B7A99", background:"white", borderRadius:"20px", border:"1px solid #EDE8DF" }}>
+          <div style={{ fontSize:"40px", marginBottom:"12px" }}>🩺</div>
+          <div style={{ fontWeight:700, fontSize:"15px", marginBottom:"6px" }}>
+            {search ? "No records match your search" : "No medical records yet"}
+          </div>
+          <div style={{ fontSize:"12px" }}>Records are submitted by parents from their dashboard.</div>
+        </div>
+      ) : (
+        <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+          {filtered.map(r => {
+            const child      = r.enquiries || {};
+            const name       = r.child_name || child.child_name || "Unknown";
+            const allergies  = r.allergies  || [];
+            const isOpen     = expanded === r.enquiry_id;
+            const hasAlerts  = allergies.length > 0 || r.medical_conditions;
+
+            return (
+              <div key={r.enquiry_id} style={{ background:"white", border:"1px solid #EDE8DF", borderRadius:"16px", overflow:"hidden" }}>
+                {/* Summary row */}
+                <div
+                  onClick={() => setExpanded(isOpen ? null : r.enquiry_id)}
+                  style={{ display:"flex", alignItems:"center", gap:"14px", padding:"14px 18px", cursor:"pointer", flexWrap:"wrap" }}>
+                  <div style={{ width:"38px", height:"38px", borderRadius:"50%", background:"linear-gradient(135deg,rgba(23,143,120,0.15),rgba(99,102,241,0.15))", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px", flexShrink:0 }}>🧒</div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{name}</div>
+                    <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+                      {child.program_label || ""}{child.section_name ? ` · ${child.section_name}` : ""}
+                      {child.phone ? ` · ${child.phone}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", gap:"6px", flexWrap:"wrap", alignItems:"center" }}>
+                    {r.blood_group && r.blood_group !== "unknown" && (
+                      <span style={{ fontSize:"11px", fontWeight:700, background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"2px 10px" }}>🩸 {r.blood_group}</span>
+                    )}
+                    {allergies.length > 0 && (
+                      <span style={{ fontSize:"11px", fontWeight:700, background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"2px 10px" }}>
+                        ⚠️ {allergies.length} allerg{allergies.length > 1 ? "ies" : "y"}
+                      </span>
+                    )}
+                    {r.medical_conditions && (
+                      <span style={{ fontSize:"11px", fontWeight:700, background:"rgba(245,184,41,0.15)", color:"#B08000", borderRadius:"20px", padding:"2px 10px" }}>🏥 Condition</span>
+                    )}
+                    {!hasAlerts && (
+                      <span style={{ fontSize:"11px", color:"#178F78", background:"rgba(23,143,120,0.08)", borderRadius:"20px", padding:"2px 10px" }}>✅ No alerts</span>
+                    )}
+                  </div>
+                  <span style={{ color:"#9CA3AF", fontSize:"18px", flexShrink:0 }}>{isOpen ? "▲" : "▼"}</span>
+                </div>
+
+                {/* Expanded detail */}
+                {isOpen && (
+                  <div style={{ borderTop:"1px solid #EDE8DF", padding:"18px", background:"#FEFCF8" }}>
+                    <ChildMedicalTab
+                      enquiryId={r.enquiry_id}
+                      childName={name}
+                      updatedBy="admin"
+                      readOnly={false}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const router = useRouter();
@@ -509,6 +624,7 @@ export default function AdminPage() {
           { key:"expenses",      label:"💸 Expenses",      count: 0                         },
           { key:"reports",       label:"📊 Reports",       count: 0                         },
           { key:"transport",     label:"🚌 Transport",     count: 0                         },
+          { key:"medical",       label:"🩺 Medical",       count: 0                         },
         ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -1576,6 +1692,11 @@ export default function AdminPage() {
         <div style={{ maxWidth:"1100px", margin:"0 auto", padding:"20px" }}>
           <TransportStaffView session={session} isAdmin={true} />
         </div>
+      )}
+
+      {/* ══ MEDICAL TAB ══ */}
+      {tab === "medical" && (
+        <AdminMedicalPanel />
       )}
 
     </div>
