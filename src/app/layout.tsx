@@ -3,6 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import FooterWrapper from "@/components/FooterWrapper";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import CommunityChatBubble from "@/components/CommunityChatBubble";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import ThemeProvider from "@/components/ThemeProvider";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
@@ -50,6 +51,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <Navbar />
         <main>{children}</main>
         <FooterWrapper />
+        <CommunityChatBubble />
         <WhatsAppButton />
       </body>
     </html>
