@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import { signParentSession, PARENT_COOKIE_NAME, PARENT_MAX_AGE } from "@/lib/parentSession";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 function sb() {
   return createClient(
@@ -95,7 +96,8 @@ export async function POST(req: Request) {
       }).eq("phone", phoneClean);
 
       // Password is delivered only via the WhatsApp message — not in the JSON body
-      const waMsg = `🌿 *Evergreen Preschool — Parent Portal*\n\nDear Parent,\n\nYour login has been created!\n\n🔐 *Login Credentials:*\n📱 Username: ${phoneClean}\n🔑 Password: ${autoPass}\n\n🌐 Login: https://evergreenprepschools.com/parent-login\n\n⚠️ Please save this password and change it after first login.\n\n_Evergreen Preschool & Daycare · 7411574504_`;
+      const school = await getSchoolConfig();
+      const waMsg = `🌿 *${school.name} — Parent Portal*\n\nDear Parent,\n\nYour login has been created!\n\n🔐 *Login Credentials:*\n📱 Username: ${phoneClean}\n🔑 Password: ${autoPass}\n\n🌐 Login: ${school.domain}/parent-login\n\n⚠️ Please save this password and change it after first login.\n\n_${school.name} · ${school.contact.phone}_`;
       const waUrl = `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}`;
 
       return NextResponse.json({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -42,9 +43,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Login already exists for this staff member (username: ${existing.username})` }, { status: 400 });
     }
 
+    const school     = await getSchoolConfig();
     const phoneClean = String(phone || "").replace(/\D/g, "");
     const last4      = phoneClean.length >= 4 ? phoneClean.slice(-4) : "1234";
-    const plainPass  = `Evergreen@${last4}`;
+    const plainPass  = `${school.auth.passwordPrefix}@${last4}`;
     const hash       = await bcrypt.hash(plainPass, 10);
 
     const { error } = await client.from("teacher_accounts").insert({
@@ -58,8 +60,7 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const firstName = name.trim().split(" ")[0];
-    const sitePhone = process.env.SCHOOL_PHONE || "7411574504";
-    const waMsg = `🌿 *Evergreen Preschool — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login has been created!\n\n🔐 *Login Credentials:*\n👤 Username: ${username}\n🔑 Password: ${plainPass}\n\n🌐 Login at: https://evergreenprepschools.com/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_Evergreen Preschool & Daycare_`;
+    const waMsg = `🌿 *${school.name} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login has been created!\n\n🔐 *Login Credentials:*\n👤 Username: ${username}\n🔑 Password: ${plainPass}\n\n🌐 Login at: ${school.domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${school.name}_`;
     const waUrl = phoneClean ? `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}` : null;
 
     return NextResponse.json({ success: true, username, password: plainPass, waUrl });

@@ -1,10 +1,13 @@
 "use client";
-import site from "@/content/site.json";
+import { useState, useEffect } from "react";
 
 export default function WhatsAppButton() {
+  const [school, setSchool] = useState({ shortName: "Evergreen", contact: { phone: "7411574504" } });
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
+
   return (
     <a
-      href={`https://wa.me/91${site.phone}?text=Hi Evergreen! I would like to know more about admissions.`}
+      href={`https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(`Hi ${school.shortName}! I would like to know more about admissions.`)}`}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-6 right-6 z-50 flex items-center gap-2 text-white font-bold text-sm rounded-full shadow-2xl transition-all hover:scale-110 hover:-translate-y-1"

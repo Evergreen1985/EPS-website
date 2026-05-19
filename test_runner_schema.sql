@@ -1,61 +1,56 @@
--- ══════════════════════════════════════════════════════════════
--- TEST RUNNER SCHEMA
--- Run this in Supabase SQL Editor ONCE before using Test Runner
--- ══════════════════════════════════════════════════════════════
+-- ─────────────────────────────────────────────────────────────────────────────
+-- test_runner_schema.sql
+-- Tables required by the Owner Test Runner feature
+-- Run in Supabase SQL Editor: https://supabase.com/dashboard/project/mmznugcbwbjeqnmmwmxn/sql
+-- ─────────────────────────────────────────────────────────────────────────────
 
--- Table: stores each test run session
-CREATE TABLE IF NOT EXISTS test_runs (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
-  total        INTEGER DEFAULT 0,
-  passed       INTEGER DEFAULT 0,
-  failed       INTEGER DEFAULT 0,
-  errors       INTEGER DEFAULT 0,
-  skipped      INTEGER DEFAULT 0,
-  triggered_by TEXT DEFAULT 'owner',
-  status       TEXT DEFAULT 'running'  -- 'running' | 'completed' | 'aborted'
-);
+-- ── 1. FEATURE FLAGS ─────────────────────────────────────────────────────────
+-- Controls which features are enabled/disabled from the Owner Portal.
 
--- Table: individual test case results per run
-CREATE TABLE IF NOT EXISTS test_results (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id      UUID NOT NULL REFERENCES test_runs(id) ON DELETE CASCADE,
-  tc_id       TEXT NOT NULL,
-  module      TEXT NOT NULL,
-  sub_module  TEXT,
-  title       TEXT NOT NULL,
-  status      TEXT NOT NULL,           -- 'pass' | 'fail' | 'error' | 'skip'
-  message     TEXT,                    -- error message or pass detail
-  duration_ms INTEGER DEFAULT 0,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Table: plug-in/unplug toggle for test runner
 CREATE TABLE IF NOT EXISTS app_feature_flags (
-  key        TEXT PRIMARY KEY,
-  enabled    BOOLEAN DEFAULT FALSE,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_by TEXT
+  key         text        PRIMARY KEY,
+  enabled     boolean     NOT NULL DEFAULT false,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  updated_by  text
 );
 
--- Insert test_runner flag (disabled by default)
+-- Seed the test_runner flag (disabled by default — owner must explicitly enable)
 INSERT INTO app_feature_flags (key, enabled)
-VALUES ('test_runner', FALSE)
+VALUES ('test_runner', false)
 ON CONFLICT (key) DO NOTHING;
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_test_results_run_id ON test_results(run_id);
-CREATE INDEX IF NOT EXISTS idx_test_results_status  ON test_results(status);
-CREATE INDEX IF NOT EXISTS idx_test_runs_started_at ON test_runs(started_at DESC);
+-- ── 2. TEST RUNS ─────────────────────────────────────────────────────────────
+-- One row per test execution session started from the Owner Portal.
 
--- RLS (open for anon — owner portal uses anon key)
-ALTER TABLE test_runs    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE test_results ENABLE ROW LEVEL SECURITY;
-ALTER TABLE app_feature_flags ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS test_runs (
+  id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  triggered_by  text        NOT NULL DEFAULT 'owner',
+  status        text        NOT NULL DEFAULT 'running',  -- 'running' | 'completed' | 'aborted'
+  started_at    timestamptz NOT NULL DEFAULT now(),
+  completed_at  timestamptz,
+  total         int         NOT NULL DEFAULT 0,
+  passed        int         NOT NULL DEFAULT 0,
+  failed        int         NOT NULL DEFAULT 0,
+  errors        int         NOT NULL DEFAULT 0,
+  skipped       int         NOT NULL DEFAULT 0
+);
 
-CREATE POLICY "test_runs_all"    ON test_runs    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "test_results_all" ON test_results FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "flags_all"        ON app_feature_flags FOR ALL USING (true) WITH CHECK (true);
+CREATE INDEX IF NOT EXISTS idx_test_runs_started_at ON test_runs (started_at DESC);
 
-GRANT ALL ON test_runs, test_results, app_feature_flags TO anon;
+-- ── 3. TEST RESULTS ──────────────────────────────────────────────────────────
+-- One row per individual test case result, linked to a test run.
+
+CREATE TABLE IF NOT EXISTS test_results (
+  id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id      uuid        NOT NULL REFERENCES test_runs (id) ON DELETE CASCADE,
+  tc_id       text        NOT NULL,
+  module      text        NOT NULL,
+  sub_module  text,
+  title       text        NOT NULL,
+  status      text        NOT NULL,  -- 'pass' | 'fail' | 'error' | 'skip'
+  message     text,
+  duration_ms int         NOT NULL DEFAULT 0,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_test_results_run_id ON test_results (run_id);

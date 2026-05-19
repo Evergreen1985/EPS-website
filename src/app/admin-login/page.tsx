@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -10,6 +10,8 @@ export default function AdminLoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [schoolName, setSchoolName] = useState("Evergreen Preschool & Daycare");
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school?.name)setSchoolName(d.school.name);}).catch(()=>{}); }, []);
 
   const handleLogin = async () => {
     if (!username || !password) return;
@@ -82,7 +84,7 @@ export default function AdminLoginPage() {
             Admin Portal
           </div>
           <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", marginTop: "4px" }}>
-            Evergreen Preschool & Daycare
+            {schoolName}
           </div>
         </div>
 

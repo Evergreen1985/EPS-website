@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Mic, Square, Play, Pause, RotateCcw } from "lucide-react";
 
@@ -82,6 +82,8 @@ function StepBar({ step }: { step: number }) {
 export default function JoinAsTeacherPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [school, setSchool] = useState({ name: "Evergreen Preschool & Daycare", shortName: "Evergreen", address: { short: "Electronic City, Bengaluru" } });
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
 
   // Profile fields
   const [name, setName] = useState("");
@@ -208,7 +210,7 @@ export default function JoinAsTeacherPage() {
           <div style={{ fontSize: "14px", color: "#6B7A99", lineHeight: 1.75, marginBottom: "28px" }}>
             Thank you <strong style={{ color: "#1A2F4A" }}>{name.split(" ")[0]}</strong>! We've received your profile
             {audioBlob ? " and voice assessment" : ""}.<br /><br />
-            Our team at <strong>Evergreen Preschool</strong> will review your application and reach out within <strong>2–3 working days</strong>.
+            Our team at <strong>{school.shortName}</strong> will review your application and reach out within <strong>2–3 working days</strong>.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <button onClick={() => router.push("/ai-tools/general")}
@@ -239,7 +241,7 @@ export default function JoinAsTeacherPage() {
             🌿 Join Our Teaching Team
           </div>
           <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", marginTop: "2px" }}>
-            Evergreen Preschool & Daycare · Electronic City, Bengaluru
+            {school.name} · {school.address.short}
           </div>
         </div>
       </div>

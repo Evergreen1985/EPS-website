@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 function sb() {
   return createClient(
@@ -10,13 +11,14 @@ function sb() {
 
 export async function POST(req: Request) {
   const { feeId, phone, childName, amount, dueDate, periodLabel } = await req.json();
+  const school = await getSchoolConfig();
 
   const formattedDate = new Date(dueDate).toLocaleDateString("en-IN", { day:"numeric", month:"long", year:"numeric" });
   const isOverdue     = new Date(dueDate) < new Date();
 
   const message = isOverdue
-    ? `🔴 *Fee Overdue — Evergreen Preschool*\n\nDear Parent,\n\nThe fee for *${childName}* is overdue.\n\n💰 Amount: ₹${amount}\n📅 Period: ${periodLabel || ""}\n⚠️ Due Date: ${formattedDate}\n\nKindly pay at the earliest to avoid any inconvenience.\n\nThank you 🙏\n*Evergreen Preschool & Daycare*`
-    : `📢 *Fee Reminder — Evergreen Preschool*\n\nDear Parent,\n\nThis is a friendly reminder that the fee for *${childName}* is due soon.\n\n💰 Amount: ₹${amount}\n📅 Period: ${periodLabel || ""}\n📆 Due Date: ${formattedDate}\n\nPlease log in to your parent dashboard to pay online.\n\nThank you 🙏\n*Evergreen Preschool & Daycare*`;
+    ? `🔴 *Fee Overdue — ${school.name}*\n\nDear Parent,\n\nThe fee for *${childName}* is overdue.\n\n💰 Amount: ₹${amount}\n📅 Period: ${periodLabel || ""}\n⚠️ Due Date: ${formattedDate}\n\nKindly pay at the earliest to avoid any inconvenience.\n\nThank you 🙏\n*${school.name}*`
+    : `📢 *Fee Reminder — ${school.name}*\n\nDear Parent,\n\nThis is a friendly reminder that the fee for *${childName}* is due soon.\n\n💰 Amount: ₹${amount}\n📅 Period: ${periodLabel || ""}\n📆 Due Date: ${formattedDate}\n\nPlease log in to your parent dashboard to pay online.\n\nThank you 🙏\n*${school.name}*`;
 
   const waLink = `https://wa.me/91${phone}?text=${encodeURIComponent(message)}`;
 

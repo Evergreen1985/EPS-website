@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, ArrowRight } from "lucide-react";
-import site from "@/content/site.json";
 
 type Step = "choose" | "first-login" | "login" | "success";
 

@@ -1,17 +1,21 @@
 import { NextRequest } from "next/server";
 import { FREE_MODELS } from "@/lib/freeModels";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
+
+interface SchoolCtx { schoolContext: string; city: string; country: string }
 
 // ── Prompt builder ─────────────────────────────────────────────────────
-function buildPrompt(tool: string, p: Record<string, string>): string {
+function buildPrompt(tool: string, p: Record<string, string>, ctx: SchoolCtx): string {
+  const { schoolContext, city, country } = ctx;
   switch (tool) {
     case "activity":
-      return `You are an expert early childhood educator at Evergreen Preschool & Daycare, Bengaluru, India.
+      return `You are an expert early childhood educator at ${schoolContext}.
 Design a fun, hands-on classroom activity for ${p.age} year olds focusing on: ${p.skill}.
 Duration: ${p.duration} | Materials: ${p.materials || "paper, crayons, blocks, playdough"}
-Format: 🎯 Activity Name, 🎓 Objective, 📦 Materials, 📋 Step-by-step instructions (warm-up → main → cool-down), 🌟 Learning Outcomes, 🔄 Easier variation, 🚀 Challenge variation, 💡 Teacher Tips. Make it engaging and age-appropriate for Indian children.`;
+Format: 🎯 Activity Name, 🎓 Objective, 📦 Materials, 📋 Step-by-step instructions (warm-up → main → cool-down), 🌟 Learning Outcomes, 🔄 Easier variation, 🚀 Challenge variation, 💡 Teacher Tips. Make it engaging and age-appropriate for children in ${country}.`;
 
     case "report":
-      return `You are a warm preschool teacher at Evergreen Preschool, Electronic City, Bengaluru. Write a 220-280 word end-of-term progress report for ${p.childName || "the child"} (${p.age}).
+      return `You are a warm preschool teacher at ${schoolContext}. Write a 220-280 word end-of-term progress report for ${p.childName || "the child"} (${p.age}).
 Strengths: ${p.strengths || "enthusiasm and creativity"}. Growth areas: ${p.improvements || "building group confidence"}.
 Write as flowing paragraphs (not bullet points). Be warm, specific, encouraging. Include home suggestions. Start directly with the child's name.`;
 
@@ -27,7 +31,7 @@ Observed: ${p.observation}
 Be objective, professional, use ECE language, note developmental significance, suggest next steps. Begin with "Date of observation:" then proceed.`;
 
     case "parentmsg":
-      return `You are a caring preschool teacher at Evergreen Preschool, Bengaluru. Write a professional WhatsApp/email message to ${p.childName ? `${p.childName}'s parent` : "a parent"} about: ${p.topic}
+      return `You are a caring preschool teacher at ${schoolContext}. Write a professional WhatsApp/email message to ${p.childName ? `${p.childName}'s parent` : "a parent"} about: ${p.topic}
 Tone: friendly, empathetic, solution-focused. Length: 100-150 words. Simple English. Include specific observation, positive framing, clear next step. Start with "Dear [Parent's name]," as placeholder.`;
 
     case "story":
@@ -36,9 +40,9 @@ Theme: ${p.theme} | Lesson: ${p.lesson || "kindness"}
 350-420 words. Simple vocabulary, Indian names/settings welcome, vivid details, simple dialogue, gentle resolution. End with: "💛 The End — [one-sentence takeaway]". Use 3-4 emojis naturally.`;
 
     case "milestone":
-      return `You are a child development expert. A parent at Evergreen Preschool, Bengaluru has a ${p.age} year old.
+      return `You are a child development expert. A parent at ${schoolContext} has a ${p.age} year old.
 Question/concern: ${p.concern || "general developmental guidance"}
-Cover: 🌱 Key Milestones (cognitive/language/motor/social-emotional bullets), 🎮 5 Home Activities (practical, low-cost for Indian families), 💡 3-4 Parenting Tips, 📌 Addressing their concern (personalised, evidence-based), ⚠️ When to consult a paediatrician. Be warm and encouraging.`;
+Cover: 🌱 Key Milestones (cognitive/language/motor/social-emotional bullets), 🎮 5 Home Activities (practical, low-cost for families in ${country}), 💡 3-4 Parenting Tips, 📌 Addressing their concern (personalised, evidence-based), ⚠️ When to consult a paediatrician. Be warm and encouraging.`;
 
     case "childqa":
       return `You are a trusted child development and parenting expert. A parent's question about their ${p.age} year old: "${p.question}"
@@ -52,7 +56,7 @@ Each: ingredients (easily available in India), 2-3 step prep, nutritional benefi
 
     case "kidstory":
       return `Write a very short exciting story (150-200 words ONLY) for a ${p.age} year old to listen to.
-Character: ${p.character || "a brave little mouse"} | Setting: ${p.setting || "a magical garden in India"}
+Character: ${p.character || "a brave little mouse"} | Setting: ${p.setting || `a magical garden in ${country}`}
 Simple words, lots of action and sound words (whoosh! boom! giggle!), happy ending, 2-3 emojis, rhythm and repetition. Write directly — no title or intro.`;
 
     case "riddle":
@@ -214,13 +218,13 @@ export async function POST(req: NextRequest) {
     const modelDef = FREE_MODELS.find(m => m.id === model);
     if (!modelDef) return new Response("Unknown model", { status: 400 });
 
-    const prompt   = buildPrompt(tool, params);
+    const school   = await getSchoolConfig();
+    const ctx: SchoolCtx = { schoolContext: school.ai.schoolContext, city: school.ai.city, country: school.ai.country };
+    const prompt   = buildPrompt(tool, params, ctx);
     const ctrl     = new AbortController();
     req.signal.addEventListener("abort", () => ctrl.abort());
 
-    const stream = modelDef.provider === "gemini"
-      ? await streamGemini(model, prompt, ctrl.signal)
-      : await streamGroq(model, prompt, ctrl.signal);
+    const stream = await streamGroq(model, prompt, ctrl.signal);
 
     return new Response(stream, {
       headers: {

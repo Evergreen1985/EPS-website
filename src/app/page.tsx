@@ -4,7 +4,6 @@ import Link from "next/link";
 import { ArrowRight, Heart, Shield, Phone, Mail, MapPin, Clock } from "lucide-react";
 import HeroPill from "@/components/HeroPill";
 import GoogleReviews from "@/components/GoogleReviews";
-import site from "@/content/site.json";
 import programs from "@/content/programs.json";
 
 
@@ -38,8 +37,8 @@ const sectionIds = ["home","programs","about","daycare","gallery","ai-tools","co
 
 // ─── helpers ─────────────────────────────────────────────
 const Slide = ({ children, className = "", style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) => (
-  <div className={`min-w-full overflow-y-auto flex-shrink-0 ${className}`}
-    style={{ height:"calc(100vh - 184px)", scrollbarWidth:"none" as const, ...style }}>
+  <div className={`min-w-full overflow-y-auto flex-shrink-0 no-scrollbar ${className}`}
+    style={{ height:"calc(100vh - 184px)", ...style }}>
     {children}
   </div>
 );
@@ -76,9 +75,18 @@ const SlideDots = ({ total, cur, onDot }: { total: number; cur: number; onDot: (
 );
 
 // ─── main component ───────────────────────────────────────
+const DEFAULT_SITE = {
+  name: "Evergreen Preschool & Daycare",
+  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  hours: { weekdays: "7:00 AM – 7:00 PM", saturday: "8:00 AM – 1:00 PM", sunday: "Closed" },
+  about: { mission: "To provide a safe, caring, and stimulating environment that promotes each child's social, emotional, physical, and cognitive development.", vision: "To be recognised as a leading preschool and daycare centre that prepares children to become confident, creative, and compassionate individuals." },
+};
+
 export default function HomePage() {
   const [active, setActive]       = useState(0);
   const [progSlide, setProgSlide] = useState(0);
+  const [siteConfig, setSiteConfig] = useState(DEFAULT_SITE);
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSiteConfig(d.school);}).catch(()=>{}); }, []);
   const [aboutSlide, setAboutSlide] = useState(0);
   const [daySlide, setDaySlide]   = useState(0);
   const [galFilter, setGalFilter] = useState("All");
@@ -115,10 +123,8 @@ export default function HomePage() {
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const jumpTo = useCallback((idx: number) => {
-    const el = sectionRefs.current[idx];
-    if (el && scrollRef.current) {
-      scrollRef.current.scrollTo({ top: el.offsetTop, behavior: "smooth" });
-    }
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ top: idx * scrollRef.current.clientHeight, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
@@ -172,8 +178,8 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
 
   return (
     <div ref={scrollRef}
-      style={{ height: SH, overflowY:"scroll", scrollSnapType:"y mandatory", scrollBehavior:"smooth", scrollbarWidth:"none" }}
-      className="overflow-hidden">
+      style={{ height: SH, overflowY:"scroll", scrollSnapType:"y mandatory", scrollBehavior:"smooth" }}
+      className="overflow-hidden no-scrollbar">
 
       {/* ══════════════════════════════════════════════
           0. HOME
@@ -349,12 +355,12 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                   <div className="bg-white rounded-2xl p-5 border-l-4" style={{ borderColor:"#178F78" }}>
                     <div className="text-2xl mb-2">🎯</div>
                     <div className="font-bold text-base mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Our Mission</div>
-                    <p className="text-sm italic leading-relaxed" style={{ color:"#6B7A99" }}>&ldquo;{site.about.mission}&rdquo;</p>
+                    <p className="text-sm italic leading-relaxed" style={{ color:"#6B7A99" }}>&ldquo;{siteConfig.about.mission}&rdquo;</p>
                   </div>
                   <div className="bg-white rounded-2xl p-5 border-l-4" style={{ borderColor:"#F5B829" }}>
                     <div className="text-2xl mb-2">🌟</div>
                     <div className="font-bold text-base mb-2" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Our Vision</div>
-                    <p className="text-sm italic leading-relaxed" style={{ color:"#6B7A99" }}>&ldquo;{site.about.vision}&rdquo;</p>
+                    <p className="text-sm italic leading-relaxed" style={{ color:"#6B7A99" }}>&ldquo;{siteConfig.about.vision}&rdquo;</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-3">
@@ -621,7 +627,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                     style={{ background:"#E8694A", color:"white", boxShadow:"0 6px 20px rgba(232,105,74,0.4)", fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
                     Start Enquiry <ArrowRight className="w-4 h-4" />
                   </Link>
-                  <a href={`https://wa.me/91${site.phone}?text=Hi! I'd like to enquire about admissions.`}
+                  <a href={`https://wa.me/91${siteConfig.contact.phone}?text=Hi! I'd like to enquire about admissions.`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-2 font-bold px-6 py-3 rounded-full text-sm transition-all hover:-translate-y-0.5"
                     style={{ background:"#25D366", color:"white", boxShadow:"0 6px 20px rgba(37,211,102,0.35)", fontFamily:"'Quicksand',sans-serif", textDecoration:"none" }}>
@@ -644,11 +650,11 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
               <div className="rounded-2xl p-4 text-white" style={{ background:"#178F78" }}>
                 <div className="font-bold text-base mb-2" style={{ fontFamily:"'Fredoka',sans-serif" }}>Contact Info</div>
                 <div className="space-y-1.5 text-xs mb-3" style={{ color:"rgba(255,255,255,0.8)" }}>
-                  <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 flex-shrink-0"/>{site.phone}</div>
-                  <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 flex-shrink-0"/>{site.email}</div>
+                  <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 flex-shrink-0"/>{siteConfig.contact.phone}</div>
+                  <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 flex-shrink-0"/>{siteConfig.contact.email}</div>
                   <div className="flex items-start gap-2"><MapPin className="w-3.5 h-3.5 flex-shrink-0 mt-0.5"/>1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru 560100</div>
                 </div>
-                <a href={`tel:${site.phone}`} className="block text-center font-bold py-2 rounded-full text-sm" style={{ background:"white", color:"#178F78", fontFamily:"'Quicksand',sans-serif" }}>
+                <a href={`tel:${siteConfig.contact.phone}`} className="block text-center font-bold py-2 rounded-full text-sm" style={{ background:"white", color:"#178F78", fontFamily:"'Quicksand',sans-serif" }}>
                   📞 Call Us Now
                 </a>
               </div>
@@ -657,9 +663,9 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                   <Clock className="w-4 h-4"/> Opening Hours
                 </div>
                 <div className="text-xs space-y-1" style={{ color:"#6B7A99" }}>
-                  <div className="flex justify-between"><span>Monday – Friday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{site.hours.weekdays}</span></div>
-                  <div className="flex justify-between"><span>Saturday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{site.hours.saturday}</span></div>
-                  <div className="flex justify-between"><span>Sunday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{site.hours.sunday}</span></div>
+                  <div className="flex justify-between"><span>Monday – Friday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{siteConfig.hours.weekdays}</span></div>
+                  <div className="flex justify-between"><span>Saturday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{siteConfig.hours.saturday}</span></div>
+                  <div className="flex justify-between"><span>Sunday</span><span className="font-semibold" style={{ color:"#1A2F4A" }}>{siteConfig.hours.sunday}</span></div>
                 </div>
               </div>
               <div className="rounded-2xl p-4 border" style={{ background:"rgba(245,184,41,0.08)", borderColor:"rgba(245,184,41,0.3)" }}>

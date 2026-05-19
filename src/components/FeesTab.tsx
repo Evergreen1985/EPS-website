@@ -116,7 +116,7 @@ function buildReceiptHTML(fee: any, settings: any = {}): string {
   <tr><td>Receipt No</td><td>${fee.receipt_number || "—"}</td></tr>
   ${fee.reference_number ? `<tr><td>Reference No</td><td>${fee.reference_number}</td></tr>` : ""}
 </table>
-<div class="for-school">For Evergreen Preschool and Daycare</div>
+<div class="for-school">For ${settings.school_name || "Evergreen Preschool and Daycare"}</div>
 <div class="note">Note: It is a system generated receipt, signature is not required</div>
 <div style="text-align:center;margin-top:20px">
   <button onclick="window.print()" style="background:#178F78;color:white;border:none;border-radius:8px;padding:10px 28px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif">🖨️ Print</button>
@@ -233,7 +233,7 @@ function buildGSTInvoiceHTML(fee: any, settings: any = {}): string {
 </table>
 <div class="words">Amount in words: <strong>Rupees ${words}</strong></div>
 <div style="font-size:12px;color:#555"><strong>Note:</strong> GST applicable on Day Care services per GST Act 2017. SAC Code 999299.</div>
-<div class="for-school">For Evergreen Preschool and Daycare</div>
+<div class="for-school">For ${settings.school_name || "Evergreen Preschool and Daycare"}</div>
 <div class="note">This is a computer generated invoice, signature is not required.</div>
 <div style="text-align:center;margin-top:20px">
   <button onclick="window.print()" style="background:#178F78;color:white;border:none;border-radius:8px;padding:10px 28px;font-size:14px;cursor:pointer;font-family:Arial,sans-serif">🖨️ Print</button>

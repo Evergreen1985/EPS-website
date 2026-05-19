@@ -1,14 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2, ChevronDown } from "lucide-react";
-import site from "@/content/site.json";
 
 type Status = "idle" | "sending" | "success";
+
+const DEFAULT_SCHOOL = {
+  name: "Evergreen Preschool & Daycare",
+  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  address: { short: "1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru – 560100", mapEmbedUrl: "https://maps.google.com/maps?q=1427+13th+Cross+Rd+Ananth+Nagar+Phase+2+Electronic+City+Bengaluru+Karnataka+560100&output=embed" },
+  hours: { weekdays: "7:00 AM – 7:00 PM", saturday: "8:00 AM – 1:00 PM", sunday: "Closed" },
+  faq: [] as Array<{q:string;a:string}>,
+};
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", phone: "", subject: "", message: "" });
   const [status, setStatus] = useState<Status>("idle");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [school, setSchool] = useState(DEFAULT_SCHOOL);
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -45,10 +54,10 @@ export default function ContactPage() {
       <div className="max-w-5xl mx-auto px-4 mb-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { icon: <MapPin className="w-4 h-4" />, label: "Location", value: "1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru 560100" },
-            { icon: <Phone className="w-4 h-4" />, label: "Phone",    value: site.phone,  href: `tel:${site.phone}` },
-            { icon: <Mail className="w-4 h-4" />,  label: "Email",    value: site.email,  href: `mailto:${site.email}` },
-            { icon: <Clock className="w-4 h-4" />, label: "Hours",    value: `Mon–Fri: ${site.hours.weekdays}\nSat: ${site.hours.saturday}` },
+            { icon: <MapPin className="w-4 h-4" />, label: "Location", value: school.address.short },
+            { icon: <Phone className="w-4 h-4" />, label: "Phone",    value: school.contact.phone,  href: `tel:${school.contact.phone}` },
+            { icon: <Mail className="w-4 h-4" />,  label: "Email",    value: school.contact.email,  href: `mailto:${school.contact.email}` },
+            { icon: <Clock className="w-4 h-4" />, label: "Hours",    value: `Mon–Fri: ${school.hours.weekdays}\nSat: ${school.hours.saturday}` },
           ].map(card => (
             <div key={card.label} className="bg-white rounded-2xl border border-stone-100 p-4 shadow-sm">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-3 text-white"
@@ -146,10 +155,10 @@ export default function ContactPage() {
                 Prefer to Call?
               </h3>
               <p className="text-white/70 text-xs mb-4">Speak with our admissions team during working hours.</p>
-              <a href={`tel:${site.phone}`}
+              <a href={`tel:${school.contact.phone}`}
                 className="flex items-center justify-center gap-2 bg-white rounded-full py-2.5 text-sm font-bold transition-all hover:-translate-y-0.5"
                 style={{ color: "#178F78" }}>
-                <Phone className="w-4 h-4" /> {site.phone}
+                <Phone className="w-4 h-4" /> {school.contact.phone}
               </a>
             </div>
 
@@ -161,9 +170,9 @@ export default function ContactPage() {
               </div>
               <div className="space-y-2 text-sm">
                 {[
-                  { day: "Monday – Friday", hrs: site.hours.weekdays },
-                  { day: "Saturday",        hrs: site.hours.saturday },
-                  { day: "Sunday",          hrs: site.hours.sunday },
+                  { day: "Monday – Friday", hrs: school.hours.weekdays },
+                  { day: "Saturday",        hrs: school.hours.saturday },
+                  { day: "Sunday",          hrs: school.hours.sunday },
                 ].map(h => (
                   <div key={h.day} className="flex justify-between text-xs">
                     <span className="text-stone-400">{h.day}</span>
@@ -193,10 +202,10 @@ export default function ContactPage() {
       <div className="max-w-5xl mx-auto px-4 mt-6">
         <div className="rounded-2xl overflow-hidden border border-stone-100 h-52">
           <iframe
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(site.address)}&output=embed`}
+            src={school.address.mapEmbedUrl}
             className="w-full h-full border-0"
             loading="lazy"
-            title="Evergreen Preschool location"
+            title={`${school.name} location`}
           />
         </div>
       </div>
@@ -207,7 +216,7 @@ export default function ContactPage() {
           Frequently Asked Questions
         </h2>
         <div className="space-y-2">
-          {site.faq.map((item, i) => (
+          {school.faq.map((item, i) => (
             <div key={i} className="bg-white rounded-2xl border border-stone-100 overflow-hidden shadow-sm">
               <button onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 className="w-full flex items-center justify-between px-5 py-4 text-left">
@@ -231,10 +240,10 @@ export default function ContactPage() {
             Ready to Give Your Child the Best Start?
           </h2>
           <p className="text-stone-500 text-sm mb-5">Schedule a visit to our campus in Electronic City, Bengaluru.</p>
-          <a href={`tel:${site.phone}`}
+          <a href={`tel:${school.contact.phone}`}
             className="inline-flex items-center gap-2 text-white font-bold px-7 py-3 rounded-full transition-all hover:-translate-y-0.5"
             style={{ background: "#E8694A", boxShadow: "0 6px 20px rgba(232,105,74,0.3)" }}>
-            <Phone className="w-4 h-4" /> Call Us: {site.phone}
+            <Phone className="w-4 h-4" /> Call Us: {school.contact.phone}
           </a>
         </div>
       </div>

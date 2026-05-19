@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Clock, CheckCircle2, Phone } from "lucide-react";
-import site from "@/content/site.json";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 export const metadata: Metadata = {
   title: "Daycare & After-School",
@@ -28,7 +28,8 @@ const afterSchoolSchedule = [
   { time: "6:30 PM – 7:00 PM", activity: "Free Play & Departure" },
 ];
 
-export default function DaycarePage() {
+export default async function DaycarePage() {
+  const school = await getSchoolConfig();
   return (
     <>
       {/* Header */}
@@ -354,7 +355,7 @@ export default function DaycarePage() {
           <p className="text-white/65 mb-8">Contact us today to learn more about our daycare and after-school programmes.</p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link href="/contact" className="btn-amber">Get in Touch <ArrowRight className="w-4 h-4" /></Link>
-            <a href={`tel:${site.phone}`} className="btn-white"><Phone className="w-4 h-4" /> {site.phone}</a>
+            <a href={`tel:${school.contact.phone}`} className="btn-white"><Phone className="w-4 h-4" /> {school.contact.phone}</a>
           </div>
         </div>
       </section>

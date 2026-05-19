@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +19,17 @@ function generateUsername(name: string): string {
   return `${parts[0]}.${parts[parts.length - 1]}`;
 }
 
-function defaultPassword(phone: string): string {
+function defaultPassword(phone: string, prefix: string): string {
   const clean = String(phone || "").replace(/\D/g, "");
   const last4 = clean.length >= 4 ? clean.slice(-4) : "1234";
-  return `Evergreen@${last4}`;
+  return `${prefix}@${last4}`;
 }
 
-function buildWaUrl(phone: string, name: string, username: string, password: string): string | null {
+function buildWaUrl(phone: string, name: string, username: string, password: string, schoolName: string, domain: string): string | null {
   const clean = String(phone || "").replace(/\D/g, "");
   if (!clean) return null;
   const firstName = name.trim().split(" ")[0];
-  const msg = `🌿 *Evergreen Preschool — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login credentials:\n\n👤 Username: ${username}\n🔑 Password: ${password}\n\n🌐 Login at: https://evergreenprepschools.com/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_Evergreen Preschool & Daycare_`;
+  const msg = `🌿 *${schoolName} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login credentials:\n\n👤 Username: ${username}\n🔑 Password: ${password}\n\n🌐 Login at: ${domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${schoolName}_`;
   return `https://wa.me/91${clean}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -38,8 +39,9 @@ export async function POST(req: NextRequest) {
     const { action, name, phone, role } = await req.json();
     if (!name?.trim()) return NextResponse.json({ error: "Name required" }, { status: 400 });
 
-    const client   = sb();
-    const plainPass = defaultPassword(phone);
+    const school    = await getSchoolConfig();
+    const client    = sb();
+    const plainPass = defaultPassword(phone, school.auth.passwordPrefix);
     const hash      = await bcrypt.hash(plainPass, 10);
 
     if (action === "create") {
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true, username, password: plainPass,
-        waUrl: buildWaUrl(phone, name, username, plainPass),
+        waUrl: buildWaUrl(phone, name, username, plainPass, school.name, school.domain),
       });
     }
 
@@ -81,7 +83,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true, username: account.username, password: plainPass,
-        waUrl: buildWaUrl(phone, name, account.username, plainPass),
+        waUrl: buildWaUrl(phone, name, account.username, plainPass, school.name, school.domain),
       });
     }
 

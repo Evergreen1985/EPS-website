@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,10 @@ export async function POST(req: NextRequest) {
   const clean = phone.replace(/\D/g, "").replace(/^0/, "");
   const number = clean.startsWith("91") ? clean : `91${clean}`;
 
+  const school = await getSchoolConfig();
   let message = "";
   if (status === "boarded") {
-    message = `Hi! ${child_name} has boarded the Evergreen Preschool bus at ${checkin_time || "this time"}. Have a great day! 🚌`;
+    message = `Hi! ${child_name} has boarded the ${school.shortName} bus at ${checkin_time || "this time"}. Have a great day! 🚌`;
   } else if (status === "dropped") {
     message = `Hi! ${child_name} has been safely dropped at home at ${checkout_time || "this time"}. 🏠✅`;
   } else if (status === "absent") {

@@ -3,35 +3,51 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Menu, X, Phone, Mail, MapPin } from "lucide-react";
-import site from "@/content/site.json";
+
+interface SchoolPublic {
+  name: string; shortName: string; branding: { logoUrl: string };
+  contact: { phone: string; email: string };
+  address: { short: string };
+  theme: { primaryColor: string; secondaryColor: string };
+}
+
+const DEFAULT: SchoolPublic = {
+  name: "Evergreen Preschool & Daycare", shortName: "Evergreen",
+  branding: { logoUrl: "/logo.png" },
+  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  address: { short: "Electronic City, Bengaluru – 560100" },
+  theme: { primaryColor: "#178F78", secondaryColor: "#E8694A" },
+};
 
 const tabs = [
-  { label:"Home",         idx:0,  href:null },
-  { label:"Programs",     idx:1,  href:null },
-  { label:"About Us",     idx:2,  href:null },
-  { label:"Daycare",      idx:3,  href:null },
-  { label:"Gallery",      idx:4,  href:null },
-  { label:"AI Tools ✨",  idx:5,  href:null },
-  { label:"Contact",      idx:6,  href:null },
-  { label:"Parent",       idx:-1, href:"/parent-login" },
-  { label:"Staff",        idx:-1, href:"/teacher-login" },
+  { label: "Home",       idx: 0,  href: null },
+  { label: "Programs",   idx: 1,  href: null },
+  { label: "About Us",   idx: 2,  href: null },
+  { label: "Daycare",    idx: 3,  href: null },
+  { label: "Gallery",    idx: 4,  href: null },
+  { label: "AI Tools ✨",idx: 5,  href: null },
+  { label: "Contact",    idx: 6,  href: null },
+  { label: "Parent",     idx: -1, href: "/parent-login" },
+  { label: "Staff",      idx: -1, href: "/teacher-login" },
 ];
 
-// We broadcast the active section index globally so Navbar can read it
-// from the homepage scroll, even though Navbar is in layout
 let _onJump: ((idx: number) => void) | null = null;
 export function registerJump(fn: (idx: number) => void) { _onJump = fn; }
 export function callJump(idx: number) { if (_onJump) _onJump(idx); }
 
 export default function Navbar() {
-  const [open, setOpen]     = useState(false);
+  const [open,     setOpen]    = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [active, setActive] = useState(0);
-  const pathname            = usePathname();
-  const router              = useRouter();
-  const isHome              = pathname === "/";
+  const [active,   setActive]  = useState(0);
+  const [school,   setSchool]  = useState<SchoolPublic>(DEFAULT);
+  const pathname = usePathname();
+  const router   = useRouter();
+  const isHome   = pathname === "/";
 
-  // Listen for active section broadcasts from the page
+  useEffect(() => {
+    fetch("/api/config").then(r => r.json()).then(d => { if (d.school) setSchool(d.school); }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const handler = (e: Event) => setActive((e as CustomEvent).detail);
     window.addEventListener("ep-section", handler);
@@ -48,137 +64,128 @@ export default function Navbar() {
     setOpen(false);
     if (tab.href) { router.push(tab.href); return; }
     if (isHome) {
-      // dispatch jump event to page
       window.dispatchEvent(new CustomEvent("ep-jump", { detail: tab.idx }));
     } else {
-      // navigate home then jump
       router.push("/");
       setTimeout(() => window.dispatchEvent(new CustomEvent("ep-jump", { detail: tab.idx })), 400);
     }
   }, [isHome, router]);
 
+  const primary   = school.theme.primaryColor;
+  const secondary = school.theme.secondaryColor;
+
   return (
     <div className="sticky top-0 z-50">
-      {/* Top info bar — phone/email centred, address on right */}
-      <div className="hidden sm:flex items-center px-6 py-1.5 text-xs"
-        style={{ background:"#178F78", color:"rgba(255,255,255,0.85)", fontFamily:"'Quicksand',sans-serif" }}>
-        {/* Left spacer matches logo width so contact info sits in the middle */}
-        <div style={{ width:"120px" }} />
-        <div className="flex items-center gap-6 flex-1 justify-center">
-          <a href={`tel:${site.phone}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
-            <Phone className="w-3 h-3"/>{site.phone}
-          </a>
-          <a href={`mailto:${site.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
-            <Mail className="w-3 h-3"/>{site.email}
-          </a>
+      {/* Top info bar */}
+      <div className="hidden sm:block"
+        style={{ background: primary, color: "rgba(255,255,255,0.85)", fontFamily: "var(--font-body, 'Quicksand',sans-serif)" }}>
+        <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between py-1.5 text-xs">
+          <div className="flex items-center gap-5">
+            <a href={`tel:${school.contact.phone}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
+              <Phone className="w-3 h-3" />{school.contact.phone}
+            </a>
+            <a href={`mailto:${school.contact.email}`} className="flex items-center gap-1.5 hover:text-white transition-colors font-semibold">
+              <Mail className="w-3 h-3" />{school.contact.email}
+            </a>
+          </div>
+          <span className="flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.75)" }}>
+            <MapPin className="w-3 h-3 flex-shrink-0" />{school.address.short}
+          </span>
         </div>
-        <span className="flex items-center gap-1.5 text-right" style={{ color:"rgba(255,255,255,0.7)" }}>
-          <MapPin className="w-3 h-3 flex-shrink-0"/>{site.addressShort}
-        </span>
       </div>
 
-      {/* Main nav — fixed height to contain logo */}
-      <header style={{ background:"white", borderBottom:"1px solid #EDE8DF", height:"64px", display:"flex", alignItems:"center", boxShadow: scrolled ? "0 2px 12px rgba(0,0,0,0.08)" : "none" }}>
+      {/* Main nav */}
+      <header style={{ background: "white", borderBottom: "1px solid #EDE8DF", height: "64px", display: "flex", alignItems: "center", boxShadow: scrolled ? "0 2px 12px rgba(0,0,0,0.08)" : "none" }}>
         <div className="max-w-screen-xl mx-auto px-4 flex items-center justify-between w-full">
-          {/* Logo + School Name */}
-          <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-2.5 group flex-shrink-0">
-            <img src="/logo.png" alt="Evergreen Preschool Logo"
+          {/* Logo + Name */}
+          <button onClick={() => handleTab(tabs[0])} className="flex items-center gap-3 group flex-shrink-0">
+            <img src={school.branding.logoUrl} alt={`${school.name} Logo`}
               className="group-hover:scale-105 transition-transform"
-              style={{ height:"58px", width:"auto", objectFit:"contain" }} />
+              style={{ height: "52px", width: "auto", objectFit: "contain" }} />
             <div className="hidden md:block text-left">
-              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"17px", fontWeight:700, color:"#178F78", lineHeight:1.1 }}>EVERGREEN</div>
-              <div style={{ fontFamily:"'Quicksand',sans-serif", fontSize:"10px", fontWeight:600, color:"#E8694A", lineHeight:1.2 }}>Preschool & Daycare</div>
+              <div style={{ fontFamily: "var(--font-heading, 'Fredoka',sans-serif)", fontSize: "16px", fontWeight: 700, color: primary, lineHeight: 1.15 }}>{school.shortName.toUpperCase()}</div>
+              <div style={{ fontFamily: "var(--font-body, 'Quicksand',sans-serif)", fontSize: "10px", fontWeight: 600, color: secondary, lineHeight: 1.3 }}>Preschool & Daycare</div>
             </div>
           </button>
 
           {/* Desktop tabs */}
-          <nav className="hidden lg:flex items-center gap-0.5">
+          <nav className="hidden lg:flex items-center gap-0">
             {tabs.map(tab => {
               const isActive = isHome ? active === tab.idx : (tab.href && pathname.startsWith(tab.href));
 
               if (tab.label === "Parent") return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
-                  className="text-xs font-bold px-4 py-1.5 rounded-full transition-all hover:opacity-90 ml-2"
-                  style={{ fontFamily:"'Quicksand',sans-serif", background:"#8957E5", color:"white", boxShadow:"0 3px 10px rgba(137,87,229,0.35)" }}>
+                  className="text-xs font-bold px-3.5 py-1.5 rounded-full transition-all hover:opacity-90 ml-2"
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", background: "#8957E5", color: "white", boxShadow: "0 3px 10px rgba(137,87,229,0.35)" }}>
                   👨‍👩‍👧 Parent
                 </button>
               );
 
               if (tab.label === "Staff") return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
-                  className="text-xs font-bold px-4 py-1.5 rounded-full transition-all hover:opacity-90 ml-2"
-                  style={{ fontFamily:"'Quicksand',sans-serif", background:"#178F78", color:"white", boxShadow:"0 3px 10px rgba(23,143,120,0.35)" }}>
+                  className="text-xs font-bold px-3.5 py-1.5 rounded-full transition-all hover:opacity-90 ml-1.5"
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", background: primary, color: "white", boxShadow: `0 3px 10px ${primary}55` }}>
                   👩‍🏫 Staff
                 </button>
               );
 
               return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
-                  className="text-xs font-semibold px-3 py-2 transition-all border-b-2"
-                  style={{
-                    fontFamily:"'Quicksand',sans-serif",
-                    color: isActive ? "#E8694A" : "#6B7A99",
-                    borderBottomColor: isActive ? "#E8694A" : "transparent",
-                    height:"48px",
-                  }}>
+                  className="text-xs font-semibold px-2.5 py-2 transition-all border-b-2"
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", color: isActive ? secondary : "#6B7A99", borderBottomColor: isActive ? secondary : "transparent", height: "52px" }}>
                   {tab.label}
                 </button>
               );
             })}
-            {/* Enquiry — highlighted like Enroll Now */}
-            <button onClick={() => handleTab({ label:"Enquiry", idx:-1, href:"/enquiry" })}
-              className="ml-2 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
-              style={{ background:"#178F78", boxShadow:"0 4px 12px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
+            <button onClick={() => handleTab({ label: "Enquiry", idx: -1, href: "/enquiry" })}
+              className="ml-2 font-bold px-4 py-1.5 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background: primary, boxShadow: `0 4px 12px ${primary}50`, fontFamily: "var(--font-body,'Quicksand',sans-serif)" }}>
               Enquiry
             </button>
-            <button onClick={() => handleTab(tabs.find(t=>t.label==="Contact")!)}
-              className="ml-2 font-bold px-5 py-2 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
-              style={{ background:"#E8694A", boxShadow:"0 4px 12px rgba(232,105,74,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
+            <button onClick={() => handleTab({ label: "Admissions", idx: -1, href: "/admissions" })}
+              className="ml-1.5 font-bold px-4 py-1.5 rounded-full text-white text-xs transition-all hover:opacity-90 hover:-translate-y-0.5"
+              style={{ background: secondary, boxShadow: `0 4px 12px ${secondary}50`, fontFamily: "var(--font-body,'Quicksand',sans-serif)" }}>
               Enroll Now
             </button>
           </nav>
 
           {/* Mobile hamburger */}
           <button className="lg:hidden p-2 rounded-lg" onClick={() => setOpen(!open)}
-            style={{ color:"#1A2F4A" }}>
-            {open ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
+            style={{ color: "#1A2F4A" }}>
+            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
 
         {/* Mobile menu */}
         {open && (
           <div className="lg:hidden absolute top-full left-0 right-0 bg-white border-t shadow-xl z-50 p-4 flex flex-col gap-1"
-            style={{ borderColor:"#EDE8DF" }}>
+            style={{ borderColor: "#EDE8DF" }}>
             {tabs.map(tab => {
               if (tab.label === "Parent") return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
                   className="text-left font-bold text-sm p-3 rounded-xl"
-                  style={{ fontFamily:"'Quicksand',sans-serif", color:"#8957E5", background:"rgba(137,87,229,0.08)" }}>
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", color: "#8957E5", background: "rgba(137,87,229,0.08)" }}>
                   👨‍👩‍👧 Parent
                 </button>
               );
               if (tab.label === "Staff") return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
                   className="text-left font-bold text-sm p-3 rounded-xl"
-                  style={{ fontFamily:"'Quicksand',sans-serif", color:"#178F78", background:"rgba(23,143,120,0.08)" }}>
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", color: primary, background: `${primary}15` }}>
                   👩‍🏫 Staff
                 </button>
               );
               return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
                   className="text-left font-semibold text-sm p-3 rounded-xl transition-colors"
-                  style={{
-                    fontFamily:"'Quicksand',sans-serif",
-                    color: (isHome && active === tab.idx) ? "#E8694A" : "#1A2F4A",
-                    background: (isHome && active === tab.idx) ? "rgba(232,105,74,0.08)" : "transparent",
-                  }}>
+                  style={{ fontFamily: "var(--font-body,'Quicksand',sans-serif)", color: (isHome && active === tab.idx) ? secondary : "#1A2F4A", background: (isHome && active === tab.idx) ? `${secondary}15` : "transparent" }}>
                   {tab.label}
                 </button>
               );
             })}
-            <button onClick={() => { handleTab(tabs.find(t=>t.label==="Contact")!); }}
+            <button onClick={() => { handleTab(tabs.find(t => t.label === "Contact")!); }}
               className="font-bold text-center py-3 rounded-xl text-white mt-1"
-              style={{ background:"#E8694A", fontFamily:"'Quicksand',sans-serif" }}>
+              style={{ background: secondary, fontFamily: "var(--font-body,'Quicksand',sans-serif)" }}>
               Enroll Now
             </button>
           </div>

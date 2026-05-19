@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Anthropic from "@anthropic-ai/sdk";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 function sb() {
   return createClient(
@@ -54,6 +55,7 @@ School Performance Data for ${thisMonth}:
 - Active staff: ${staff.filter((s: any) => s.is_active).length}
 `;
 
+    const school   = await getSchoolConfig();
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
@@ -61,7 +63,7 @@ School Performance Data for ${thisMonth}:
       messages: [
         {
           role: "user",
-          content: `You are an expert school management advisor for Evergreen Preschool & Daycare in India. Based on the following school performance data, provide 5-6 specific, actionable development suggestions to help the school grow and improve operations. Be practical, concise, and focused on a preschool context.\n\n${context}\n\nFormat your response as numbered suggestions with a brief title and 2-3 sentence explanation each.`,
+          content: `You are an expert school management advisor for ${school.name} in ${school.ai.country}. Based on the following school performance data, provide 5-6 specific, actionable development suggestions to help the school grow and improve operations. Be practical, concise, and focused on a preschool context.\n\n${context}\n\nFormat your response as numbered suggestions with a brief title and 2-3 sentence explanation each.`,
         },
       ],
     });

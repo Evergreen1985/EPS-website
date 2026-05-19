@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { Phone, Mail, MapPin, Facebook, Instagram, Youtube } from "lucide-react";
-import site from "@/content/site.json";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
-export default function Footer() {
+export default async function Footer() {
+  const school = await getSchoolConfig();
+
+  const socialLinks = [
+    { Icon: Facebook,  href: school.social.facebook  },
+    { Icon: Instagram, href: school.social.instagram },
+    { Icon: Youtube,   href: school.social.youtube   },
+  ].filter(s => s.href);
+
   return (
     <footer className="bg-secondary text-secondary-foreground pt-16 pb-8 relative mt-20">
       {/* Wave divider */}
@@ -17,16 +25,19 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-3 mb-6">
               <div className="bg-white p-2 rounded-xl">
-                <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xs">EP</div>
+                <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xs">
+                  {school.shortName.slice(0, 2).toUpperCase()}
+                </div>
               </div>
-              <span className="font-display font-bold text-2xl text-white">EVERGREEN</span>
+              <span className="font-display font-bold text-2xl text-white">{school.shortName.toUpperCase()}</span>
             </Link>
             <p className="text-secondary-foreground/80 mb-6 leading-relaxed text-sm">
-              Nurturing young minds through play-based learning in a safe, loving, and joyful environment since our founding.
+              {school.description}
             </p>
             <div className="flex gap-3">
-              {[Facebook, Instagram, Youtube].map((Icon, i) => (
-                <a key={i} href="#" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-primary transition-colors">
+              {socialLinks.map(({ Icon, href }, i) => (
+                <a key={i} href={href} target="_blank" rel="noopener noreferrer"
+                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-primary transition-colors">
                   <Icon className="w-4 h-4" />
                 </a>
               ))}
@@ -47,9 +58,9 @@ export default function Footer() {
             <ul className="space-y-3 text-sm">
               {[
                 ["Enquiry / Enroll", "/enquiry"],
-                ["Admin Login",    "/admin-login"],
-                ["Owner Login",    "/owner-login"],
-              ].map(([l,h]) => (
+                ["Admin Login",      "/admin-login"],
+                ["Owner Login",      "/owner-login"],
+              ].map(([l, h]) => (
                 <li key={h}><Link href={h} className="text-secondary-foreground/75 hover:text-white transition-colors">{l}</Link></li>
               ))}
             </ul>
@@ -60,26 +71,26 @@ export default function Footer() {
             <ul className="space-y-4 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-secondary-foreground/75">1427, 13th Cross, Ananthnagar Phase 2, Bengaluru 560100</span>
+                <span className="text-secondary-foreground/75">{school.address.short}</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-secondary-foreground/75">{site.phone}</span>
+                <span className="text-secondary-foreground/75">{school.contact.phone}</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-secondary-foreground/75">{site.email}</span>
+                <span className="text-secondary-foreground/75">{school.contact.email}</span>
               </li>
               <li className="text-secondary-foreground/60 text-xs">
-                Mon–Fri: {site.hours.weekdays}<br />
-                Saturday: {site.hours.saturday}
+                Mon–Fri: {school.hours.weekdays}<br />
+                Saturday: {school.hours.saturday}
               </li>
             </ul>
           </div>
         </div>
 
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-secondary-foreground/50">
-          <p>© {new Date().getFullYear()} EVERGREEN Preschool & Daycare. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {school.name}. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="#" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="#" className="hover:text-white transition-colors">Terms of Service</Link>

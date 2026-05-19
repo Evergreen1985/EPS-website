@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
 function sb() {
   return createClient(
@@ -66,8 +67,9 @@ export async function POST(req: Request) {
     });
 
     // Generate WhatsApp link with OTP
-    const message = `🔐 *Evergreen Preschool — Password Reset*\n\nYour OTP is: *${otp}*\n\nThis OTP is valid for 10 minutes.\nDo not share with anyone.\n\n*Evergreen Preschool & Daycare*`;
-    const waLink  = `https://wa.me/917411574504?text=${encodeURIComponent(message)}`;
+    const school  = await getSchoolConfig();
+    const message = `🔐 *${school.name} — Password Reset*\n\nYour OTP is: *${otp}*\n\nThis OTP is valid for 10 minutes.\nDo not share with anyone.\n\n*${school.name}*`;
+    const waLink  = `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
 
     // OTP is NOT returned in the response — it is delivered only via WhatsApp
     return NextResponse.json({ success: true, waLink });

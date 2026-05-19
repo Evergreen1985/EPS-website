@@ -1,7 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle2, ChevronDown, Phone, Mail } from "lucide-react";
-import site from "@/content/site.json";
 
 const programs = [
   { id:"infant",      label:"Infant Care",         age:"9 months – 2 years" },
@@ -44,6 +43,8 @@ export default function AdmissionsPage() {
   const [form, setForm] = useState({ parentName:"",phone:"",email:"",childName:"",childDob:"",program:"",message:"",heardFrom:"" });
   const [status, setStatus] = useState<Status>("idle");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
+  const [school, setSchool] = useState({ name:"Evergreen Preschool & Daycare", shortName:"Evergreen", contact:{phone:"7411574504",email:"info@evergreenpreschool.com"}, hours:{weekdays:"7:00 AM – 7:00 PM"} });
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
 
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));
   const handleSubmit = async (e:React.FormEvent) => {
@@ -64,12 +65,12 @@ export default function AdmissionsPage() {
           <div className="inline-flex items-center gap-2 bg-white/20 border border-white/30 rounded-full px-4 py-2 mb-5 text-white text-sm font-semibold">
             🎓 Now Enrolling — 2025–26 Academic Year
           </div>
-          <h1 className="text-5xl font-bold text-white mb-4" style={{fontFamily:"'Fredoka',sans-serif"}}>Admission to Evergreen</h1>
+          <h1 className="text-5xl font-bold text-white mb-4" style={{fontFamily:"'Fredoka',sans-serif"}}>Admission to {school.shortName}</h1>
           <p className="text-white/80 text-lg max-w-2xl mx-auto">Give your child the best start in life. Apply online in minutes — our team guides you every step.</p>
           <div className="flex flex-wrap gap-4 justify-center mt-8">
             <a href="#apply" className="font-bold px-8 py-3.5 rounded-full text-stone-900 transition-all hover:-translate-y-0.5"
               style={{background:"#F5B829",boxShadow:"0 8px 24px rgba(245,184,41,0.35)"}}>Apply Now ↓</a>
-            <a href={`tel:${site.phone}`} className="font-bold px-8 py-3.5 rounded-full text-white border-2 border-white/40 hover:bg-white/10 transition-all">
+            <a href={`tel:${school.contact.phone}`} className="font-bold px-8 py-3.5 rounded-full text-white border-2 border-white/40 hover:bg-white/10 transition-all">
               📞 Call Us
             </a>
           </div>
@@ -125,9 +126,9 @@ export default function AdmissionsPage() {
                   <h3 className="text-2xl font-bold mb-3" style={{fontFamily:"'Fredoka',sans-serif",color:"#178F78"}}>Application Received!</h3>
                   <p className="text-stone-500 mb-6">Our admissions team will call you within 1 business day.</p>
                   <div className="bg-stone-50 rounded-2xl p-5 text-left text-sm text-stone-600 space-y-2">
-                    <p>📞 Urgent queries: <strong>{site.phone}</strong></p>
-                    <p>✉️ Email: <strong>{site.email}</strong></p>
-                    <p>🕐 Mon–Fri: {site.hours.weekdays}</p>
+                    <p>📞 Urgent queries: <strong>{school.contact.phone}</strong></p>
+                    <p>✉️ Email: <strong>{school.contact.email}</strong></p>
+                    <p>🕐 Mon–Fri: {school.hours.weekdays}</p>
                   </div>
                   <button onClick={()=>setStatus("idle")} className="mt-5 font-bold px-6 py-2.5 rounded-full text-white" style={{background:"#E8694A"}}>
                     Submit Another
@@ -195,10 +196,10 @@ export default function AdmissionsPage() {
             <div className="rounded-2xl p-5 text-white" style={{background:"#178F78"}}>
               <h3 className="font-bold mb-2" style={{fontFamily:"'Fredoka',sans-serif"}}>Prefer to Talk?</h3>
               <p className="text-white/70 text-xs mb-4">Our team is happy to answer your questions.</p>
-              <a href={`tel:${site.phone}`} className="flex items-center justify-center gap-2 bg-white rounded-full py-2.5 text-sm font-bold hover:-translate-y-0.5 transition-all mb-2" style={{color:"#178F78"}}>
-                <Phone className="w-4 h-4"/> {site.phone}
+              <a href={`tel:${school.contact.phone}`} className="flex items-center justify-center gap-2 bg-white rounded-full py-2.5 text-sm font-bold hover:-translate-y-0.5 transition-all mb-2" style={{color:"#178F78"}}>
+                <Phone className="w-4 h-4"/> {school.contact.phone}
               </a>
-              <a href={`mailto:${site.email}`} className="flex items-center justify-center gap-2 bg-white/10 border border-white/20 rounded-full py-2.5 text-sm font-semibold hover:bg-white/20 transition-all text-white">
+              <a href={`mailto:${school.contact.email}`} className="flex items-center justify-center gap-2 bg-white/10 border border-white/20 rounded-full py-2.5 text-sm font-semibold hover:bg-white/20 transition-all text-white">
                 <Mail className="w-4 h-4"/> Email Us
               </a>
             </div>

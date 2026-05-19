@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Phone, Mic, MicOff, Globe, ChevronDown, Star, Sparkles } from "lucide-react";
-import site from "@/content/site.json";
 
 // ── Program data ──────────────────────────────────────────
 const PROGRAMS = [
@@ -78,7 +77,18 @@ export default function EnquiryPage() {
   const [loadingTip, setLoadingTip]   = useState(false);
   const [maxDate, setMaxDate]         = useState("");
   const recognitionRef                = useRef<any>(null);
-  const t = UI_TEXT[lang] || UI_TEXT["en-IN"];
+  const [school, setSchool] = useState({
+    name: "Evergreen Preschool & Daycare", shortName: "Evergreen",
+    contact: { phone: "7411574504" },
+    address: {
+      short: "1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru – 560100",
+      city: "Bengaluru",
+      mapEmbedUrl: "https://maps.google.com/maps?q=1427+13th+Cross+Rd+Ananth+Nagar+Phase+2+Electronic+City+Bengaluru+Karnataka+560100&output=embed",
+      googleReviewsUrl: "https://www.google.com/search?q=Evergreen+Preschool+and+Daycare+Anantha+Nagar+Reviews",
+    },
+  });
+  useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
+  const t = { ...(UI_TEXT[lang] || UI_TEXT["en-IN"]), greeting: `Hello! Welcome to ${school.shortName}. Please tell me your child's name.` } as Record<string, string>;
   const ageMonths   = getAgeInMonths(form.dob);
   const suggested   = suggestPrograms(ageMonths);
   const selectedProg = PROGRAMS.find(p => p.id === form.program);
@@ -189,8 +199,8 @@ export default function EnquiryPage() {
 
     setStatus("success");
     const prog = PROGRAMS.find(p => p.id === form.program);
-    const msg = `🌿 *Evergreen Preschool — Enquiry Confirmation*\n\nDear ${form.parentName || "Parent"},\n\nThank you for your enquiry for *${form.childName}*!\n\n📋 *Programme Suggested:* ${prog?.label || "To be confirmed"}\n👶 *Age:* ${ageMonths ? formatAge(ageMonths) : "-"}\n🕐 *Timing:* ${prog?.time || "-"}\n👩‍🏫 *Ratio:* ${prog?.ratio || "-"}\n\n*Next Steps:*\n1. Our team will call you within 1 business day\n2. Schedule a free campus visit\n3. Meet the teachers\n\n📍 1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru\n📞 ${site.phone}\n\n_We look forward to welcoming ${form.childName} to the Evergreen family!_ 🌿`;
-    const waUrl = `https://wa.me/91${site.phone}?text=${encodeURIComponent(msg)}`;
+    const msg = `🌿 *${school.name} — Enquiry Confirmation*\n\nDear ${form.parentName || "Parent"},\n\nThank you for your enquiry for *${form.childName}*!\n\n📋 *Programme Suggested:* ${prog?.label || "To be confirmed"}\n👶 *Age:* ${ageMonths ? formatAge(ageMonths) : "-"}\n🕐 *Timing:* ${prog?.time || "-"}\n👩‍🏫 *Ratio:* ${prog?.ratio || "-"}\n\n*Next Steps:*\n1. Our team will call you within 1 business day\n2. Schedule a free campus visit\n3. Meet the teachers\n\n📍 ${school.address.short}\n📞 ${school.contact.phone}\n\n_We look forward to welcoming ${form.childName} to our school!_ 🌿`;
+    const waUrl = `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(msg)}`;
     setTimeout(() => window.open(waUrl, "_blank"), 800);
   };
 
@@ -250,19 +260,19 @@ export default function EnquiryPage() {
             {showCampus && (
               <div>
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!4v1700000000000!6m8!1m7!1sCAoSLEFGMVFpcE5FczdxQ3VsRnFlS3RUWG9mT0w4bEVVVzVlR0JOT3VQZ3IwWjhj!2m2!1d12.8406!2d77.6784!3f0!4f0!5f0.7820865974627469"
+                  src={school.address.mapEmbedUrl}
                   width="100%" height="240" style={{ border:0, display:"block" }} allowFullScreen loading="lazy"
-                  title="Evergreen Preschool Campus View" />
+                  title={`${school.name} Campus View`} />
                 <div style={{ padding:"10px 14px", background:"#FAF0E8" }}>
                   <p style={{ fontSize:"11px", color:"#6B7A99", textAlign:"center" }}>
-                    📍 1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru
+                    📍 {school.address.short}
                   </p>
                   <div style={{ display:"flex", gap:"8px", justifyContent:"center", marginTop:"8px" }}>
-                    <a href="https://maps.google.com/?q=Evergreen+Preschool+Anantha+Nagar+Bengaluru" target="_blank" rel="noopener noreferrer"
+                    <a href={school.address.googleReviewsUrl} target="_blank" rel="noopener noreferrer"
                       style={{ background:"#4285F4", color:"white", borderRadius:"20px", padding:"5px 14px", fontSize:"11px", fontWeight:700, textDecoration:"none" }}>
                       Open in Google Maps
                     </a>
-                    <a href={`https://wa.me/91${site.phone}?text=Hi! I would like to schedule a campus visit.`} target="_blank" rel="noopener noreferrer"
+                    <a href={`https://wa.me/91${school.contact.phone}?text=Hi! I would like to schedule a campus visit.`} target="_blank" rel="noopener noreferrer"
                       style={{ background:"#25D366", color:"white", borderRadius:"20px", padding:"5px 14px", fontSize:"11px", fontWeight:700, textDecoration:"none" }}>
                       Book a Visit
                     </a>
@@ -296,7 +306,7 @@ export default function EnquiryPage() {
               <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.8rem", fontWeight:700, color:"white", lineHeight:1.2, marginBottom:"4px" }}>
                 {t.title}
               </div>
-              <p style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)" }}>Evergreen Preschool & Daycare · Electronic City, Bengaluru</p>
+              <p style={{ fontSize:"12px", color:"rgba(255,255,255,0.75)" }}>{school.name} · {school.address.city}</p>
             </div>
 
             <div ref={langRef} style={{ position:"relative", zIndex:999 }}>
@@ -526,16 +536,16 @@ export default function EnquiryPage() {
           {showCampus && (
             <div>
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3889.2!2d77.6784!3d12.8406!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae6c534088b4b7%3A0x221c70ea5d54f0c2!2sEvergreen+Preschool+and+Daycare+Anantha+Nagar!5e0!3m2!1sen!2sin!4v1700000000000"
+                src={school.address.mapEmbedUrl}
                 width="100%" height="280" style={{ border:0, display:"block" }} allowFullScreen loading="lazy"
-                title="Evergreen Preschool Location" />
+                title={`${school.name} Location`} />
               <div style={{ padding:"14px 18px", background:"#FAF0E8" }}>
                 <div style={{ display:"flex", gap:"8px", marginBottom:"10px" }}>
-                  <a href="https://maps.google.com/?q=place_id:ChIJt4CogFNtrjsRwvBT5V3qcCI" target="_blank" rel="noopener noreferrer"
+                  <a href={school.address.googleReviewsUrl} target="_blank" rel="noopener noreferrer"
                     style={{ flex:1, background:"#4285F4", color:"white", borderRadius:"12px", padding:"8px", fontSize:"11px", fontWeight:700, textDecoration:"none", textAlign:"center" }}>
                     📍 Open in Google Maps
                   </a>
-                  <a href={`https://wa.me/91${site.phone}?text=Hi! I would like to schedule a campus visit to Evergreen Preschool.`} target="_blank" rel="noopener noreferrer"
+                  <a href={`https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(`Hi! I would like to schedule a campus visit to ${school.name}.`)}`} target="_blank" rel="noopener noreferrer"
                     style={{ flex:1, background:"#25D366", color:"white", borderRadius:"12px", padding:"8px", fontSize:"11px", fontWeight:700, textDecoration:"none", textAlign:"center" }}>
                     💬 Book a Visit
                   </a>
@@ -559,8 +569,8 @@ export default function EnquiryPage() {
         {/* Contact strip */}
         <div style={{ marginTop:"16px", background:"#178F78", borderRadius:"20px", padding:"14px 18px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:"10px" }}>
           <div style={{ color:"rgba(255,255,255,0.85)", fontSize:"11px" }}>Have questions? Call us directly</div>
-          <a href={`tel:${site.phone}`} style={{ background:"white", color:"#178F78", borderRadius:"20px", padding:"6px 18px", fontWeight:700, fontSize:"13px", textDecoration:"none", display:"flex", alignItems:"center", gap:"6px" }}>
-            <Phone style={{ width:"14px", height:"14px" }} /> {site.phone}
+          <a href={`tel:${school.contact.phone}`} style={{ background:"white", color:"#178F78", borderRadius:"20px", padding:"6px 18px", fontWeight:700, fontSize:"13px", textDecoration:"none", display:"flex", alignItems:"center", gap:"6px" }}>
+            <Phone style={{ width:"14px", height:"14px" }} /> {school.contact.phone}
           </a>
         </div>
       </div>
