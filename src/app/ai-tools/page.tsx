@@ -1,355 +1,594 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Suspense } from "react";
-import { BookOpen, Brain, Calendar, FileText, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, Copy, Check, BookOpen, Brain, Calendar, FileText, MessageSquare, Eye, UtensilsCrossed, Pencil, Music, Puzzle, ChevronDown } from "lucide-react";
+import { FREE_MODELS } from "@/lib/freeModels";
 
-type Tool = "story" | "milestone" | "activity" | "report";
+type Audience = "teacher" | "parent" | "kids";
 
-const tools = [
-  { id: "story" as Tool,     icon: BookOpen,  label: "Story Generator",   color: "#E8694A", bg: "rgba(232,105,74,0.1)"  },
-  { id: "milestone" as Tool, icon: Brain,     label: "Milestone Advisor", color: "#178F78", bg: "rgba(23,143,120,0.1)"  },
-  { id: "activity" as Tool,  icon: Calendar,  label: "Activity Planner",  color: "#F5B829", bg: "rgba(245,184,41,0.12)" },
-  { id: "report" as Tool,    icon: FileText,  label: "Progress Report",   color: "#8957E5", bg: "rgba(137,87,229,0.1)"  },
+interface ToolDef {
+  id: string;
+  label: string;
+  desc: string;
+  icon: React.ComponentType<any>;
+  color: string;
+  bg: string;
+}
+
+const TEACHER_TOOLS: ToolDef[] = [
+  { id:"activity",    label:"Activity Planner",    desc:"Design a fun classroom activity",       icon:Calendar,      color:"#178F78", bg:"rgba(23,143,120,0.1)"  },
+  { id:"report",      label:"Progress Report",     desc:"Write a warm, professional report",     icon:FileText,      color:"#8957E5", bg:"rgba(137,87,229,0.1)"  },
+  { id:"lessonplan",  label:"Lesson Plan",         desc:"Structured lesson plan for any skill",  icon:BookOpen,      color:"#E8694A", bg:"rgba(232,105,74,0.1)"  },
+  { id:"observation", label:"Observation Notes",   desc:"Document a child's behaviour",          icon:Eye,           color:"#0F766E", bg:"rgba(15,118,110,0.1)"  },
+  { id:"parentmsg",   label:"Parent Message",      desc:"Compose a message to a parent",         icon:MessageSquare, color:"#F5B829", bg:"rgba(245,184,41,0.12)" },
 ];
 
-const storyThemes = ["Adventure in the Forest","A Day at the Beach","Magical Garden","Friendship at School","Space Explorer","The Kind Dragon","Rainy Day Fun","Farm Animals"];
-const skills      = ["Language & Communication","Fine Motor Skills","Gross Motor Skills","Social Skills","Creativity & Arts","Numeracy","Literacy","Emotional Intelligence"];
-const durations   = ["15 minutes","30 minutes","45 minutes","1 hour"];
-const ageGroups   = ["9 months – 2 years","2–3 years","3–4 years","4–5 years","5–6 years","6–8 years"];
+const PARENT_TOOLS: ToolDef[] = [
+  { id:"story",     label:"Story Generator",   desc:"Personalised bedtime story",            icon:BookOpen,       color:"#E8694A", bg:"rgba(232,105,74,0.1)"  },
+  { id:"milestone", label:"Milestone Advisor", desc:"What to expect at this age",            icon:Brain,          color:"#178F78", bg:"rgba(23,143,120,0.1)"  },
+  { id:"childqa",   label:"Ask an Expert",     desc:"Any parenting or development question", icon:MessageSquare,  color:"#8957E5", bg:"rgba(137,87,229,0.1)"  },
+  { id:"mealidea",  label:"Healthy Meal Ideas",desc:"Nutritious recipes for your child",     icon:UtensilsCrossed,color:"#F5B829", bg:"rgba(245,184,41,0.12)" },
+];
 
-// ── Pre-written smart responses ──────────────────────────────────
+const KIDS_TOOLS: ToolDef[] = [
+  { id:"kidstory", label:"Mini Story",     desc:"A short exciting story",        icon:BookOpen, color:"#E8694A", bg:"rgba(232,105,74,0.1)"  },
+  { id:"riddle",   label:"Fun Riddles",    desc:"Clever riddles to solve",       icon:Puzzle,   color:"#178F78", bg:"rgba(23,143,120,0.1)"  },
+  { id:"drawing",  label:"Drawing Guide", desc:"Step-by-step drawing adventure", icon:Pencil,   color:"#8957E5", bg:"rgba(137,87,229,0.1)"  },
+  { id:"song",     label:"Song & Rhyme",  desc:"A fun sing-along song",         icon:Music,    color:"#F5B829", bg:"rgba(245,184,41,0.12)" },
+];
 
-function generateStory(theme: string, name: string, age: string, lesson: string): string {
-  const hero = name || "Mia";
-  const lessonText = lesson || "kindness";
-  const stories: Record<string, string> = {
-    "Adventure in the Forest": `Once upon a time, little ${hero} put on red boots and stepped into the Whispering Forest. The trees swayed gently, and a tiny squirrel appeared.\n\n"I've lost my acorns!" squeaked the squirrel sadly.\n\n${hero}'s eyes went wide. "I'll help you look!" And so they searched together — under golden leaves, behind mossy rocks, and inside a hollow log.\n\nFinally, ${hero} spotted a pile of acorns near the big oak tree. "Found them!"\n\nThe squirrel did a happy dance. "Thank you, ${hero}! You showed real ${lessonText} today."\n\nAll the way home, ${hero} smiled — because helping someone always feels wonderful. 🌲\n\n💛 Remember: ${lessonText.charAt(0).toUpperCase() + lessonText.slice(1)} makes the world a better place!`,
-    "Friendship at School": `${hero} felt shy on the first day at Evergreen School. Everyone seemed to already know each other.\n\nAt playtime, ${hero} sat alone — until a girl named Zara came over. "Want to build a tower with me?"\n\nTogether they stacked blocks higher and higher — until CRASH! It tumbled down. They looked at each other and burst out laughing.\n\n"Want to try again?" asked Zara.\n\n"Yes!" said ${hero} happily.\n\nBy the end of the day, ${hero} had a new best friend — and had learned that ${lessonText} is the first step to finding one.\n\n💛 The best friendships start with a simple "hello"!`,
-    "Magical Garden": `In ${hero}'s backyard was a tiny seed — brown and wrinkled and small.\n\n${hero} dug a little hole, placed the seed inside, and watered it every single morning.\n\nDays passed. Then one morning — a tiny green shoot poked through the soil!\n\n"It's alive!" cheered ${hero}, clapping with joy.\n\nWeeks later, a beautiful sunflower stood tall, its yellow petals glowing like the sun.\n\nGrandma smiled. "${hero}, you grew that with patience and love — that's the magic of ${lessonText}."\n\n💛 Good things grow when we give them care and time!`,
-  };
-  const keys = Object.keys(stories);
-  const matchKey = keys.find(k => theme.includes(k.split(" ")[1]) || k === theme);
-  const base = matchKey ? stories[matchKey] : stories["Adventure in the Forest"];
-  return age.includes("2–3") ? base.replace(/\n\n.+\n\n/g, "\n\n") : base;
-}
+const AGE_GROUPS  = ["2–3 years","3–4 years","4–5 years","5–6 years","6–8 years"];
+const SKILLS      = ["Language & Communication","Fine Motor Skills","Gross Motor Skills","Social Skills","Creativity & Arts","Numeracy","Literacy","Emotional Intelligence"];
+const DURATIONS   = ["15 minutes","30 minutes","45 minutes","1 hour"];
+const STORY_THEMES= ["Forest Adventure","Friendship at School","Magical Garden","Ocean Discovery","Space Explorer","The Kind Dragon","Farm Animals","Rainy Day Fun"];
+const DRAWING_THEMES = ["Animals","Birds","Fruit & Vegetables","Sea Creatures","Vehicles","Flowers","Insects","Fantasy creatures"];
+const SONG_THEMES    = ["Animals & Nature","Rain & Weather","Numbers & Counting","Colours","Morning Routines","Friendship","Food & Eating","Seasons"];
+const CHAR_OPTIONS   = ["A brave little mouse","A curious elephant","A friendly dragon","A tiny frog","A baby lion","A little owl","A kind robot"];
 
-function generateMilestone(age: string, concern: string): string {
-  const milestones: Record<string, string> = {
-    "9 months – 2 years": `🌱 Key Milestones for ${age}\n\n✅ What to expect:\n• Speaks 10–50 words and begins combining two words\n• Walks steadily, climbs stairs with support\n• Points to objects and pictures in books\n• Imitates actions and simple pretend play\n• Shows strong attachment to caregivers\n\n🎮 Activities to support development:\n• Read picture books together daily — point and name objects\n• Play peek-a-boo and simple hiding games\n• Sing nursery rhymes with actions (Wheels on the Bus!)\n• Offer safe objects of different textures to explore\n• Encourage self-feeding with a spoon\n\n💡 Tips for parents:\n• Every child develops at their own pace — a range is normal\n• Talk constantly to your child during daily routines\n${concern ? `\n📌 Regarding your concern "${concern}":\nThis is a common question! Consult your paediatrician if you notice significant delays across multiple areas. Early intervention is always beneficial.` : ""}`,
+const inp: React.CSSProperties = { width:"100%", border:"1px solid #EDE8DF", borderRadius:"12px", padding:"9px 13px", fontSize:"13px", color:"#1A2F4A", background:"white", outline:"none", boxSizing:"border-box", fontFamily:"'Quicksand',sans-serif" };
+const sel: React.CSSProperties = { ...inp, cursor:"pointer" };
+const ta:  React.CSSProperties = { ...inp, resize:"vertical", minHeight:"72px" };
+const lbl: React.CSSProperties = { fontSize:"10px", fontWeight:700, color:"#9CA3AF", textTransform:"uppercase" as const, letterSpacing:"0.06em", display:"block", marginBottom:"5px" };
 
-    "2–3 years": `🌱 Key Milestones for ${age}\n\n✅ What to expect:\n• Vocabulary of 200+ words; speaks in short sentences\n• Runs, jumps, and kicks a ball\n• Begins sorting by shape and colour\n• Engages in parallel play (plays near other children)\n• Shows independence — "Me do it!"\n\n🎮 Activities to support development:\n• Simple puzzles and shape sorters\n• Playdough for fine motor skill building\n• Dress-up and pretend play\n• Singing and dancing together\n• Simple art — finger painting, stickers, crayons\n\n💡 Tips for parents:\n• Tantrums are normal — they are learning to manage big emotions\n• Give simple choices: "Red cup or blue cup?"\n${concern ? `\n📌 Regarding "${concern}":\nThis is very common at this age. Stay patient and consistent. Speak with your child's teacher or paediatrician if it persists.` : ""}`,
-
-    "3–4 years": `🌱 Key Milestones for ${age}\n\n✅ What to expect:\n• Speaks clearly in 4–5 word sentences\n• Counts to 10 and recognises some numbers\n• Draws circles, lines, and simple figures\n• Plays cooperatively with other children\n• Understands "same" and "different"\n\n🎮 Activities to support development:\n• Reading books and asking "what happens next?"\n• Number games with blocks or counting toys\n• Simple board games that teach turn-taking\n• Nature walks — collect leaves, rocks, observe insects\n• Creative art with scissors (supervised)\n\n💡 Tips for parents:\n• Ask open-ended questions: "Tell me about your drawing!"\n• Establish consistent daily routines for security\n${concern ? `\n📌 Regarding "${concern}":\nAt ${age}, this is a common area parents ask about. Share this with your Evergreen teacher — we can support at school too!` : ""}`,
-
-    "4–5 years": `🌱 Key Milestones for ${age}\n\n✅ What to expect:\n• Recognises letters and writes their own name\n• Counts 10+ objects correctly\n• Hops, skips, and catches a bounced ball\n• Tells stories with beginning, middle and end\n• Understands rules and wants to follow them\n\n🎮 Activities to support development:\n• Letter recognition games and simple phonics\n• Addition with physical objects (blocks, toys)\n• Role-play games (shop, doctor, school)\n• Drawing and early writing practice\n• Simple science experiments (mixing colours!)\n\n💡 Tips for parents:\n• This is a great time to build pre-reading skills\n• Encourage problem-solving: "How can we fix that?"\n${concern ? `\n📌 Regarding "${concern}":\nThis is something our teachers at Evergreen actively support. Please speak with our programme coordinator for personalised guidance!` : ""}`,
-
-    "5–6 years": `🌱 Key Milestones for ${age}\n\n✅ What to expect:\n• Beginning to read simple words and sentences\n• Writes letters and numbers independently\n• Can focus on a task for 15–20 minutes\n• Understands rules, fairness, and consequences\n• Strong friendships begin to form\n\n🎮 Activities to support development:\n• Daily reading together — take turns reading pages\n• Maths games: addition, patterns, simple measurement\n• Writing their own simple stories or journals\n• Strategy games like chess, checkers, Snakes & Ladders\n• Group projects and collaborative art\n\n💡 Tips for parents:\n• Encourage independence with homework and chores\n• Celebrate effort, not just results\n${concern ? `\n📌 Regarding "${concern}":\nSr. KG is a key transition year. Our team at Evergreen is here to support every child's unique journey. Let's connect!` : ""}`,
-  };
-  const key = Object.keys(milestones).find(k => age.includes(k.split("–")[0].trim())) ?? "3–4 years";
-  return milestones[key] ?? milestones["3–4 years"];
-}
-
-function generateActivity(age: string, skill: string, duration: string, materials: string): string {
-  const mats = materials || "paper, crayons, household items";
-  return `🎯 Activity Plan for ${age} — ${skill}\n⏱️ Duration: ${duration}\n📦 Materials: ${mats}\n\n━━━━━━━━━━━━━━━━━━━━━━\n🌟 ACTIVITY: "${skill} Adventure!"\n━━━━━━━━━━━━━━━━━━━━━━\n\n🎯 Objective:\nDevelop ${skill.toLowerCase()} through hands-on, playful learning.\n\n📋 Instructions:\n\n1️⃣ Warm Up (3–5 mins)\n   • Start with a short song or rhyme related to today's theme\n   • Ask: "What do you think we'll do today?"\n\n2️⃣ Main Activity (${duration})\n   • Lay out your materials: ${mats}\n   • Let the child lead — follow their curiosity!\n   • For ${skill}: encourage them to try, make mistakes, and try again\n   • Use lots of praise: "Wow, look what you made!"\n\n3️⃣ Cool Down (3–5 mins)\n   • Ask: "What was your favourite part?"\n   • Display or celebrate their work\n   • Clean up together — that's a skill too! 😊\n\n💡 Tips for Parents & Teachers:\n• Keep instructions simple — one step at a time\n• If they lose interest, follow their lead to a related activity\n• Repeat the activity on different days — repetition builds skill!\n\n🔄 Make it easier:\nUse larger materials, provide more guidance, work side by side\n\n🚀 Make it harder:\nAdd a time challenge, introduce new words, ask "why do you think that?"`;
-}
-
-function generateReport(childName: string, age: string, strengths: string, improvements: string): string {
-  const name = childName || "Your child";
-  const str  = strengths    || "enthusiasm, creativity, and a warm heart";
-  const imp  = improvements || "building confidence in group settings";
-  return `📋 PROGRESS REPORT\nEvergreen Preschool & Daycare, Bengaluru\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nChild: ${name}       Age Group: ${age}\nProgramme: Evergreen Early Learning\nPeriod: Current Term\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📌 OVERALL PROGRESS\n\nIt has been a wonderful term watching ${name} grow and blossom at Evergreen! ${name} comes to school with a positive attitude each day and has made impressive strides across all areas of our curriculum. We are very proud of the progress shown this term.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n⭐ STRENGTHS\n\n${name} particularly shines in: ${str}. These qualities make ${name} a joy to have in our classroom, and peers naturally respond well to this positive energy. Keep celebrating these wonderful qualities at home!\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n🌱 AREAS FOR GROWTH\n\nAs ${name} continues to develop, we are gently supporting growth in: ${imp}. This is completely age-appropriate and we are seeing steady improvement each week. With consistent encouragement at home and school, we are confident ${name} will continue to thrive.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💛 A NOTE FROM THE TEAM\n\nThank you for entrusting us with ${name}'s early childhood journey. It truly takes a village, and we are grateful to be part of yours. Please feel free to reach out anytime.\n\nWarm regards,\nThe Evergreen Team 🌿\n1427, 13th Cross, Ananthnagar Phase 2\nElectronic City, Bengaluru – 560100\n📞 7411574504`;
+function Chip({ label, active, color, onClick }: { label:string; active:boolean; color:string; onClick:()=>void }) {
+  return (
+    <button onClick={onClick} style={{ padding:"5px 12px", borderRadius:"20px", fontSize:"11px", fontWeight:700, border:`1px solid ${active ? color : "#EDE8DF"}`, background:active ? color : "white", color:active ? "white" : "#6B7A99", cursor:"pointer", flexShrink:0 }}>
+      {label}
+    </button>
+  );
 }
 
 export default function AIToolsPage() {
   return (
-    <Suspense fallback={<div style={{height:"calc(100vh - 92px)",background:"#FEFCF8"}}/>}>
+    <Suspense fallback={<div style={{ height:"calc(100vh - 92px)", background:"#FEFCF8" }} />}>
       <AIToolsInner />
     </Suspense>
   );
 }
 
 function AIToolsInner() {
-  const [activeTool, setActiveTool] = useState<Tool>("story");
-  const [loading, setLoading]       = useState(false);
-  const [result, setResult]         = useState("");
+  const [audience, setAudience]   = useState<Audience>("teacher");
+  const [toolId, setToolId]       = useState("activity");
+  const [modelId, setModelId]     = useState<string>(FREE_MODELS[0].id);
+  const [result, setResult]       = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [copied, setCopied]       = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const resultRef                 = useRef<HTMLDivElement>(null);
+  const abortRef                  = useRef<AbortController | null>(null);
+  const selectedModel             = FREE_MODELS.find(m => m.id === modelId) ?? FREE_MODELS[0];
 
-  // Read ?tool= param directly from window.location (most reliable)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const toolParam = params.get("tool") as Tool | null;
-    if (toolParam && ["story","milestone","activity","report"].includes(toolParam)) {
-      setActiveTool(toolParam);
-      setResult("");
-    }
-  }, []);
-
-  // Lock body scroll — this page is full-screen
+  // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  const [storyTheme,    setStoryTheme]    = useState(storyThemes[0]);
-  const [storyName,     setStoryName]     = useState("");
-  const [storyAge,      setStoryAge]      = useState(ageGroups[2]);
-  const [storyLesson,   setStoryLesson]   = useState("kindness");
-  const [msAge,         setMsAge]         = useState(ageGroups[2]);
-  const [msConcern,     setMsConcern]     = useState("");
-  const [actAge,        setActAge]        = useState(ageGroups[2]);
-  const [actSkill,      setActSkill]      = useState(skills[0]);
-  const [actDuration,   setActDuration]   = useState(durations[1]);
-  const [actMaterials,  setActMaterials]  = useState("");
-  const [repName,       setRepName]       = useState("");
-  const [repAge,        setRepAge]        = useState(ageGroups[2]);
-  const [repStrengths,  setRepStrengths]  = useState("");
-  const [repImprove,    setRepImprove]    = useState("");
+  // When audience changes, switch to first tool of that audience
+  const switchAudience = (a: Audience) => {
+    setAudience(a);
+    setResult("");
+    const first = a === "teacher" ? TEACHER_TOOLS[0] : a === "parent" ? PARENT_TOOLS[0] : KIDS_TOOLS[0];
+    setToolId(first.id);
+  };
 
-  const currentTool = tools.find(t => t.id === activeTool)!;
+  const allTools = audience === "teacher" ? TEACHER_TOOLS : audience === "parent" ? PARENT_TOOLS : KIDS_TOOLS;
+  const currentTool = allTools.find(t => t.id === toolId) ?? allTools[0];
 
-  function handleGenerate() {
+  // ── Per-tool form state ─────────────────────────────────────────
+  const [age,        setAge]        = useState(AGE_GROUPS[1]);
+  const [skill,      setSkill]      = useState(SKILLS[0]);
+  const [duration,   setDuration]   = useState(DURATIONS[1]);
+  const [materials,  setMaterials]  = useState("");
+  const [childName,  setChildName]  = useState("");
+  const [strengths,  setStrengths]  = useState("");
+  const [improvements, setImprove] = useState("");
+  const [topic,      setTopic]      = useState("");
+  const [observation,setObsText]    = useState("");
+  const [setting,    setSetting]    = useState("classroom");
+  const [parentTopic,setParentTopic]= useState("");
+  const [storyTheme, setStoryTheme] = useState(STORY_THEMES[0]);
+  const [lesson,     setLesson]     = useState("kindness");
+  const [concern,    setConcern]    = useState("");
+  const [question,   setQuestion]   = useState("");
+  const [diet,       setDiet]       = useState("vegetarian");
+  const [challenge,  setChallenge]  = useState("");
+  const [character,  setCharacter]  = useState(CHAR_OPTIONS[0]);
+  const [kidsetting, setKidSetting] = useState("a magical garden in India");
+  const [drawTheme,  setDrawTheme]  = useState(DRAWING_THEMES[0]);
+  const [songTheme,  setSongTheme]  = useState(SONG_THEMES[0]);
+  const [lessonStyle, setLessonStyle] = useState("visual and kinaesthetic");
+
+  // Auto-scroll result
+  useEffect(() => {
+    if (resultRef.current && result) {
+      resultRef.current.scrollTop = resultRef.current.scrollHeight;
+    }
+  }, [result]);
+
+  const buildParams = (): Record<string, string> => {
+    switch (toolId) {
+      case "activity":   return { age, skill, duration, materials };
+      case "report":     return { childName, age, strengths, improvements };
+      case "lessonplan": return { age, topic, duration, style: lessonStyle };
+      case "observation":return { childName, age, observation, setting };
+      case "parentmsg":  return { childName, topic: parentTopic };
+      case "story":      return { childName, age, theme: storyTheme, lesson };
+      case "milestone":  return { age, concern };
+      case "childqa":    return { age, question };
+      case "mealidea":   return { age, diet, challenge };
+      case "kidstory":   return { age, character, setting: kidsetting };
+      case "riddle":     return { age };
+      case "drawing":    return { age, theme: drawTheme };
+      case "song":       return { age, theme: songTheme };
+      default:           return {};
+    }
+  };
+
+  const generate = useCallback(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+
     setLoading(true);
     setResult("");
-    setTimeout(() => {
-      let output = "";
-      if (activeTool === "story")     output = generateStory(storyTheme, storyName, storyAge, storyLesson);
-      if (activeTool === "milestone") output = generateMilestone(msAge, msConcern);
-      if (activeTool === "activity")  output = generateActivity(actAge, actSkill, actDuration, actMaterials);
-      if (activeTool === "report")    output = generateReport(repName, repAge, repStrengths, repImprove);
-      setResult(output);
-      setLoading(false);
-    }, 1200);
-  }
 
-  const inputCls = "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:border-teal-400 focus:bg-white transition-all";
-  const labelCls = "block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5";
-  const chipCls  = (active: boolean, color: string) => ({
-    background:  active ? color : "white",
-    color:       active ? "white" : "#6B7A99",
-    borderColor: active ? color : "#EDE8DF",
-  });
+    try {
+      const res = await fetch("/api/ai-tools", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tool: toolId, model: modelId, ...buildParams() }),
+        signal: ctrl.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        setResult("❌ Failed to generate. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+        setResult(text);
+      }
+    } catch (e: any) {
+      if (e.name !== "AbortError") setResult("❌ Connection error. Please check your network and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [toolId, age, skill, duration, materials, childName, strengths, improvements, topic, observation, setting, parentTopic, storyTheme, lesson, concern, question, diet, challenge, character, kidsetting, drawTheme, songTheme, lessonStyle]);
+
+  const copyResult = () => {
+    navigator.clipboard.writeText(result).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  // Close model dropdown on outside click
+  useEffect(() => {
+    if (!modelOpen) return;
+    const handler = () => setModelOpen(false);
+    window.addEventListener("click", handler, { capture: true, once: true });
+    return () => window.removeEventListener("click", handler, true);
+  }, [modelOpen]);
+
+  const AUD_CONFIG: Record<Audience, { label:string; emoji:string; color:string; gradient:string }> = {
+    teacher: { label:"Teachers",  emoji:"👩‍🏫", color:"#178F78", gradient:"linear-gradient(135deg,#178F78,#0F766E)" },
+    parent:  { label:"Parents",   emoji:"👨‍👩‍👧", color:"#8957E5", gradient:"linear-gradient(135deg,#8957E5,#6366F1)" },
+    kids:    { label:"Kids Corner",emoji:"🧒",   color:"#E8694A", gradient:"linear-gradient(135deg,#E8694A,#F5B829)" },
+  };
+
+  const aud = AUD_CONFIG[audience];
 
   return (
-    <div style={{ background: "#FEFCF8", fontFamily: "'Quicksand', sans-serif", height:"calc(100vh - 92px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
+    <div style={{ background:"#F0F4F8", fontFamily:"'Quicksand',sans-serif", height:"calc(100vh - 92px)", display:"flex", flexDirection:"column", overflow:"hidden" }}>
 
-      {/* Compact header band */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-6 py-3" style={{ background:"#178F78" }}>
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0" style={{ background:"rgba(255,255,255,0.15)" }}>🤖</div>
-        <div className="flex-1">
-          <div className="font-bold text-white text-base leading-tight" style={{ fontFamily:"'Fredoka',sans-serif" }}>AI Learning Tools</div>
-          <div className="text-xs" style={{ color:"rgba(255,255,255,0.65)" }}>Smart tools for parents and teachers — 100% free</div>
+      {/* ── Header ── */}
+      <div style={{ flexShrink:0, background:aud.gradient, padding:"12px 24px", display:"flex", alignItems:"center", gap:"12px" }}>
+        <div>
+          <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"18px", fontWeight:700, color:"white", lineHeight:1.1 }}>🤖 AI Learning Tools</div>
+          <div style={{ fontSize:"11px", color:"rgba(255,255,255,0.75)", marginTop:"1px" }}>6 Free Models · Groq + Google Gemini · No credit card</div>
         </div>
-        {/* Tool tabs inline */}
-        <div className="hidden md:flex gap-2">
-          {tools.map((tool) => {
-            const Icon = tool.icon;
-            const isActive = activeTool === tool.id;
-            return (
-              <button key={tool.id} onClick={() => { setActiveTool(tool.id); setResult(""); }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
-                style={{
-                  background: isActive ? "white" : "rgba(255,255,255,0.15)",
-                  color: isActive ? tool.color : "rgba(255,255,255,0.9)",
-                }}>
-                <Icon className="w-3.5 h-3.5" />
-                {tool.label}
-              </button>
-            );
-          })}
+        <div style={{ flex:1 }} />
+
+        {/* ── Model picker dropdown ── */}
+        <div style={{ position:"relative" }}>
+          <button onClick={() => setModelOpen(o => !o)}
+            style={{ display:"flex", alignItems:"center", gap:"8px", background:"rgba(255,255,255,0.18)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"12px", padding:"7px 14px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>
+            <span>{selectedModel.icon}</span>
+            <span>{selectedModel.name}</span>
+            <span style={{ fontSize:"9px", background:"rgba(255,255,255,0.2)", borderRadius:"6px", padding:"1px 6px" }}>{selectedModel.badge}</span>
+            <ChevronDown style={{ width:"12px", height:"12px", opacity:0.7 }} />
+          </button>
+
+          {modelOpen && (
+            <div style={{ position:"absolute", top:"calc(100% + 8px)", right:0, background:"white", borderRadius:"14px", border:"1px solid #EDE8DF", boxShadow:"0 8px 32px rgba(0,0,0,0.15)", zIndex:100, minWidth:"280px", overflow:"hidden" }}>
+              <div style={{ padding:"10px 14px", borderBottom:"1px solid #EDE8DF", fontSize:"10px", fontWeight:700, color:"#9CA3AF", textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                🆓 Free Models — No payment needed
+              </div>
+              {/* Groq models */}
+              <div style={{ padding:"6px 0" }}>
+                <div style={{ padding:"4px 14px", fontSize:"10px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase" }}>Groq (console.groq.com)</div>
+                {FREE_MODELS.filter(m => m.provider === "groq").map(m => (
+                  <button key={m.id} onClick={() => { setModelId(m.id); setModelOpen(false); setResult(""); }}
+                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"9px 14px", border:"none", background:modelId===m.id ? "rgba(23,143,120,0.08)" : "white", cursor:"pointer", textAlign:"left" }}>
+                    <span style={{ fontSize:"18px" }}>{m.icon}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{m.name}</div>
+                    </div>
+                    <span style={{ fontSize:"9px", fontWeight:700, background:modelId===m.id ? "rgba(23,143,120,0.15)" : "#F0F4F8", color:modelId===m.id ? "#178F78" : "#6B7A99", borderRadius:"6px", padding:"2px 7px" }}>{m.badge}</span>
+                    {modelId===m.id && <span style={{ color:"#178F78", fontSize:"14px" }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+              {/* Gemini models */}
+              <div style={{ padding:"6px 0", borderTop:"1px solid #EDE8DF" }}>
+                <div style={{ padding:"4px 14px", fontSize:"10px", fontWeight:700, color:"#6B7A99", textTransform:"uppercase" }}>Google Gemini (aistudio.google.com)</div>
+                {FREE_MODELS.filter(m => m.provider === "gemini").map(m => (
+                  <button key={m.id} onClick={() => { setModelId(m.id); setModelOpen(false); setResult(""); }}
+                    style={{ display:"flex", alignItems:"center", gap:"10px", width:"100%", padding:"9px 14px", border:"none", background:modelId===m.id ? "rgba(23,143,120,0.08)" : "white", cursor:"pointer", textAlign:"left" }}>
+                    <span style={{ fontSize:"18px" }}>{m.icon}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{m.name}</div>
+                    </div>
+                    <span style={{ fontSize:"9px", fontWeight:700, background:modelId===m.id ? "rgba(23,143,120,0.15)" : "#F0F4F8", color:modelId===m.id ? "#178F78" : "#6B7A99", borderRadius:"6px", padding:"2px 7px" }}>{m.badge}</span>
+                    {modelId===m.id && <span style={{ color:"#178F78", fontSize:"14px" }}>✓</span>}
+                  </button>
+                ))}
+              </div>
+              <div style={{ padding:"8px 14px", borderTop:"1px solid #EDE8DF", fontSize:"10px", color:"#9CA3AF" }}>
+                All models are 100% free · Add keys to .env.local to activate
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Audience switcher */}
+        <div style={{ display:"flex", gap:"6px", background:"rgba(255,255,255,0.15)", borderRadius:"20px", padding:"4px" }}>
+          {(["teacher","parent","kids"] as Audience[]).map(a => (
+            <button key={a} onClick={() => switchAudience(a)}
+              style={{ padding:"6px 14px", borderRadius:"16px", fontSize:"12px", fontWeight:700, border:"none", cursor:"pointer", transition:"all 0.15s", background:audience===a ? "white" : "transparent", color:audience===a ? aud.color : "rgba(255,255,255,0.85)" }}>
+              {AUD_CONFIG[a].emoji} {AUD_CONFIG[a].label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Main content — two columns */}
-      <div className="flex-1 overflow-hidden flex gap-0">
+      {/* ── Tool selector strip ── */}
+      <div style={{ flexShrink:0, background:"white", borderBottom:"1px solid #EDE8DF", padding:"0 20px", display:"flex", gap:"0", overflowX:"auto" }}>
+        {allTools.map(t => {
+          const Icon = t.icon;
+          const active = toolId === t.id;
+          return (
+            <button key={t.id} onClick={() => { setToolId(t.id); setResult(""); }}
+              style={{ display:"flex", alignItems:"center", gap:"7px", padding:"11px 16px", border:"none", borderBottom:`3px solid ${active ? t.color : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:active ? t.color : "#6B7A99", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, transition:"all 0.15s" }}>
+              <Icon style={{ width:"14px", height:"14px" }} />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Left: inputs */}
-        <div className="w-1/2 border-r overflow-y-auto p-5" style={{ borderColor:"#EDE8DF", scrollbarWidth:"none" as const }}>
-          {/* Mobile tool tabs */}
-          <div className="flex gap-2 mb-4 md:hidden">
-            {tools.map((tool) => {
-              const Icon = tool.icon;
-              const isActive = activeTool === tool.id;
-              return (
-                <button key={tool.id} onClick={() => { setActiveTool(tool.id); setResult(""); }}
-                  className="flex-1 flex flex-col items-center gap-1 p-2 rounded-xl border text-xs font-bold transition-all"
-                  style={{ borderColor: isActive ? tool.color : "#EDE8DF", background: isActive ? tool.bg : "white", color: isActive ? tool.color : "#6B7A99" }}>
-                  <Icon className="w-4 h-4" />
-                  {tool.label.split(" ")[0]}
-                </button>
-              );
-            })}
-          </div>
+      {/* ── Main area ── */}
+      <div style={{ flex:1, overflow:"hidden", display:"flex" }}>
 
-          {/* Active tool header */}
-          <div className="flex items-center gap-3 mb-4 pb-3 border-b" style={{ borderColor:"#EDE8DF" }}>
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background:currentTool.color }}>
-              <currentTool.icon className="w-5 h-5 text-white" />
+        {/* ── LEFT: Inputs ── */}
+        <div style={{ width:"45%", borderRight:"1px solid #EDE8DF", overflowY:"auto", padding:"20px", background:"white" }}>
+          {/* Tool header */}
+          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"18px", paddingBottom:"14px", borderBottom:"1px solid #EDE8DF" }}>
+            <div style={{ width:"40px", height:"40px", borderRadius:"12px", background:currentTool.color, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <currentTool.icon style={{ width:"20px", height:"20px", color:"white" }} />
             </div>
             <div>
-              <div className="font-bold text-base" style={{ fontFamily:"'Fredoka',sans-serif", color:currentTool.color }}>{currentTool.label}</div>
-              <div className="text-xs" style={{ color:"#6B7A99" }}>
-                {activeTool === "story"     && "Create a personalised story for your little one."}
-                {activeTool === "milestone" && "Get developmental guidance for your child's age."}
-                {activeTool === "activity"  && "Generate fun, educational activities instantly."}
-                {activeTool === "report"    && "Create a warm progress report in seconds."}
-              </div>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:currentTool.color }}>{currentTool.label}</div>
+              <div style={{ fontSize:"11px", color:"#9CA3AF" }}>{currentTool.desc}</div>
             </div>
           </div>
 
-          {/* STORY inputs */}
-          {activeTool === "story" && (
-            <div className="space-y-4">
-              <div>
-                <label className={labelCls}>Story Theme</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {storyThemes.map(t => (
-                    <button key={t} onClick={() => setStoryTheme(t)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
-                      style={chipCls(storyTheme===t, "#E8694A")}>{t}</button>
-                  ))}
+          {/* ── TEACHER FORMS ─────────────────────────────────── */}
+          {toolId === "activity" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Child&apos;s Name</label>
-                  <input className={inputCls} placeholder="e.g. Arjun" value={storyName} onChange={e=>setStoryName(e.target.value)} />
+              <div><label style={lbl}>Skill to Develop</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {SKILLS.map(s => <Chip key={s} label={s} active={skill===s} color={currentTool.color} onClick={()=>setSkill(s)} />)}
                 </div>
-                <div>
-                  <label className={labelCls}>Age Group</label>
-                  <select className={inputCls} value={storyAge} onChange={e=>setStoryAge(e.target.value)}>
-                    {ageGroups.map(a=><option key={a}>{a}</option>)}
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Duration</label>
+                  <select value={duration} onChange={e=>setDuration(e.target.value)} style={sel}>
+                    {DURATIONS.map(d=><option key={d}>{d}</option>)}
                   </select>
                 </div>
-              </div>
-              <div>
-                <label className={labelCls}>Lesson to Teach</label>
-                <input className={inputCls} placeholder="e.g. kindness, sharing, bravery" value={storyLesson} onChange={e=>setStoryLesson(e.target.value)} />
+                <div><label style={lbl}>Available Materials</label>
+                  <input value={materials} onChange={e=>setMaterials(e.target.value)} placeholder="paper, crayons, blocks…" style={inp} />
+                </div>
               </div>
             </div>
           )}
 
-          {/* MILESTONE inputs */}
-          {activeTool === "milestone" && (
-            <div className="space-y-4">
-              <div>
-                <label className={labelCls}>Child&apos;s Age Group</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {ageGroups.map(a => (
-                    <button key={a} onClick={() => setMsAge(a)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
-                      style={chipCls(msAge===a, "#178F78")}>{a}</button>
-                  ))}
+          {toolId === "report" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Child's Name</label><input value={childName} onChange={e=>setChildName(e.target.value)} placeholder="e.g. Arjun" style={inp} /></div>
+                <div><label style={lbl}>Age Group</label><select value={age} onChange={e=>setAge(e.target.value)} style={sel}>{AGE_GROUPS.map(a=><option key={a}>{a}</option>)}</select></div>
+              </div>
+              <div><label style={lbl}>Strengths Observed *</label><textarea value={strengths} onChange={e=>setStrengths(e.target.value)} placeholder="e.g. loves art, very social, great with numbers, excellent listener…" style={ta} /></div>
+              <div><label style={lbl}>Areas for Growth</label><textarea value={improvements} onChange={e=>setImprove(e.target.value)} placeholder="e.g. working on sharing toys, building confidence in group activities…" style={ta} /></div>
+            </div>
+          )}
+
+          {toolId === "lessonplan" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
                 </div>
               </div>
-              <div>
-                <label className={labelCls}>Specific Concern (optional)</label>
-                <textarea className={inputCls} rows={4}
-                  placeholder="e.g. My child is not yet speaking many words..."
-                  value={msConcern} onChange={e=>setMsConcern(e.target.value)} />
+              <div><label style={lbl}>Topic / Skill *</label><input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Colours, Numbers 1-10, Sharing, Animals…" style={inp} /></div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Duration</label><select value={duration} onChange={e=>setDuration(e.target.value)} style={sel}>{DURATIONS.map(d=><option key={d}>{d}</option>)}</select></div>
+                <div><label style={lbl}>Learning Style</label>
+                  <select value={lessonStyle} onChange={e=>setLessonStyle(e.target.value)} style={sel}>
+                    {["visual and kinaesthetic","auditory","visual","kinaesthetic","multi-sensory"].map(s=><option key={s}>{s}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           )}
 
-          {/* ACTIVITY inputs */}
-          {activeTool === "activity" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Age Group</label>
-                  <select className={inputCls} value={actAge} onChange={e=>setActAge(e.target.value)}>
-                    {ageGroups.map(a=><option key={a}>{a}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Duration</label>
-                  <select className={inputCls} value={actDuration} onChange={e=>setActDuration(e.target.value)}>
-                    {durations.map(d=><option key={d}>{d}</option>)}
-                  </select>
+          {toolId === "observation" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Child's Name</label><input value={childName} onChange={e=>setChildName(e.target.value)} placeholder="e.g. Priya" style={inp} /></div>
+                <div><label style={lbl}>Age Group</label><select value={age} onChange={e=>setAge(e.target.value)} style={sel}>{AGE_GROUPS.map(a=><option key={a}>{a}</option>)}</select></div>
+              </div>
+              <div><label style={lbl}>Setting</label>
+                <select value={setting} onChange={e=>setSetting(e.target.value)} style={sel}>
+                  {["classroom","outdoor play","lunch/snack time","art activity","group circle time","free play","reading corner"].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div><label style={lbl}>Behaviour / Situation Observed *</label><textarea value={observation} onChange={e=>setObsText(e.target.value)} placeholder="Describe what you observed in as much detail as possible…" style={{ ...ta, minHeight:"100px" }} /></div>
+            </div>
+          )}
+
+          {toolId === "parentmsg" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Name (optional)</label><input value={childName} onChange={e=>setChildName(e.target.value)} placeholder="e.g. Rahul" style={inp} /></div>
+              <div><label style={lbl}>What to Communicate *</label><textarea value={parentTopic} onChange={e=>setParentTopic(e.target.value)} placeholder="e.g. Child had a small fall today and is fine. Want to inform parent and share what happened…" style={{ ...ta, minHeight:"100px" }} /></div>
+            </div>
+          )}
+
+          {/* ── PARENT FORMS ──────────────────────────────────── */}
+          {toolId === "story" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Child's Name</label><input value={childName} onChange={e=>setChildName(e.target.value)} placeholder="e.g. Kavya" style={inp} /></div>
+                <div><label style={lbl}>Age Group</label><select value={age} onChange={e=>setAge(e.target.value)} style={sel}>{AGE_GROUPS.map(a=><option key={a}>{a}</option>)}</select></div>
+              </div>
+              <div><label style={lbl}>Story Theme</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {STORY_THEMES.map(t => <Chip key={t} label={t} active={storyTheme===t} color={currentTool.color} onClick={()=>setStoryTheme(t)} />)}
                 </div>
               </div>
-              <div>
-                <label className={labelCls}>Skill to Develop</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {skills.map(s => (
-                    <button key={s} onClick={() => setActSkill(s)}
-                      className="px-2.5 py-1 rounded-full text-xs font-semibold border transition-all"
-                      style={chipCls(actSkill===s, "#F5B829")}>{s}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Available Materials (optional)</label>
-                <input className={inputCls} placeholder="e.g. paper, crayons, blocks, playdough..." value={actMaterials} onChange={e=>setActMaterials(e.target.value)} />
+              <div><label style={lbl}>Lesson to Teach</label>
+                <input value={lesson} onChange={e=>setLesson(e.target.value)} placeholder="e.g. kindness, sharing, bravery, honesty…" style={inp} />
               </div>
             </div>
           )}
 
-          {/* REPORT inputs */}
-          {activeTool === "report" && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Child&apos;s Name</label>
-                  <input className={inputCls} placeholder="e.g. Priya" value={repName} onChange={e=>setRepName(e.target.value)} />
+          {toolId === "milestone" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
                 </div>
-                <div>
-                  <label className={labelCls}>Age Group</label>
-                  <select className={inputCls} value={repAge} onChange={e=>setRepAge(e.target.value)}>
-                    {ageGroups.map(a=><option key={a}>{a}</option>)}
+              </div>
+              <div><label style={lbl}>Your Specific Question or Concern</label>
+                <textarea value={concern} onChange={e=>setConcern(e.target.value)} placeholder="e.g. My child is not yet speaking many words. Is this normal? What can I do at home?…" style={{ ...ta, minHeight:"100px" }} />
+              </div>
+            </div>
+          )}
+
+          {toolId === "childqa" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
+              </div>
+              <div><label style={lbl}>Your Question *</label>
+                <textarea value={question} onChange={e=>setQuestion(e.target.value)} placeholder="Ask anything about child development, behaviour, learning, sleep, food, school readiness…" style={{ ...ta, minHeight:"100px" }} />
+              </div>
+            </div>
+          )}
+
+          {toolId === "mealidea" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+                <div><label style={lbl}>Dietary Preference</label>
+                  <select value={diet} onChange={e=>setDiet(e.target.value)} style={sel}>
+                    {["vegetarian","non-vegetarian","vegan","jain"].map(d=><option key={d}>{d}</option>)}
                   </select>
                 </div>
+                <div><label style={lbl}>Challenge / Preference</label>
+                  <input value={challenge} onChange={e=>setChallenge(e.target.value)} placeholder="e.g. picky eater, loves spicy food…" style={inp} />
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Strengths Observed</label>
-                <textarea className={inputCls} rows={2} placeholder="e.g. loves art, very social, great with numbers..." value={repStrengths} onChange={e=>setRepStrengths(e.target.value)} />
+            </div>
+          )}
+
+          {/* ── KIDS FORMS ─────────────────────────────────────── */}
+          {toolId === "kidstory" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Areas for Growth</label>
-                <textarea className={inputCls} rows={2} placeholder="e.g. working on sharing, building confidence..." value={repImprove} onChange={e=>setRepImprove(e.target.value)} />
+              <div><label style={lbl}>Main Character</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {CHAR_OPTIONS.map(c => <Chip key={c} label={c} active={character===c} color={currentTool.color} onClick={()=>setCharacter(c)} />)}
+                </div>
+              </div>
+              <div><label style={lbl}>Story Setting</label>
+                <input value={kidsetting} onChange={e=>setKidSetting(e.target.value)} placeholder="e.g. a magical garden in India, an underwater kingdom…" style={inp} />
+              </div>
+            </div>
+          )}
+
+          {toolId === "riddle" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
+              </div>
+              <div style={{ background:"rgba(23,143,120,0.06)", borderRadius:"12px", padding:"12px", fontSize:"12px", color:"#6B7A99" }}>
+                💡 5 age-appropriate riddles will be generated — great for circle time or car rides!
+              </div>
+            </div>
+          )}
+
+          {toolId === "drawing" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
+              </div>
+              <div><label style={lbl}>Drawing Theme</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {DRAWING_THEMES.map(t => <Chip key={t} label={t} active={drawTheme===t} color={currentTool.color} onClick={()=>setDrawTheme(t)} />)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {toolId === "song" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:"14px" }}>
+              <div><label style={lbl}>Child's Age Group</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {AGE_GROUPS.map(a => <Chip key={a} label={a} active={age===a} color={currentTool.color} onClick={()=>setAge(a)} />)}
+                </div>
+              </div>
+              <div><label style={lbl}>Song Theme</label>
+                <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
+                  {SONG_THEMES.map(t => <Chip key={t} label={t} active={songTheme===t} color={currentTool.color} onClick={()=>setSongTheme(t)} />)}
+                </div>
               </div>
             </div>
           )}
 
           {/* Generate button */}
-          <button onClick={handleGenerate} disabled={loading}
-            className="mt-5 w-full flex items-center justify-center gap-2 py-3 rounded-full text-white font-bold text-sm transition-all"
-            style={{ background: loading ? "#ccc" : currentTool.color, boxShadow: loading ? "none" : `0 6px 20px ${currentTool.color}40`, cursor: loading ? "not-allowed" : "pointer", fontFamily:"'Quicksand',sans-serif" }}>
+          <button onClick={generate} disabled={loading}
+            style={{ marginTop:"20px", width:"100%", display:"flex", alignItems:"center", justifyContent:"center", gap:"8px", padding:"13px", borderRadius:"14px", border:"none", fontWeight:700, fontSize:"14px", color:"white", cursor:loading ? "not-allowed" : "pointer", background:loading ? "#b2dfdb" : currentTool.color, boxShadow:loading ? "none" : `0 6px 20px ${currentTool.color}40`, transition:"all 0.2s", fontFamily:"'Quicksand',sans-serif" }}>
             {loading
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
-              : <><Sparkles className="w-4 h-4" /> Generate with AI</>}
+              ? <><Loader2 style={{ width:"16px", height:"16px", animation:"spin 0.8s linear infinite" }} /> Generating with AI…</>
+              : <><Sparkles style={{ width:"16px", height:"16px" }} /> Generate · {selectedModel.icon} {selectedModel.name}</>
+            }
           </button>
+
+          {/* Feature pills */}
+          <div style={{ display:"flex", gap:"6px", marginTop:"12px", flexWrap:"wrap" }}>
+            {[["🔒","Private"],["⚡","Real AI"],["🎯","Tailored"],["♾️","Unlimited"]].map(([icon,txt]) => (
+              <span key={txt} style={{ fontSize:"10px", fontWeight:700, color:"#9CA3AF", background:"#F5F5F5", borderRadius:"20px", padding:"3px 10px" }}>{icon} {txt}</span>
+            ))}
+          </div>
         </div>
 
-        {/* Right: result */}
-        <div className="w-1/2 overflow-y-auto p-5" style={{ scrollbarWidth:"none" as const, background:"#FAF0E8" }}>
+        {/* ── RIGHT: Result ── */}
+        <div style={{ flex:1, overflowY:"auto", padding:"20px", background:"#FAF0E8", display:"flex", flexDirection:"column" }} ref={resultRef}>
           {result ? (
-            <div className="bg-white rounded-2xl border overflow-hidden h-full flex flex-col" style={{ borderColor:"#EDE8DF" }}>
-              <div className="px-4 py-3 flex items-center justify-between border-b flex-shrink-0" style={{ background:currentTool.bg, borderColor:"#EDE8DF" }}>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" style={{ color:currentTool.color }} />
-                  <span className="text-sm font-bold" style={{ color:currentTool.color }}>Result</span>
+            <div style={{ background:"white", borderRadius:"16px", border:"1px solid #EDE8DF", overflow:"hidden", flex:1, display:"flex", flexDirection:"column" }}>
+              {/* Result toolbar */}
+              <div style={{ padding:"10px 16px", display:"flex", alignItems:"center", justifyContent:"space-between", background:currentTool.bg, borderBottom:"1px solid #EDE8DF", flexShrink:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+                  <Sparkles style={{ width:"14px", height:"14px", color:currentTool.color }} />
+                  <span style={{ fontSize:"12px", fontWeight:700, color:currentTool.color }}>
+                    {loading ? `Generating with ${selectedModel.icon} ${selectedModel.name}…` : `${selectedModel.icon} ${selectedModel.name} · Free AI`}
+                  </span>
+                  {loading && <div style={{ width:"8px", height:"8px", borderRadius:"50%", background:currentTool.color, animation:"pulse 1s infinite" }} />}
                 </div>
-                <button onClick={handleGenerate}
-                  className="flex items-center gap-1 text-xs font-semibold hover:opacity-70"
-                  style={{ color:currentTool.color }}>
-                  <RefreshCw className="w-3 h-3" /> Regenerate
-                </button>
+                <div style={{ display:"flex", gap:"6px" }}>
+                  {!loading && (
+                    <>
+                      <button onClick={copyResult}
+                        style={{ display:"flex", alignItems:"center", gap:"5px", background:"white", border:"1px solid #EDE8DF", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, color:copied ? "#178F78" : "#6B7A99", cursor:"pointer" }}>
+                        {copied ? <><Check style={{ width:"11px", height:"11px" }} /> Copied!</> : <><Copy style={{ width:"11px", height:"11px" }} /> Copy</>}
+                      </button>
+                      <button onClick={generate}
+                        style={{ display:"flex", alignItems:"center", gap:"5px", background:"white", border:"1px solid #EDE8DF", borderRadius:"8px", padding:"5px 10px", fontSize:"11px", fontWeight:700, color:currentTool.color, cursor:"pointer" }}>
+                        <RefreshCw style={{ width:"11px", height:"11px" }} /> Regenerate
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="p-5 flex-1 overflow-y-auto" style={{ scrollbarWidth:"none" as const }}>
-                <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color:"#374151" }}>{result}</p>
+              {/* Result text */}
+              <div style={{ padding:"20px", flex:1, overflowY:"auto" }}>
+                <p style={{ fontSize:"13px", lineHeight:1.8, color:"#374151", whiteSpace:"pre-wrap", margin:0 }}>{result}</p>
+                {loading && <span style={{ display:"inline-block", width:"2px", height:"14px", background:currentTool.color, marginLeft:"2px", animation:"pulse 0.8s infinite", borderRadius:"2px" }} />}
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-              <div className="text-4xl">✨</div>
-              <div className="font-bold text-lg" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>Your result appears here</div>
-              <p className="text-sm" style={{ color:"#6B7A99" }}>Fill in the details on the left and click Generate to get your personalised result.</p>
-              <div className="grid grid-cols-2 gap-3 mt-4 w-full max-w-sm">
-                {[["🔒","Safe & Private","No data stored"],["🎯","Age-Appropriate","Tailored content"],["⚡","Instant","Results in seconds"],["💯","100% Free","No payment needed"]].map(([icon,t,d])=>(
-                  <div key={t} className="bg-white rounded-xl p-3 text-center border" style={{ borderColor:"#EDE8DF" }}>
-                    <div className="text-xl mb-1">{icon}</div>
-                    <div className="text-xs font-bold" style={{ color:"#1A2F4A" }}>{t}</div>
-                    <div className="text-xs" style={{ color:"#6B7A99" }}>{d}</div>
+            /* Empty state */
+            <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"12px", textAlign:"center" }}>
+              <div style={{ fontSize:"48px" }}>✨</div>
+              <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"20px", fontWeight:700, color:currentTool.color }}>Your result appears here</div>
+              <div style={{ fontSize:"13px", color:"#9CA3AF", maxWidth:"300px", lineHeight:1.6 }}>
+                Select a <strong>free model</strong> above, fill in the details, and click <strong>Generate</strong>.
+              </div>
+              <div style={{ background:"rgba(23,143,120,0.07)", border:"1px solid rgba(23,143,120,0.2)", borderRadius:"12px", padding:"10px 16px", fontSize:"12px", color:"#178F78", fontWeight:700 }}>
+                {selectedModel.icon} Using: {selectedModel.name} <span style={{ fontWeight:400, color:"#6B7A99" }}>· {selectedModel.badge} · 100% Free</span>
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px", marginTop:"8px", width:"100%", maxWidth:"320px" }}>
+                {[
+                  ["🆓","Truly Free","No credit card"],
+                  ["⚡","Live Streaming","Word by word"],
+                  ["🎯","6 Models","Groq + Gemini"],
+                  ["♾️","Unlimited","No daily limits"],
+                ].map(([icon, t, d]) => (
+                  <div key={t} style={{ background:"white", borderRadius:"12px", padding:"12px", border:"1px solid #EDE8DF" }}>
+                    <div style={{ fontSize:"20px", marginBottom:"4px" }}>{icon}</div>
+                    <div style={{ fontSize:"11px", fontWeight:700, color:"#1A2F4A" }}>{t}</div>
+                    <div style={{ fontSize:"10px", color:"#9CA3AF" }}>{d}</div>
                   </div>
                 ))}
               </div>
@@ -357,6 +596,11 @@ function AIToolsInner() {
           )}
         </div>
       </div>
+
+      <style>{`
+        @keyframes spin    { to { transform: rotate(360deg); } }
+        @keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+      `}</style>
     </div>
   );
 }
