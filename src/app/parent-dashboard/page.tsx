@@ -454,9 +454,17 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
             </div>
             <div style={{ fontSize:"11px", color:"rgba(255,255,255,0.7)", marginTop:"2px" }}>{session?.phone}</div>
           </div>
-          <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
-            <LogOut style={{ width:"14px", height:"14px" }} /> Logout
-          </button>
+          <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+            <button onClick={() => router.push("/ai-tools/parent")}
+              style={{ display:"flex", alignItems:"center", gap:"7px", background:"linear-gradient(135deg,#8957E5,#6366F1)", border:"2px solid rgba(255,255,255,0.35)", borderRadius:"20px", padding:"7px 16px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", animation:"ai-pulse 2s ease-in-out infinite", fontFamily:"'Quicksand',sans-serif", letterSpacing:"0.01em" }}>
+              <span style={{ fontSize:"15px" }}>🤖</span>
+              <span>AI Tools</span>
+              <span style={{ fontSize:"9px", background:"rgba(255,255,255,0.25)", borderRadius:"10px", padding:"1px 7px", letterSpacing:"0.04em" }}>FREE</span>
+            </button>
+            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
+              <LogOut style={{ width:"14px", height:"14px" }} /> Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1051,7 +1059,13 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
           </>
         )}
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes ai-pulse {
+          0%,100% { box-shadow: 0 0 14px rgba(137,87,229,0.7), 0 2px 8px rgba(0,0,0,0.2); }
+          50%      { box-shadow: 0 0 28px rgba(137,87,229,1),   0 4px 16px rgba(0,0,0,0.25); }
+        }
+      `}</style>
     </div>
   );
 }

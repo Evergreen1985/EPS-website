@@ -21,6 +21,7 @@ export default function TeacherLoginPage() {
     if (!res.ok || data.error) {
       setError(data.error || "Invalid credentials");
     } else {
+      localStorage.removeItem("ep_parent_session");
       localStorage.setItem("ep_teacher_session", JSON.stringify({ ...data, loginTime: Date.now() }));
       router.push(data.redirectTo || "/teacher-dashboard");
     }

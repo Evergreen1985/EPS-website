@@ -37,6 +37,7 @@ export default function ParentLoginPage() {
         if (data.needsSetup)   setStep("first-login");
       } else {
         setResult(data);
+        localStorage.removeItem("ep_teacher_session");
         localStorage.setItem("ep_parent_session", JSON.stringify({
           phone, childName: data.childName || "", loginTime: Date.now(), firstLogin: data.firstLogin || false,
         }));

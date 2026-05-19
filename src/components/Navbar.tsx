@@ -13,8 +13,8 @@ const tabs = [
   { label:"Gallery",      idx:4,  href:null },
   { label:"AI Tools ✨",  idx:5,  href:null },
   { label:"Contact",      idx:6,  href:null },
-  { label:"Parent Login", idx:-1, href:"/parent-login" },
-  { label:"Teacher",      idx:-1, href:"/teacher-login" },
+  { label:"Parent",       idx:-1, href:"/parent-login" },
+  { label:"Staff",        idx:-1, href:"/teacher-login" },
 ];
 
 // We broadcast the active section index globally so Navbar can read it
@@ -92,9 +92,26 @@ export default function Navbar() {
           </button>
 
           {/* Desktop tabs */}
-          <nav className="hidden lg:flex items-center">
+          <nav className="hidden lg:flex items-center gap-0.5">
             {tabs.map(tab => {
               const isActive = isHome ? active === tab.idx : (tab.href && pathname.startsWith(tab.href));
+
+              if (tab.label === "Parent") return (
+                <button key={tab.label} onClick={() => handleTab(tab)}
+                  className="text-xs font-bold px-4 py-1.5 rounded-full transition-all hover:opacity-90 ml-2"
+                  style={{ fontFamily:"'Quicksand',sans-serif", background:"#8957E5", color:"white", boxShadow:"0 3px 10px rgba(137,87,229,0.35)" }}>
+                  👨‍👩‍👧 Parent
+                </button>
+              );
+
+              if (tab.label === "Staff") return (
+                <button key={tab.label} onClick={() => handleTab(tab)}
+                  className="text-xs font-bold px-4 py-1.5 rounded-full transition-all hover:opacity-90 ml-2"
+                  style={{ fontFamily:"'Quicksand',sans-serif", background:"#178F78", color:"white", boxShadow:"0 3px 10px rgba(23,143,120,0.35)" }}>
+                  👩‍🏫 Staff
+                </button>
+              );
+
               return (
                 <button key={tab.label} onClick={() => handleTab(tab)}
                   className="text-xs font-semibold px-3 py-2 transition-all border-b-2"
@@ -132,17 +149,33 @@ export default function Navbar() {
         {open && (
           <div className="lg:hidden absolute top-full left-0 right-0 bg-white border-t shadow-xl z-50 p-4 flex flex-col gap-1"
             style={{ borderColor:"#EDE8DF" }}>
-            {tabs.map(tab => (
-              <button key={tab.label} onClick={() => handleTab(tab)}
-                className="text-left font-semibold text-sm p-3 rounded-xl transition-colors"
-                style={{
-                  fontFamily:"'Quicksand',sans-serif",
-                  color: (isHome && active === tab.idx) ? "#E8694A" : "#1A2F4A",
-                  background: (isHome && active === tab.idx) ? "rgba(232,105,74,0.08)" : "transparent",
-                }}>
-                {tab.label}
-              </button>
-            ))}
+            {tabs.map(tab => {
+              if (tab.label === "Parent") return (
+                <button key={tab.label} onClick={() => handleTab(tab)}
+                  className="text-left font-bold text-sm p-3 rounded-xl"
+                  style={{ fontFamily:"'Quicksand',sans-serif", color:"#8957E5", background:"rgba(137,87,229,0.08)" }}>
+                  👨‍👩‍👧 Parent
+                </button>
+              );
+              if (tab.label === "Staff") return (
+                <button key={tab.label} onClick={() => handleTab(tab)}
+                  className="text-left font-bold text-sm p-3 rounded-xl"
+                  style={{ fontFamily:"'Quicksand',sans-serif", color:"#178F78", background:"rgba(23,143,120,0.08)" }}>
+                  👩‍🏫 Staff
+                </button>
+              );
+              return (
+                <button key={tab.label} onClick={() => handleTab(tab)}
+                  className="text-left font-semibold text-sm p-3 rounded-xl transition-colors"
+                  style={{
+                    fontFamily:"'Quicksand',sans-serif",
+                    color: (isHome && active === tab.idx) ? "#E8694A" : "#1A2F4A",
+                    background: (isHome && active === tab.idx) ? "rgba(232,105,74,0.08)" : "transparent",
+                  }}>
+                  {tab.label}
+                </button>
+              );
+            })}
             <button onClick={() => { handleTab(tabs.find(t=>t.label==="Contact")!); }}
               className="font-bold text-center py-3 rounded-xl text-white mt-1"
               style={{ background:"#E8694A", fontFamily:"'Quicksand',sans-serif" }}>

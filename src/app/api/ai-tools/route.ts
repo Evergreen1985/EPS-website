@@ -66,6 +66,12 @@ Simple words, lots of action and sound words (whoosh! boom! giggle!), happy endi
       return `Write a fun original children's song/rhyme for ${p.age} year olds. Theme: ${p.theme || "nature and animals"}.
 2-3 verses + 1 chorus. Simple rhyme (AABB or ABAB). Easy to remember. Action suggestions in (brackets) for each verse. Uses repetition. End with a fun sound effect line! Format verses clearly.`;
 
+    case "homeactivity":
+      return `You are a creative early childhood expert. Suggest 3 fun, hands-on home activities for a ${p.age || "3–5"} year old child in India.
+Theme: ${p.theme || "general fun & learning"} | Materials: ${p.materials || "household items (paper, cups, rice, dough, bottles)"}
+For each activity: 🎯 Name, ⏱️ Time needed, 📦 Simple materials, 📋 3-step instructions, 🌟 What the child learns, 💡 Fun tip.
+Keep it simple, safe, low-cost, and suitable for Indian homes. Make it exciting!`;
+
     default:
       return `Help with ${tool}: ${JSON.stringify(p)}`;
   }
@@ -94,8 +100,10 @@ async function streamGroq(model: string, prompt: string, signal: AbortSignal): P
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    return errorStream(`Groq error: ${err}`);
+    const raw = await res.text();
+    let msg = raw;
+    try { msg = JSON.parse(raw)?.error?.message ?? raw; } catch {}
+    return errorStream(`Groq: ${msg}`);
   }
 
   const encoder = new TextEncoder();
@@ -152,8 +160,10 @@ async function streamGemini(model: string, prompt: string, signal: AbortSignal):
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    return errorStream(`Gemini error: ${err}`);
+    const raw = await res.text();
+    let msg = raw;
+    try { msg = JSON.parse(raw)?.error?.message ?? raw; } catch {}
+    return errorStream(`Gemini: ${msg}`);
   }
 
   const encoder = new TextEncoder();

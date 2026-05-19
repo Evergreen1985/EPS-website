@@ -577,7 +577,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                   <div className="flex-1">
                     <div className="font-bold text-sm mb-1" style={{ fontFamily:"'Fredoka',sans-serif", color:t.color }}>{t.title}</div>
                     <div className="text-xs mb-2 leading-relaxed" style={{ color:"#6B7A99" }}>{t.desc}</div>
-                    <Link href={`/ai-tools?tool=${t.tool}`} className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
+                    <Link href="/ai-tools/general" className="text-xs font-bold" style={{ color:t.color }}>Try it now →</Link>
                   </div>
                 </div>
               ))}
@@ -588,7 +588,7 @@ const SSH = "calc(100vh - 184px)"; // slide scroll area height
                 <div className="font-bold text-base mb-0.5" style={{ fontFamily:"'Fredoka',sans-serif", color:"#178F78" }}>100% Free — No API Key or Payment Needed</div>
                 <div className="text-xs" style={{ color:"#6B7A99" }}>All tools work instantly — just fill in the details and get your result in seconds.</div>
               </div>
-              <Link href="/ai-tools" className="flex-shrink-0 inline-flex items-center gap-2 font-bold px-6 py-2.5 rounded-full text-white transition-all hover:-translate-y-0.5"
+              <Link href="/ai-tools/general" className="flex-shrink-0 inline-flex items-center gap-2 font-bold px-6 py-2.5 rounded-full text-white transition-all hover:-translate-y-0.5"
                 style={{ background:"#178F78", boxShadow:"0 5px 16px rgba(23,143,120,0.3)", fontFamily:"'Quicksand',sans-serif" }}>
                 Open AI Tools <ArrowRight className="w-4 h-4" />
               </Link>
