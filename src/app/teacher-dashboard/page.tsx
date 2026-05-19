@@ -6,8 +6,11 @@ import PhotoUploader from "@/components/PhotoUploader";
 import FaceAutoTagger from "@/components/FaceAutoTagger";
 import TeacherKitTab from "@/components/TeacherKitTab";
 import TransportStaffView from "@/components/TransportStaffView";
+import IncidentLog from "@/components/IncidentLog";
+import BirthdayPanel from "@/components/BirthdayPanel";
+import PTMScheduler from "@/components/PTMScheduler";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm";
 
 const TD_TABS = [
   { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
@@ -17,6 +20,9 @@ const TD_TABS = [
   { key: "kit"        as TeacherTab, icon: "🎒", label: "Kit"        },
   { key: "messages"   as TeacherTab, icon: "💬", label: "Messages"   },
   { key: "transport"  as TeacherTab, icon: "🚌", label: "Transport"  },
+  { key: "incidents"  as TeacherTab, icon: "🚨", label: "Incidents"  },
+  { key: "birthdays"  as TeacherTab, icon: "🎂", label: "Birthdays"  },
+  { key: "ptm"        as TeacherTab, icon: "📅", label: "PTM"        },
 ];
 
 const ATT_STATUS = [
@@ -956,6 +962,27 @@ export default function TeacherDashboardPage() {
         {/* ══ TRANSPORT TAB ══ */}
         {tab === "transport" && (
           <TransportStaffView session={session} />
+        )}
+
+        {/* ══ INCIDENTS TAB ══ */}
+        {tab === "incidents" && (
+          <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
+            <IncidentLog sectionName={session?.section_name} />
+          </div>
+        )}
+
+        {/* ══ BIRTHDAYS TAB ══ */}
+        {tab === "birthdays" && (
+          <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
+            <BirthdayPanel days={30} />
+          </div>
+        )}
+
+        {/* ══ PTM TAB ══ */}
+        {tab === "ptm" && (
+          <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
+            <PTMScheduler />
+          </div>
         )}
 
       </div>

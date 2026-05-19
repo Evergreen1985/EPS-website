@@ -9,6 +9,9 @@ import TransportParentView from "@/components/TransportParentView";
 import ChildMedicalTab from "@/components/ChildMedicalTab";
 import PickupAuthTab from "@/components/PickupAuthTab";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import ReferralTab from "@/components/ReferralTab";
+import LeadFollowUpTab from "@/components/LeadFollowUpTab";
+import IncidentLog from "@/components/IncidentLog";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -242,7 +245,7 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup"|"referrals"|"incidents">("home");
   const [paidFees, setPaidFees]         = useState<any[]>([]);
   const [paidLoading, setPaidLoading]   = useState(false);
   const [pendingFees, setPendingFees]   = useState<any[]>([]);
@@ -497,7 +500,7 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
         {selectedChild && (
           <>
             <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"referrals",icon:"🎁",label:"Refer"},{key:"incidents",icon:"🚨",label:"Incidents"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -962,6 +965,24 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
             {/* ══ TRANSPORT TAB ══ */}
             {tab === "transport" && (
               <TransportParentView fixedChild={selectedChild} session={session} />
+            )}
+
+            {/* ══ REFERRALS TAB ══ */}
+            {tab === "referrals" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🎁 Refer a Friend</div>
+                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>Refer friends to Evergreen and earn rewards when they enroll!</div>
+                <ReferralTab enquiryId={selectedChild.id} referrerName={session?.parent_name || session?.name || ""} />
+              </div>
+            )}
+
+            {/* ══ INCIDENTS TAB ══ */}
+            {tab === "incidents" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+                <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🚨 Incident Reports</div>
+                <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>View any incidents reported involving {selectedChild.child_name}.</div>
+                <IncidentLog enquiryId={selectedChild.id} childName={selectedChild.child_name} />
+              </div>
             )}
 
             {/* ══ PROFILE TAB ══ */}

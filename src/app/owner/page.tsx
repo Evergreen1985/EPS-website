@@ -50,6 +50,16 @@ const ALL_ADMIN_TABS = [
   { key: "expenses",      label: "💸 Expenses"       },
   { key: "reports",       label: "📊 Reports"        },
   { key: "transport",     label: "🚌 Transport"      },
+  { key: "medical",       label: "🩺 Medical"        },
+  { key: "pickup",        label: "🚗 Pickup Auth"    },
+  { key: "payroll",       label: "💰 Payroll"        },
+  { key: "ptm",           label: "📅 PTM"            },
+  { key: "blog",          label: "📝 Blog"           },
+  { key: "referrals",     label: "🎁 Referrals"      },
+  { key: "followups",     label: "📋 Follow-Ups"     },
+  { key: "birthdays",     label: "🎂 Birthdays"      },
+  { key: "testimonials",  label: "💬 Testimonials"   },
+  { key: "incidents",     label: "🚨 Incidents"      },
 ];
 
 const ALL_TD_TABS = [

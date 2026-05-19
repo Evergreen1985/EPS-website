@@ -15,6 +15,14 @@ import AttendanceReport   from "@/components/AttendanceReport";
 import SitePhotosManager  from "@/components/SitePhotosManager";
 import TransportStaffView from "@/components/TransportStaffView";
 import ChildMedicalTab from "@/components/ChildMedicalTab";
+import PayrollTab from "@/components/PayrollTab";
+import PTMScheduler from "@/components/PTMScheduler";
+import BlogManager from "@/components/BlogManager";
+import ReferralTab from "@/components/ReferralTab";
+import LeadFollowUpTab from "@/components/LeadFollowUpTab";
+import BirthdayPanel from "@/components/BirthdayPanel";
+import TestimonialsManager from "@/components/TestimonialsManager";
+import IncidentLog from "@/components/IncidentLog";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -29,7 +37,7 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup" | "payroll" | "ptm" | "blog" | "referrals" | "followups" | "birthdays" | "testimonials" | "incidents";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
@@ -725,8 +733,16 @@ export default function AdminPage() {
           { key:"expenses",      label:"💸 Expenses",      count: 0                         },
           { key:"reports",       label:"📊 Reports",       count: 0                         },
           { key:"transport",     label:"🚌 Transport",     count: 0                         },
-          { key:"medical",       label:"🩺 Medical",       count: 0                         },
-          { key:"pickup",        label:"🚗 Pickup Auth",   count: 0                         },
+          { key:"medical",       label:"🩺 Medical",       count: 0 },
+          { key:"pickup",        label:"🚗 Pickup Auth",   count: 0 },
+          { key:"payroll",       label:"💰 Payroll",       count: 0 },
+          { key:"ptm",           label:"📅 PTM",           count: 0 },
+          { key:"blog",          label:"📝 Blog",          count: 0 },
+          { key:"referrals",     label:"🎁 Referrals",     count: 0 },
+          { key:"followups",     label:"📋 Follow-Ups",    count: 0 },
+          { key:"birthdays",     label:"🎂 Birthdays",     count: 0 },
+          { key:"testimonials",  label:"💬 Testimonials",  count: 0 },
+          { key:"incidents",     label:"🚨 Incidents",     count: 0 },
         ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -1805,6 +1821,30 @@ export default function AdminPage() {
       {tab === "pickup" && (
         <AdminPickupPanel />
       )}
+
+      {/* ══ PAYROLL TAB ══ */}
+      {tab === "payroll" && <PayrollTab />}
+
+      {/* ══ PTM TAB ══ */}
+      {tab === "ptm" && <PTMScheduler />}
+
+      {/* ══ BLOG TAB ══ */}
+      {tab === "blog" && <BlogManager />}
+
+      {/* ══ REFERRALS TAB ══ */}
+      {tab === "referrals" && <ReferralTab />}
+
+      {/* ══ FOLLOW-UPS TAB ══ */}
+      {tab === "followups" && <LeadFollowUpTab />}
+
+      {/* ══ BIRTHDAYS TAB ══ */}
+      {tab === "birthdays" && <BirthdayPanel />}
+
+      {/* ══ TESTIMONIALS TAB ══ */}
+      {tab === "testimonials" && <TestimonialsManager />}
+
+      {/* ══ INCIDENTS TAB ══ */}
+      {tab === "incidents" && <IncidentLog />}
 
     </div>
   );
