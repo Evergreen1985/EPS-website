@@ -383,11 +383,9 @@ export default function ParentAITools() {
           {/* Model tip */}
           {(() => {
             const tips: Record<string,string> = {
-              "llama-3.3-70b-versatile": "Rich stories, detailed milestone advice & creative content — best quality",
-              "llama-3.1-8b-instant":    "Fastest replies — great for quick questions & simple tasks",
-              "llama-3.1-70b-versatile": "128k context window — ideal for long, detailed parenting advice",
-              "llama3-70b-8192":         "Classic Llama 3 70B — reliable, balanced quality for all tasks",
-              "llama3-8b-8192":          "Compact & quick — great for simple content and fast turnaround",
+              "llama-3.3-70b-versatile":                   "Rich stories, detailed milestone advice & creative content — best quality",
+              "meta-llama/llama-4-scout-17b-16e-instruct": "Meta's newest Llama 4 — fast, smart & great for parenting advice",
+              "llama-3.1-8b-instant":                      "Fastest replies — great for quick questions & simple tasks",
             };
             return (
               <div style={{ marginTop:"8px", padding:"8px 12px", borderRadius:"10px", background:"rgba(137,87,229,0.06)", border:"1px solid rgba(137,87,229,0.15)", display:"flex", alignItems:"flex-start", gap:"7px" }}>

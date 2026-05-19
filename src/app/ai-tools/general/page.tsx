@@ -303,11 +303,9 @@ export default function GeneralAITools() {
           {/* Model tip */}
           {(() => {
             const tips: Record<string,string> = {
-              "llama-3.3-70b-versatile": "Rich stories, detailed plans & creative content — best quality output",
-              "llama-3.1-8b-instant":    "Fastest replies — great for quick activity ideas & simple tasks",
-              "llama-3.1-70b-versatile": "128k context window — ideal for long, detailed multi-step tasks",
-              "llama3-70b-8192":         "Classic Llama 3 70B — reliable, balanced quality for all tasks",
-              "llama3-8b-8192":          "Compact & quick — great for simple content and fast turnaround",
+              "llama-3.3-70b-versatile":                   "Rich stories, detailed plans & creative content — best quality output",
+              "meta-llama/llama-4-scout-17b-16e-instruct": "Meta's newest Llama 4 — fast, smart & great for creative tasks",
+              "llama-3.1-8b-instant":                      "Fastest replies — great for quick activity ideas & simple tasks",
             };
             const isAutoSelected = loggedInRole && selectedModel.id === "llama-3.3-70b-versatile";
             return (
