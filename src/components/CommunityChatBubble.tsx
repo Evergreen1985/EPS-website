@@ -9,6 +9,7 @@ interface Channel { id:string; slug:string; name:string; description:string; ico
 interface Member   { id:string; display_name:string; avatar_emoji:string; user_type:string; }
 interface Message  { id:string; member_id:string; display_name:string; avatar_emoji:string; content:string|null; msg_type:string; image_url:string|null; created_at:string; reactions:Record<string,number>; }
 interface MyUser   { user_type:string; user_ref:string|null; default_name:string|null; }
+interface CommPhone { phone:string; verifiedAt:number; }
 
 const sbBrowser = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -42,7 +43,7 @@ function fmtTime(iso:string){ return new Date(iso).toLocaleTimeString("en-IN",{h
 export default function CommunityChatBubble() {
   const pathname  = usePathname();
   const [open,       setOpen]       = useState(false);
-  const [view,       setView]       = useState<"channels"|"label"|"chat">("channels");
+  const [view,       setView]       = useState<"channels"|"phone"|"otp"|"label"|"chat">("channels");
   const [channels,   setChannels]   = useState<Channel[]>([]);
   const [myUser,     setMyUser]     = useState<MyUser|null>(null);
   const [channel,    setChannel]    = useState<Channel|null>(null);
@@ -50,6 +51,13 @@ export default function CommunityChatBubble() {
   const [messages,   setMessages]   = useState<Message[]>([]);
   const [input,      setInput]      = useState("");
   const [sending,    setSending]    = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [otpInput,   setOtpInput]   = useState("");
+  const [waLink,     setWaLink]     = useState("");
+  const [otpPhone,   setOtpPhone]   = useState("");
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpError,   setOtpError]   = useState("");
+  const [pendingChannel, setPendingChannel] = useState<Channel|null>(null);
   const [labelName,  setLabelName]  = useState("");
   const [labelEmoji, setLabelEmoji] = useState("😊");
   const [showAI,     setShowAI]     = useState(false);
@@ -79,6 +87,22 @@ export default function CommunityChatBubble() {
     communityId.current = id;
   }, []);
 
+  // Load verified phone from localStorage (valid for 30 days)
+  function getVerifiedPhone(): string | null {
+    try {
+      const raw = localStorage.getItem("ep_community_phone");
+      if (!raw) return null;
+      const parsed: CommPhone = JSON.parse(raw);
+      const age = Date.now() - parsed.verifiedAt;
+      if (age > 30 * 24 * 60 * 60 * 1000) { localStorage.removeItem("ep_community_phone"); return null; }
+      return parsed.phone;
+    } catch { return null; }
+  }
+
+  function saveVerifiedPhone(phone: string) {
+    localStorage.setItem("ep_community_phone", JSON.stringify({ phone, verifiedAt: Date.now() }));
+  }
+
   useEffect(() => {
     if (!open) return;
     fetch("/api/community/me").then(r=>r.json()).then(setMyUser).catch(()=>setMyUser({user_type:"community",user_ref:null,default_name:null}));
@@ -99,7 +123,10 @@ export default function CommunityChatBubble() {
     return () => { sbBrowser.removeChannel(sub); };
   }, [view, channel]);
 
-  function getUserRef() { return myUser?.user_ref || communityId.current; }
+  function getUserRef() {
+    if (myUser?.user_ref) return myUser.user_ref;
+    return getVerifiedPhone() || communityId.current;
+  }
 
   function canAccess(ch:Channel) {
     const ut = myUser?.user_type || "community";
@@ -113,17 +140,65 @@ export default function CommunityChatBubble() {
 
   async function handleChannelClick(ch:Channel) {
     if (!canAccess(ch) || !myUser) return;
+
+    // Community (not logged-in) users must verify phone first
+    if (myUser.user_type === "community") {
+      const verifiedPhone = getVerifiedPhone();
+      if (!verifiedPhone) {
+        setPendingChannel(ch);
+        setPhoneInput(""); setOtpInput(""); setOtpError(""); setWaLink("");
+        setView("phone");
+        return;
+      }
+      // Already verified — use phone as ref
+      await enterChannel(ch, "community", verifiedPhone);
+      return;
+    }
+
+    await enterChannel(ch, myUser.user_type, getUserRef());
+  }
+
+  async function enterChannel(ch:Channel, ut:string, ur:string) {
     setChannel(ch);
-    const ut = myUser.user_type, ur = getUserRef();
     const r = await fetch(`/api/community/members?channel_id=${ch.id}&user_type=${ut}&user_ref=${encodeURIComponent(ur)}`);
     const d = await r.json();
     if (d.member) { setMember(d.member); await loadMessages(ch.id); setView("chat"); }
     else {
       const defEmoji = ch.slug==="children" ? AVATARS.children[0] : (AVATARS[ut]?.[0]||"😊");
-      setLabelName(myUser.default_name||localStorage.getItem("ep_community_name")||"");
+      setLabelName(myUser?.default_name||localStorage.getItem("ep_community_name")||"");
       setLabelEmoji(defEmoji);
       setView("label");
     }
+  }
+
+  async function handleSendOTP() {
+    setOtpError(""); setOtpSending(true);
+    try {
+      const r = await fetch("/api/community/send-otp", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ phone: phoneInput }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setOtpError(d.error || "Failed to send OTP."); return; }
+      setOtpPhone(d.phone);
+      setWaLink(d.waLink);
+      setView("otp");
+    } finally { setOtpSending(false); }
+  }
+
+  async function handleVerifyOTP() {
+    setOtpError(""); setOtpSending(true);
+    try {
+      const r = await fetch("/api/community/verify-otp", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ phone: otpPhone, otp: otpInput }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setOtpError(d.error || "Invalid OTP."); return; }
+      // Verified — save phone, continue to channel
+      saveVerifiedPhone(otpPhone);
+      if (pendingChannel) await enterChannel(pendingChannel, "community", otpPhone);
+    } finally { setOtpSending(false); }
   }
 
   async function loadMessages(chId:string) {
@@ -206,7 +281,12 @@ export default function CommunityChatBubble() {
             <div style={{background:"linear-gradient(135deg,#8957E5 0%,#E8694A 100%)",padding:"14px 16px",flexShrink:0}}>
               <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
                 {view!=="channels" && (
-                  <button onClick={()=>{if(view==="label")setView("channels");else resetWidget();}}
+                  <button onClick={()=>{
+                    if(view==="otp")        setView("phone");
+                    else if(view==="phone") { setView("channels"); setPendingChannel(null); }
+                    else if(view==="label") setView("channels");
+                    else resetWidget();
+                  }}
                     style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:"50%",width:"28px",height:"28px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"white",flexShrink:0}}>
                     <ArrowLeft size={14}/>
                   </button>
@@ -214,11 +294,17 @@ export default function CommunityChatBubble() {
                 <div style={{flex:1,textAlign:view==="channels"?"center":"left"}}>
                   {view==="channels" && <div style={{fontSize:"22px",marginBottom:"2px"}}>💬</div>}
                   <div style={{color:"white",fontWeight:700,fontSize:"15px",fontFamily:"'Fredoka',sans-serif",lineHeight:1.2}}>
-                    {view==="channels" ? "Community Chat" : view==="label" ? `Join ${channel?.name}` : channel?.name}
+                    {view==="channels" ? "Community Chat"       :
+                     view==="phone"    ? "Verify Your Phone"   :
+                     view==="otp"      ? "Enter Your OTP"      :
+                     view==="label"    ? `Join ${channel?.name}` :
+                     channel?.name}
                   </div>
                   <div style={{color:"rgba(255,255,255,0.75)",fontSize:"11px",fontFamily:"'Quicksand',sans-serif"}}>
-                    {view==="channels" ? "Live · 4 groups active" :
-                     view==="label"    ? "Choose your display name" :
+                    {view==="channels" ? "Live · 4 groups active"                        :
+                     view==="phone"    ? "OTP will arrive via WhatsApp"                  :
+                     view==="otp"      ? `Sent to +91 ••••••${otpPhone.slice(-4)}`       :
+                     view==="label"    ? "Choose your display name"                      :
                      `You: ${member?.avatar_emoji} ${member?.display_name}`}
                   </div>
                 </div>
@@ -283,6 +369,114 @@ export default function CommunityChatBubble() {
                     {" to unlock all groups"}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── PHONE VIEW ──────────────────────────────────────────────── */}
+            {view==="phone" && (
+              <div style={{flex:1,overflowY:"auto",padding:"20px 16px",fontFamily:"'Quicksand',sans-serif"}}>
+                <div style={{textAlign:"center",marginBottom:"20px"}}>
+                  <div style={{fontSize:"40px",marginBottom:"8px"}}>📱</div>
+                  <div style={{fontSize:"15px",fontWeight:700,color:"#1A2F4A"}}>Join the Community</div>
+                  <div style={{fontSize:"12px",color:"#888",marginTop:"4px"}}>Verify your phone to join the chat</div>
+                </div>
+
+                <div style={{marginBottom:"12px"}}>
+                  <label style={{fontSize:"11px",fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.05em",display:"block",marginBottom:"6px"}}>
+                    Phone Number
+                  </label>
+                  <div style={{display:"flex",alignItems:"center",border:"2px solid rgba(137,87,229,0.35)",borderRadius:"12px",overflow:"hidden"}}>
+                    <span style={{padding:"10px 12px",background:"rgba(137,87,229,0.06)",fontSize:"13px",fontWeight:700,color:"#555",borderRight:"1px solid rgba(137,87,229,0.2)",whiteSpace:"nowrap"}}>+91</span>
+                    <input value={phoneInput}
+                      onChange={e=>setPhoneInput(e.target.value.replace(/\D/g,"").slice(0,10))}
+                      onKeyDown={e=>e.key==="Enter"&&phoneInput.length===10&&!otpSending&&handleSendOTP()}
+                      placeholder="10-digit number"
+                      autoFocus
+                      inputMode="numeric"
+                      maxLength={10}
+                      style={{flex:1,border:"none",padding:"10px 12px",fontSize:"14px",fontWeight:600,fontFamily:"'Quicksand',sans-serif",outline:"none"}}/>
+                  </div>
+                </div>
+
+                {otpError && (
+                  <div style={{background:"rgba(232,105,74,0.1)",border:"1px solid rgba(232,105,74,0.3)",borderRadius:"10px",padding:"8px 12px",fontSize:"12px",color:"#E8694A",marginBottom:"10px"}}>
+                    {otpError}
+                  </div>
+                )}
+
+                <button onClick={handleSendOTP} disabled={otpSending||phoneInput.length!==10}
+                  style={{width:"100%",padding:"12px",borderRadius:"12px",border:"none",
+                    background:"linear-gradient(135deg,#8957E5,#E8694A)",color:"white",fontWeight:700,fontSize:"14px",
+                    cursor:otpSending||phoneInput.length!==10?"not-allowed":"pointer",
+                    opacity:otpSending||phoneInput.length!==10?0.45:1,fontFamily:"'Quicksand',sans-serif"}}>
+                  {otpSending ? "Sending…" : "📲 Get OTP via WhatsApp"}
+                </button>
+
+                <div style={{marginTop:"12px",textAlign:"center",fontSize:"11px",color:"#AAA"}}>
+                  OTP will appear in a pre-filled WhatsApp message — just copy it
+                </div>
+              </div>
+            )}
+
+            {/* ── OTP VIEW ────────────────────────────────────────────────── */}
+            {view==="otp" && (
+              <div style={{flex:1,overflowY:"auto",padding:"20px 16px",fontFamily:"'Quicksand',sans-serif"}}>
+                <div style={{textAlign:"center",marginBottom:"20px"}}>
+                  <div style={{fontSize:"40px",marginBottom:"8px"}}>💬</div>
+                  <div style={{fontSize:"15px",fontWeight:700,color:"#1A2F4A"}}>Check WhatsApp</div>
+                  <div style={{fontSize:"12px",color:"#888",marginTop:"4px"}}>
+                    OTP sent to +91 ••••••{otpPhone.slice(-4)}
+                  </div>
+                </div>
+
+                {waLink && (
+                  <a href={waLink} target="_blank" rel="noreferrer"
+                    style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",
+                      padding:"10px 16px",background:"#25D366",color:"white",borderRadius:"12px",
+                      fontWeight:700,fontSize:"13px",textDecoration:"none",marginBottom:"14px",
+                      boxShadow:"0 4px 12px rgba(37,211,102,0.35)"}}>
+                    🔗 Open WhatsApp to see OTP
+                  </a>
+                )}
+
+                <div style={{marginBottom:"12px"}}>
+                  <label style={{fontSize:"11px",fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:"0.05em",display:"block",marginBottom:"6px"}}>
+                    Enter 6-digit OTP
+                  </label>
+                  <input value={otpInput}
+                    onChange={e=>setOtpInput(e.target.value.replace(/\D/g,"").slice(0,6))}
+                    onKeyDown={e=>e.key==="Enter"&&otpInput.length===6&&!otpSending&&handleVerifyOTP()}
+                    placeholder="• • • • • •"
+                    autoFocus
+                    inputMode="numeric"
+                    maxLength={6}
+                    style={{width:"100%",border:"2px solid rgba(137,87,229,0.35)",borderRadius:"12px",
+                      padding:"12px 14px",fontSize:"22px",fontWeight:700,fontFamily:"monospace",
+                      outline:"none",boxSizing:"border-box",textAlign:"center",letterSpacing:"8px"}}/>
+                </div>
+
+                {otpError && (
+                  <div style={{background:"rgba(232,105,74,0.1)",border:"1px solid rgba(232,105,74,0.3)",borderRadius:"10px",padding:"8px 12px",fontSize:"12px",color:"#E8694A",marginBottom:"10px"}}>
+                    {otpError}
+                  </div>
+                )}
+
+                <button onClick={handleVerifyOTP} disabled={otpSending||otpInput.length!==6}
+                  style={{width:"100%",padding:"12px",borderRadius:"12px",border:"none",
+                    background:"linear-gradient(135deg,#8957E5,#E8694A)",color:"white",fontWeight:700,fontSize:"14px",
+                    cursor:otpSending||otpInput.length!==6?"not-allowed":"pointer",
+                    opacity:otpSending||otpInput.length!==6?0.45:1,fontFamily:"'Quicksand',sans-serif"}}>
+                  {otpSending ? "Verifying…" : "Verify & Continue →"}
+                </button>
+
+                <div style={{marginTop:"12px",textAlign:"center",fontSize:"11px",color:"#AAA"}}>
+                  <button onClick={handleSendOTP} disabled={otpSending}
+                    style={{background:"none",border:"none",cursor:"pointer",color:"#8957E5",fontWeight:700,fontSize:"11px",
+                      fontFamily:"'Quicksand',sans-serif",padding:0,opacity:otpSending?0.45:1}}>
+                    Resend OTP
+                  </button>
+                  {" · "}Valid for 10 minutes
+                </div>
               </div>
             )}
 
