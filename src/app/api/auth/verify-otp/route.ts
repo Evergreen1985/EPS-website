@@ -12,7 +12,6 @@ function sb() {
 
 export async function POST(req: Request) {
   try {
-    // Rate limit: 5 OTP attempts per IP per 15 minutes
     const ip = getClientIp(req);
     if (!rateLimit(`verify-otp:${ip}`, 5, 15 * 60 * 1000)) {
       return NextResponse.json({ error: "Too many attempts. Please request a new OTP." }, { status: 429 });
@@ -25,25 +24,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "All fields required" }, { status: 400 });
     }
 
-    // Validate role
     if (!["parent", "teacher"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Enforce minimum password length
     if (String(newPassword).length < 8) {
       return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
     }
 
-    // Validate OTP format — 6 digits only
     if (!/^\d{6}$/.test(String(otp))) {
       return NextResponse.json({ error: "Invalid OTP format" }, { status: 400 });
     }
 
-    const client   = sb();
-    const phoneId  = String(phone).trim();
+    const client  = sb();
+    const phoneId = String(phone).trim();
 
-    // Verify OTP — must be unused and not expired
     const { data: reset } = await client
       .from("password_resets")
       .select("*")
@@ -60,7 +55,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid or expired OTP" }, { status: 400 });
     }
 
-    // Hash new password before storing
     const passwordHash = await bcrypt.hash(String(newPassword).slice(0, 128), 10);
 
     if (role === "parent") {
@@ -73,7 +67,6 @@ export async function POST(req: Request) {
         .eq("username", phoneId.toLowerCase());
     }
 
-    // Mark OTP as used immediately to prevent replay
     await client.from("password_resets").update({ used: true }).eq("id", reset.id);
 
     return NextResponse.json({ success: true });

@@ -27,20 +27,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Enter a valid 10-digit phone number." }, { status: 400 });
 
   const otp       = generateOTP();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
   await sb().from("password_resets").insert({
-    phone:      phoneClean,
-    role:       "community",
-    otp,
-    expires_at: expiresAt.toISOString(),
+    phone: phoneClean, role: "community", otp, expires_at: expiresAt.toISOString(),
   });
 
   const school  = await getSchoolConfig();
   const message = `🌿 *${school.name} — Community Chat*\n\nYour OTP to join the community chat is:\n\n🔢 *${otp}*\n\nValid for 10 minutes. Do not share with anyone.\n\n_${school.name} Team_`;
   const sent    = await sendWhatsApp(phoneClean, message);
-
-  const waLink = sent ? null : `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
+  const waLink  = sent ? null : `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
 
   return NextResponse.json({ success: true, sent, waLink, phone: phoneClean });
 }

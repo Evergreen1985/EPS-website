@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
   if (!reset)
     return NextResponse.json({ error: "Invalid or expired OTP. Please try again." }, { status: 400 });
 
-  // Mark OTP used
   await sb().from("password_resets").update({ used: true }).eq("id", reset.id);
 
   return NextResponse.json({ success: true, phone: phoneClean });
