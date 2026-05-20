@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
+import { sendWhatsApp } from "@/lib/twilio";
 
 export const dynamic = "force-dynamic";
 
@@ -37,8 +38,9 @@ export async function POST(req: NextRequest) {
 
   const school  = await getSchoolConfig();
   const message = `🌿 *${school.name} — Community Chat*\n\nYour OTP to join the community chat is:\n\n🔢 *${otp}*\n\nValid for 10 minutes. Do not share with anyone.\n\n_${school.name} Team_`;
-  const waLink  = `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
+  const sent    = await sendWhatsApp(phoneClean, message);
 
-  // OTP is NOT in the JSON response — visible only in the WhatsApp pre-filled message
-  return NextResponse.json({ success: true, waLink, phone: phoneClean });
+  const waLink = sent ? null : `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
+
+  return NextResponse.json({ success: true, sent, waLink, phone: phoneClean });
 }

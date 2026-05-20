@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import { signParentSession, PARENT_COOKIE_NAME, PARENT_MAX_AGE } from "@/lib/parentSession";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
+import { sendWhatsApp } from "@/lib/twilio";
 
 function sb() {
   return createClient(
@@ -95,18 +96,18 @@ export async function POST(req: Request) {
         last_login:     new Date().toISOString(),
       }).eq("phone", phoneClean);
 
-      // Password is delivered only via the WhatsApp message — not in the JSON body
+      // Send credentials via Twilio WhatsApp — not in the JSON body
       const school = await getSchoolConfig();
-      const waMsg = `🌿 *${school.name} — Parent Portal*\n\nDear Parent,\n\nYour login has been created!\n\n🔐 *Login Credentials:*\n📱 Username: ${phoneClean}\n🔑 Password: ${autoPass}\n\n🌐 Login: ${school.domain}/parent-login\n\n⚠️ Please save this password and change it after first login.\n\n_${school.name} · ${school.contact.phone}_`;
-      const waUrl = `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}`;
+      const waMsg  = `🌿 *${school.name} — Parent Portal*\n\nDear Parent,\n\nYour login has been created!\n\n🔐 *Login Credentials:*\n📱 Username: ${phoneClean}\n🔑 Password: ${autoPass}\n\n🌐 Login: ${school.domain}/parent-login\n\n⚠️ Please save this password and change it after first login.\n\n_${school.name} · ${school.contact.phone}_`;
+      const sent   = await sendWhatsApp(phoneClean, waMsg);
+      const waUrl  = sent ? null : `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}`;
 
       return NextResponse.json({
         success:    true,
         firstLogin: true,
         childName:  account.child_name,
-        waMsg,
+        sent,
         waUrl,
-        // Note: password intentionally NOT returned in response — delivered via WhatsApp only
       });
     }
 

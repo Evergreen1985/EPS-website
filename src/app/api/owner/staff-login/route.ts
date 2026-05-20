@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
+import { sendWhatsApp } from "@/lib/twilio";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +26,12 @@ function defaultPassword(phone: string, prefix: string): string {
   return `${prefix}@${last4}`;
 }
 
-function buildWaUrl(phone: string, name: string, username: string, password: string, schoolName: string, domain: string): string | null {
-  const clean = String(phone || "").replace(/\D/g, "");
-  if (!clean) return null;
+function buildWaMsg(phone: string, name: string, username: string, password: string, schoolName: string, domain: string): { msg: string; waUrl: string | null } {
+  const clean     = String(phone || "").replace(/\D/g, "");
   const firstName = name.trim().split(" ")[0];
-  const msg = `🌿 *${schoolName} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login credentials:\n\n👤 Username: ${username}\n🔑 Password: ${password}\n\n🌐 Login at: ${domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${schoolName}_`;
-  return `https://wa.me/91${clean}?text=${encodeURIComponent(msg)}`;
+  const msg       = `🌿 *${schoolName} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login credentials:\n\n👤 Username: ${username}\n🔑 Password: ${password}\n\n🌐 Login at: ${domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${schoolName}_`;
+  const waUrl     = clean ? `https://wa.me/91${clean}?text=${encodeURIComponent(msg)}` : null;
+  return { msg, waUrl };
 }
 
 // POST — action: "create" | "reset"
@@ -68,9 +69,11 @@ export async function POST(req: NextRequest) {
       });
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+      const { msg: createMsg, waUrl: createFallback } = buildWaMsg(phone, name, username, plainPass, school.name, school.domain);
+      const createSent = phone ? await sendWhatsApp(phone, createMsg) : false;
       return NextResponse.json({
-        success: true, username, password: plainPass,
-        waUrl: buildWaUrl(phone, name, username, plainPass, school.name, school.domain),
+        success: true, username, password: plainPass, sent: createSent,
+        waUrl: createSent ? null : createFallback,
       });
     }
 
@@ -81,9 +84,11 @@ export async function POST(req: NextRequest) {
 
       await client.from("teacher_accounts").update({ password_hash: hash }).eq("id", account.id);
 
+      const { msg: resetMsg, waUrl: resetFallback } = buildWaMsg(phone, name, account.username, plainPass, school.name, school.domain);
+      const resetSent = phone ? await sendWhatsApp(phone, resetMsg) : false;
       return NextResponse.json({
-        success: true, username: account.username, password: plainPass,
-        waUrl: buildWaUrl(phone, name, account.username, plainPass, school.name, school.domain),
+        success: true, username: account.username, password: plainPass, sent: resetSent,
+        waUrl: resetSent ? null : resetFallback,
       });
     }
 

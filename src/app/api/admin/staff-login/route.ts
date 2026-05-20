@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import bcrypt from "bcryptjs";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
+import { sendWhatsApp } from "@/lib/twilio";
 
 export const dynamic = "force-dynamic";
 
@@ -60,10 +61,11 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const firstName = name.trim().split(" ")[0];
-    const waMsg = `🌿 *${school.name} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login has been created!\n\n🔐 *Login Credentials:*\n👤 Username: ${username}\n🔑 Password: ${plainPass}\n\n🌐 Login at: ${school.domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${school.name}_`;
-    const waUrl = phoneClean ? `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}` : null;
+    const waMsg     = `🌿 *${school.name} — Staff Portal*\n\nDear ${firstName},\n\nYour teacher portal login has been created!\n\n🔐 *Login Credentials:*\n👤 Username: ${username}\n🔑 Password: ${plainPass}\n\n🌐 Login at: ${school.domain}/teacher-login\n\n⚠️ Please save these and change your password after first login.\n\n_${school.name}_`;
+    const sent      = phoneClean ? await sendWhatsApp(phoneClean, waMsg) : false;
+    const waUrl     = (!sent && phoneClean) ? `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}` : null;
 
-    return NextResponse.json({ success: true, username, password: plainPass, waUrl });
+    return NextResponse.json({ success: true, username, password: plainPass, sent, waUrl });
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

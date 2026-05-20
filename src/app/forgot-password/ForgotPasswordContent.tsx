@@ -18,6 +18,7 @@ export default function ForgotPasswordContent() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
   const [waLink, setWaLink]     = useState("");
+  const [otpSent, setOtpSent]   = useState(false);
 
   const isTeacher = role === "teacher";
   const label     = isTeacher ? "Username" : "Phone Number";
@@ -31,7 +32,8 @@ export default function ForgotPasswordContent() {
     });
     const data = await res.json();
     if (!res.ok || data.error) { setError(data.error); setLoading(false); return; }
-    setWaLink(data.waLink);
+    setOtpSent(data.sent === true);
+    setWaLink(data.waLink || "");
     setStep("otp");
     setLoading(false);
   };
@@ -69,7 +71,7 @@ export default function ForgotPasswordContent() {
           {step === "phone" && (
             <>
               <div style={{ fontSize:"13px", color:"rgba(255,255,255,0.7)", marginBottom:"16px" }}>
-                Enter your {label.toLowerCase()} and we'll send an OTP via WhatsApp.
+                Enter your {label.toLowerCase()} and we'll send an OTP to your WhatsApp automatically.
               </div>
               <div style={{ marginBottom:"16px" }}>
                 <label style={{ fontSize:"11px", fontWeight:700, color:"rgba(255,255,255,0.55)", textTransform:"uppercase", letterSpacing:"0.07em", display:"block", marginBottom:"6px" }}>{label}</label>
@@ -79,21 +81,28 @@ export default function ForgotPasswordContent() {
               {error && <div style={{ background:"rgba(220,38,38,0.15)", border:"1px solid rgba(220,38,38,0.3)", borderRadius:"10px", padding:"9px 12px", color:"#FCA5A5", fontSize:"12px", marginBottom:"14px" }}>{error}</div>}
               <button onClick={sendOTP} disabled={loading || !phone}
                 style={{ width:"100%", padding:"13px", borderRadius:"16px", background:loading||!phone?"rgba(255,255,255,0.1)":"#178F78", color:"white", border:"none", fontWeight:700, fontSize:"14px", cursor:loading||!phone?"not-allowed":"pointer" }}>
-                {loading ? "Sending…" : "Send OTP via WhatsApp →"}
+                {loading ? "Sending…" : "Send OTP →"}
               </button>
             </>
           )}
 
-          {/* Step 2: Open WhatsApp + Enter OTP */}
+          {/* Step 2: OTP sent + Enter OTP */}
           {step === "otp" && (
             <>
-              <div style={{ fontSize:"13px", color:"rgba(255,255,255,0.7)", marginBottom:"16px" }}>
-                Click the button below to get your OTP on WhatsApp, then enter it here.
-              </div>
-              <a href={waLink} target="_blank" rel="noopener noreferrer"
-                style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"8px", background:"#25D366", color:"white", borderRadius:"16px", padding:"12px 20px", fontWeight:700, fontSize:"13px", textDecoration:"none", marginBottom:"16px" }}>
-                💬 Get OTP on WhatsApp
-              </a>
+              {otpSent ? (
+                <div style={{ background:"rgba(37,211,102,0.12)", border:"1px solid rgba(37,211,102,0.3)", borderRadius:"12px", padding:"11px 14px", color:"#4ade80", fontSize:"13px", marginBottom:"16px", display:"flex", alignItems:"center", gap:"8px" }}>
+                  ✅ OTP sent to your WhatsApp
+                </div>
+              ) : waLink ? (
+                <a href={waLink} target="_blank" rel="noopener noreferrer"
+                  style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"8px", background:"#25D366", color:"white", borderRadius:"16px", padding:"12px 20px", fontWeight:700, fontSize:"13px", textDecoration:"none", marginBottom:"16px" }}>
+                  💬 Get OTP on WhatsApp
+                </a>
+              ) : (
+                <div style={{ fontSize:"13px", color:"rgba(255,255,255,0.7)", marginBottom:"16px" }}>
+                  Enter the OTP sent to your WhatsApp.
+                </div>
+              )}
               <div style={{ marginBottom:"12px" }}>
                 <label style={{ fontSize:"11px", fontWeight:700, color:"rgba(255,255,255,0.55)", textTransform:"uppercase", letterSpacing:"0.07em", display:"block", marginBottom:"6px" }}>Enter OTP</label>
                 <input value={otp} onChange={e => setOtp(e.target.value)} maxLength={6}

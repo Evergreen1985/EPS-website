@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
+import { sendWhatsApp } from "@/lib/twilio";
 
 function sb() {
   return createClient(
@@ -66,13 +67,15 @@ export async function POST(req: Request) {
       expires_at: expiresAt.toISOString(),
     });
 
-    // Generate WhatsApp link with OTP
+    // Send OTP via Twilio WhatsApp
     const school  = await getSchoolConfig();
     const message = `🔐 *${school.name} — Password Reset*\n\nYour OTP is: *${otp}*\n\nThis OTP is valid for 10 minutes.\nDo not share with anyone.\n\n*${school.name}*`;
-    const waLink  = `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
+    const sent    = await sendWhatsApp(phoneId, message);
 
-    // OTP is NOT returned in the response — it is delivered only via WhatsApp
-    return NextResponse.json({ success: true, waLink });
+    // Fallback wa.me link if Twilio fails
+    const waLink = sent ? null : `https://wa.me/91${school.contact.phone}?text=${encodeURIComponent(message)}`;
+
+    return NextResponse.json({ success: true, sent, waLink });
 
   } catch {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
