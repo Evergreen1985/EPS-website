@@ -42,7 +42,7 @@ export default function ParentLoginPage() {
         }));
         setStep("success");
         if (data.waUrl) setTimeout(() => window.open(data.waUrl, "_blank"), 500);
-        if (!data.firstLogin) setTimeout(() => router.push("/parent-dashboard"), 800);
+        setTimeout(() => router.push("/parent-dashboard"), 1500);
       }
     } catch {
       setError("Network error. Please try again.");

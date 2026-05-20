@@ -102,13 +102,26 @@ export async function POST(req: Request) {
       const sent   = await sendWhatsApp(phoneClean, waMsg);
       const waUrl  = sent ? null : `https://wa.me/91${phoneClean}?text=${encodeURIComponent(waMsg)}`;
 
-      return NextResponse.json({
+      // Set session cookie so parent can access dashboard immediately
+      const token = await signParentSession({
+        phone:     phoneClean,
+        childName: account.child_name || "",
+        enquiryId: account.enquiry_id || "",
+      });
+
+      const res = NextResponse.json({
         success:    true,
         firstLogin: true,
         childName:  account.child_name,
+        enquiryId:  account.enquiry_id,
         sent,
         waUrl,
       });
+      res.cookies.set(PARENT_COOKIE_NAME, token, {
+        httpOnly: true, secure: process.env.NODE_ENV === "production",
+        sameSite: "lax", maxAge: PARENT_MAX_AGE, path: "/",
+      });
+      return res;
     }
 
     // ── REGULAR LOGIN ─────────────────────────────────
