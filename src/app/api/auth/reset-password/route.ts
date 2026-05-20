@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { phone, role } = body;
+    const { phone, role, checkOnly } = body;
 
     if (!phone || !role) {
       return NextResponse.json({ error: "Phone and role required" }, { status: 400 });
@@ -40,10 +40,15 @@ export async function POST(req: Request) {
 
     if (role === "parent") {
       const { data } = await client.from("parent_accounts").select("id").eq("phone", phoneId).maybeSingle();
-      if (!data) return NextResponse.json({ success: true, sent: false, waLink: null });
+      if (!data) return NextResponse.json({ error: "No account found for this phone number." }, { status: 404 });
     } else {
       const { data } = await client.from("teacher_accounts").select("id").eq("username", phoneId.toLowerCase()).maybeSingle();
-      if (!data) return NextResponse.json({ success: true, sent: false, waLink: null });
+      if (!data) return NextResponse.json({ error: "No account found for this username." }, { status: 404 });
+    }
+
+    // checkOnly: just verify the account exists, don't send OTP
+    if (checkOnly) {
+      return NextResponse.json({ success: true });
     }
 
     const otp       = generateOTP();
