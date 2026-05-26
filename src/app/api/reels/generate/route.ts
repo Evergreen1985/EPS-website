@@ -10,7 +10,17 @@ import * as fs from "fs/promises";
 import { randomUUID } from "crypto";
 
 const ffBin = ffmpegPath!;
-const ff = (args: string[]) => promisify(execFile)(ffBin, args);
+// Vercel Lambda extracts files without execute permission — fix once at cold start
+let ffReady = false;
+async function ensureFF() {
+  if (ffReady) return;
+  try { await fs.chmod(ffBin, 0o755); } catch {}
+  ffReady = true;
+}
+const ff = async (args: string[]) => {
+  await ensureFF();
+  return promisify(execFile)(ffBin, args);
+};
 
 export const maxDuration = 300;
 export const dynamic    = "force-dynamic";
