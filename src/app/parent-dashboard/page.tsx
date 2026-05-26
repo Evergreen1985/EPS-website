@@ -12,6 +12,8 @@ import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import ReferralTab from "@/components/ReferralTab";
 import LeadFollowUpTab from "@/components/LeadFollowUpTab";
 import IncidentLog from "@/components/IncidentLog";
+import ParentKBChat from "@/components/ParentKBChat";
+import AudioPlayer from "@/components/AudioPlayer";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -295,7 +297,7 @@ export default function ParentDashboardPage() {
     setSession(s);
   }, [router]);
 
-  useEffect(() => {
+  const reloadDashboard = useCallback(() => {
     if (!session?.phone) return;
     fetch(`/api/parent/dashboard?phone=${encodeURIComponent(session.phone)}&month=${month}`)
       .then(r => r.json())
@@ -311,6 +313,33 @@ export default function ParentDashboardPage() {
       })
       .catch(() => setLoading(false));
   }, [session, month]);
+
+  useEffect(() => { reloadDashboard(); }, [reloadDashboard]);
+
+  // Real-time sync: auto-reload when admin/teacher changes data
+  useEffect(() => {
+    if (!session?.phone) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => { if (timer) clearTimeout(timer); timer = setTimeout(reloadDashboard, 800); };
+
+    let sb: SupabaseClient | null = null;
+    getSb().then(client => {
+      sb = client;
+      const ch = client
+        .channel("parent-dash-realtime")
+        .on("postgres_changes" as any, { event: "*", schema: "public", table: "announcements" }, debounced)
+        .on("postgres_changes" as any, { event: "*", schema: "public", table: "homework" }, debounced)
+        .on("postgres_changes" as any, { event: "*", schema: "public", table: "section_photos" }, debounced)
+        .on("postgres_changes" as any, { event: "*", schema: "public", table: "attendance" }, debounced)
+        .subscribe();
+      sb = { ...client, _ch: ch } as any;
+    });
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      getSb().then(client => client.channel("parent-dash-realtime").unsubscribe());
+    };
+  }, [session, reloadDashboard]);
 
   useEffect(() => {
     if (!selectedChild?.section_id || !selectedChild?.child_name) return;
@@ -456,13 +485,13 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
           </div>
           <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
             <button onClick={() => router.push("/ai-tools/parent")}
-              style={{ display:"flex", alignItems:"center", gap:"7px", background:"linear-gradient(135deg,#8957E5,#6366F1)", border:"2px solid rgba(255,255,255,0.35)", borderRadius:"20px", padding:"7px 16px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", animation:"ai-pulse 2s ease-in-out infinite", fontFamily:"'Quicksand',sans-serif", letterSpacing:"0.01em" }}>
+              style={{ display:"flex", alignItems:"center", gap:"6px", background:"linear-gradient(135deg,#8957E5,#6366F1)", border:"2px solid rgba(255,255,255,0.35)", borderRadius:"20px", padding:"7px 12px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>
               <span style={{ fontSize:"15px" }}>🤖</span>
-              <span>AI Tools</span>
-              <span style={{ fontSize:"9px", background:"rgba(255,255,255,0.25)", borderRadius:"10px", padding:"1px 7px", letterSpacing:"0.04em" }}>FREE</span>
+              <span className="hidden sm:inline">AI Tools</span>
             </button>
-            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
-              <LogOut style={{ width:"14px", height:"14px" }} /> Logout
+            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.3)", borderRadius:"20px", padding:"7px 12px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
+              <LogOut style={{ width:"14px", height:"14px" }} />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
@@ -507,10 +536,10 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
         {/* Tabs + content */}
         {selectedChild && (
           <>
-            <div style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF" }}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"referrals",icon:"🎁",label:"Refer"},{key:"incidents",icon:"🚨",label:"Incidents"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+            <div className="no-scrollbar" style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF", overflowX:"auto", WebkitOverflowScrolling:"touch" } as any}>
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"referrals",icon:"🎁",label:"Refer"},{key:"incidents",icon:"🚨",label:"Incidents"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"askschool",icon:"💬",label:"Ask AI"},{key:"audio",icon:"🎧",label:"Audio"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
-                  style={{ flex:1, padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99" }}>
+                  style={{ flexShrink:0, minWidth:"62px", padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99", touchAction:"manipulation" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
                 </button>
               ))}
@@ -990,6 +1019,20 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
                 <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"16px", fontWeight:700, color:"#178F78", marginBottom:"4px" }}>🚨 Incident Reports</div>
                 <div style={{ fontSize:"12px", color:"#6B7A99", marginBottom:"16px" }}>View any incidents reported involving {selectedChild.child_name}.</div>
                 <IncidentLog enquiryId={selectedChild.id} childName={selectedChild.child_name} />
+              </div>
+            )}
+
+            {/* ══ ASK SCHOOL AI TAB ══ */}
+            {tab === "askschool" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", overflow:"hidden" }}>
+                <ParentKBChat childName={selectedChild?.child_name} phone={session?.phone} />
+              </div>
+            )}
+
+            {/* ══ AUDIO OVERVIEWS TAB ══ */}
+            {tab === "audio" && (
+              <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", overflow:"hidden" }}>
+                <AudioPlayer />
               </div>
             )}
 

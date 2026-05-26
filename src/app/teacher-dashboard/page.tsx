@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 import { LogOut, Plus, Trash2, MessageSquare, Send, Clock } from "lucide-react";
 import PhotoUploader from "@/components/PhotoUploader";
 import FaceAutoTagger from "@/components/FaceAutoTagger";
@@ -9,8 +10,9 @@ import TransportStaffView from "@/components/TransportStaffView";
 import IncidentLog from "@/components/IncidentLog";
 import BirthdayPanel from "@/components/BirthdayPanel";
 import PTMScheduler from "@/components/PTMScheduler";
+import StaffTrainingChat from "@/components/StaffTrainingChat";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm" | "training";
 
 const TD_TABS = [
   { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
@@ -23,6 +25,7 @@ const TD_TABS = [
   { key: "incidents"  as TeacherTab, icon: "🚨", label: "Incidents"  },
   { key: "birthdays"  as TeacherTab, icon: "🎂", label: "Birthdays"  },
   { key: "ptm"        as TeacherTab, icon: "📅", label: "PTM"        },
+  { key: "training"   as TeacherTab, icon: "🎓", label: "Training"   },
 ];
 
 const ATT_STATUS = [
@@ -190,6 +193,26 @@ export default function TeacherDashboardPage() {
 
   useEffect(() => {
     if (currentSectionId) loadData(currentSectionId);
+  }, [currentSectionId, loadData]);
+
+  // Real-time sync: reload when parent or another teacher changes data
+  useEffect(() => {
+    if (!currentSectionId) return;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+    if (!url || !key) return;
+    const sb = createClient(url, key);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const debounced = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => loadData(currentSectionId), 800); };
+
+    const ch = sb.channel("teacher-dash-realtime")
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "attendance" }, debounced)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "homework" }, debounced)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "section_photos" }, debounced)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "enquiries" }, debounced)
+      .subscribe();
+
+    return () => { if (timer) clearTimeout(timer); sb.removeChannel(ch); };
   }, [currentSectionId, loadData]);
 
   // Load clock record for today
@@ -383,13 +406,13 @@ export default function TeacherDashboardPage() {
               </a>
             )}
             <button onClick={() => router.push("/ai-tools/teacher")}
-              style={{ display:"flex", alignItems:"center", gap:"7px", background:"linear-gradient(135deg,#178F78,#0F766E)", border:"2px solid rgba(255,255,255,0.35)", borderRadius:"20px", padding:"7px 16px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", animation:"ai-pulse 2s ease-in-out infinite", fontFamily:"'Quicksand',sans-serif" }}>
+              style={{ display:"flex", alignItems:"center", gap:"6px", background:"linear-gradient(135deg,#178F78,#0F766E)", border:"2px solid rgba(255,255,255,0.35)", borderRadius:"20px", padding:"7px 12px", color:"white", fontSize:"12px", fontWeight:700, cursor:"pointer", fontFamily:"'Quicksand',sans-serif" }}>
               <span style={{ fontSize:"15px" }}>🤖</span>
-              <span>AI Tools</span>
-              <span style={{ fontSize:"9px", background:"rgba(255,255,255,0.25)", borderRadius:"10px", padding:"1px 7px", letterSpacing:"0.04em" }}>FREE</span>
+              <span className="hidden sm:inline">AI Tools</span>
             </button>
-            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"20px", padding:"6px 14px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
-              <LogOut style={{ width:"13px", height:"13px" }} /> Logout
+            <button onClick={logout} style={{ display:"flex", alignItems:"center", gap:"6px", background:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:"20px", padding:"7px 12px", color:"white", fontSize:"12px", fontWeight:600, cursor:"pointer" }}>
+              <LogOut style={{ width:"13px", height:"13px" }} />
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </div>
@@ -412,7 +435,7 @@ export default function TeacherDashboardPage() {
 
       {/* Quick stats */}
       <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
-        <div style={{ maxWidth:"900px", margin:"0 auto", padding:"12px 20px", display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"10px" }}>
+        <div style={{ maxWidth:"900px", margin:"0 auto", padding:"12px 16px", display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:"8px" }}>
           {[
             { icon:"👶", label:"Total Students", value:children.length, color:"#178F78" },
             { icon:"✅", label:"Present Today",  value:presentCount,     color:"#178F78" },
@@ -431,11 +454,12 @@ export default function TeacherDashboardPage() {
       {/* Tabs — only render when there are visible tabs */}
       {visibleTabs.length > 0 && (
         <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
-          <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex" }}>
+          <div className="no-scrollbar" style={{ maxWidth:"900px", margin:"0 auto", display:"flex", overflowX:"auto", WebkitOverflowScrolling:"touch" } as any}>
             {visibleTabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                style={{ flex:1, padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:"5px" }}>
-                {t.icon} {t.label}
+                style={{ flexShrink:0, minWidth:"80px", padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"3px", touchAction:"manipulation" }}>
+                <span style={{ fontSize:"18px" }}>{t.icon}</span>
+                <span style={{ fontSize:"10px" }}>{t.label}</span>
               </button>
             ))}
           </div>
@@ -988,6 +1012,13 @@ export default function TeacherDashboardPage() {
         {tab === "ptm" && (
           <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
             <PTMScheduler />
+          </div>
+        )}
+
+        {/* ══ TRAINING TAB ══ */}
+        {tab === "training" && (
+          <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
+            <StaffTrainingChat />
           </div>
         )}
 
