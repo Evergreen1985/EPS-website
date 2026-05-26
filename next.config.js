@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["twilio", "web-push", "@ffmpeg/ffmpeg", "@ffmpeg/util"],
+    serverComponentsExternalPackages: ["twilio", "web-push", "sharp"],
   },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },

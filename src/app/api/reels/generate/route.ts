@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
+import sharp from "sharp";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs/promises";
+import { randomUUID } from "crypto";
+
+const exec = promisify(execFile);
 
 export const maxDuration = 300;
 export const dynamic    = "force-dynamic";
 
-// ── Supabase ──────────────────────────────────────────────────────────────────
 function sb() {
   return createClient(
     process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -16,33 +22,6 @@ function sb() {
   );
 }
 
-// ── FFmpeg singleton (reused across warm invocations) ─────────────────────────
-let _ff: FFmpeg | null = null;
-let _loading: Promise<void> | null = null;
-
-async function getFFmpeg(): Promise<FFmpeg> {
-  if (_ff) return _ff;
-  const ff = new FFmpeg();
-  if (!_loading) {
-    _loading = ff.load({
-      coreURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js",
-      wasmURL: "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm",
-    });
-  }
-  await _loading;
-  _ff = ff;
-  return ff;
-}
-
-// ── Filter / transition maps ──────────────────────────────────────────────────
-const COLOR_FILTERS: Record<string, string> = {
-  natural: "",
-  warm:    "eq=gamma_r=1.15:gamma_b=0.88:saturation=1.1",
-  cool:    "eq=gamma_r=0.88:gamma_b=1.15:saturation=1.0",
-  vintage: "eq=gamma=1.2:contrast=0.92:saturation=0.7:brightness=0.02",
-  vibrant: "eq=saturation=1.6:contrast=1.1:brightness=0.05",
-};
-
 const TRANSITIONS: Record<string, string> = {
   fade:   "fade",
   slide:  "slideleft",
@@ -50,7 +29,6 @@ const TRANSITIONS: Record<string, string> = {
   bounce: "circlecrop",
 };
 
-// Chord-like synthesized music using lavfi aevalsrc (royalty-free)
 const MUSIC: Record<string, string> = {
   none:      "",
   upbeat:    "aevalsrc=0.4*sin(2*PI*t*261)+0.3*sin(2*PI*t*330)+0.2*sin(2*PI*t*392)+0.1*sin(2*PI*t*523):s=44100:c=mono",
@@ -59,21 +37,84 @@ const MUSIC: Record<string, string> = {
   energetic: "aevalsrc=0.4*sin(2*PI*t*440)+0.3*sin(2*PI*t*554)+0.2*sin(2*PI*t*659)+0.1*sin(2*PI*t*880):s=44100:c=mono",
 };
 
-// ── Route handler ─────────────────────────────────────────────────────────────
+type FilterKey = "natural" | "warm" | "cool" | "vintage" | "vibrant";
+interface FilterCfg { saturation?: number; brightness?: number; tint?: string }
+
+const COLOR_FILTERS: Record<FilterKey, FilterCfg> = {
+  natural: {},
+  warm:    { saturation: 1.1, tint: "rgba(255,200,150,0.15)" },
+  cool:    { saturation: 1.0, tint: "rgba(150,180,255,0.15)" },
+  vintage: { saturation: 0.7, brightness: 1.02, tint: "rgba(200,170,130,0.2)" },
+  vibrant: { saturation: 1.6, brightness: 1.05 },
+};
+
+async function processImage(
+  buf: Buffer,
+  schoolName: string,
+  caption: string,
+  filter: string
+): Promise<Buffer> {
+  const cfg: FilterCfg = COLOR_FILTERS[filter as FilterKey] ?? {};
+  const safeName = schoolName.replace(/[<>&'"]/g, " ");
+  const safeCaption = caption.replace(/[<>&'"]/g, " ");
+
+  const wmSvg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="80">` +
+    `<rect width="1080" height="80" fill="rgba(0,0,0,0.55)"/>` +
+    `<text x="540" y="50" font-family="Liberation Sans,sans-serif" font-size="36" font-weight="bold"` +
+    ` fill="white" text-anchor="middle">${safeName}</text>` +
+    `</svg>`
+  );
+
+  const composites: sharp.OverlayOptions[] = [
+    { input: wmSvg, gravity: "south" },
+  ];
+
+  if (safeCaption) {
+    const capSvg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="56">` +
+      `<rect width="1080" height="56" fill="rgba(0,0,0,0.4)"/>` +
+      `<text x="540" y="36" font-family="Liberation Sans,sans-serif" font-size="26"` +
+      ` fill="white" text-anchor="middle">${safeCaption}</text>` +
+      `</svg>`
+    );
+    composites.push({ input: capSvg, top: 1920 - 138, left: 0 });
+  }
+
+  if (cfg.tint) {
+    const tintSvg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920">` +
+      `<rect width="1080" height="1920" fill="${cfg.tint}"/>` +
+      `</svg>`
+    );
+    composites.push({ input: tintSvg, blend: "over" });
+  }
+
+  let img = sharp(buf).resize(1080, 1920, { fit: "cover", position: "centre" });
+
+  if (cfg.saturation !== undefined || cfg.brightness !== undefined) {
+    img = img.modulate({
+      saturation: cfg.saturation ?? 1,
+      brightness: cfg.brightness ?? 1,
+    });
+  }
+
+  return img.composite(composites).jpeg({ quality: 90 }).toBuffer();
+}
+
 export async function POST(req: Request) {
-  const ff = await getFFmpeg().catch(() => null);
-  if (!ff) return NextResponse.json({ error: "FFmpeg failed to load" }, { status: 500 });
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "reel-"));
 
   try {
     const body = await req.json();
     const {
-      photoUrls       = [] as string[],
-      transition      = "fade",
+      photoUrls        = [] as string[],
+      transition       = "fade",
       durationPerPhoto = 2,
-      filter          = "natural",
-      music           = "none",
-      caption         = "",
-      schoolName      = "Evergreen Preschool",
+      filter           = "natural",
+      music            = "none",
+      caption          = "",
+      schoolName       = "Evergreen Preschool",
     } = body;
 
     if (!Array.isArray(photoUrls) || photoUrls.length === 0)
@@ -81,110 +122,92 @@ export async function POST(req: Request) {
     if (photoUrls.length > 20)
       return NextResponse.json({ error: "Maximum 20 photos per reel" }, { status: 400 });
 
-    const colorFilter  = COLOR_FILTERS[filter]    || "";
-    const transName    = TRANSITIONS[transition]  || "fade";
-    const musicExpr    = MUSIC[music]             || "";
-    const td           = 0.5; // transition crossfade duration (s)
+    const transName    = TRANSITIONS[transition] || "fade";
+    const musicExpr    = MUSIC[music] || "";
+    const td           = 0.5;
     const totalDuration = photoUrls.length * durationPerPhoto - (photoUrls.length - 1) * td;
 
-    // ── 1. Download photos → individual still-image clips ────────────────────
+    // ── 1. Download + process images → individual clips ───────────────────────
     for (let i = 0; i < photoUrls.length; i++) {
-      const raw = await fetchFile(photoUrls[i]);
-      await ff.writeFile(`p${i}.jpg`, raw);
+      const res = await fetch(photoUrls[i]);
+      if (!res.ok) throw new Error(`Failed to download photo ${i}: ${res.status}`);
+      const raw = Buffer.from(await res.arrayBuffer());
+      const processed = await processImage(raw, schoolName, caption, filter);
 
-      const scaleVf = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920";
-      const vf      = colorFilter ? `${scaleVf},${colorFilter}` : scaleVf;
+      const jpgPath  = path.join(tmpDir, `p${i}.jpg`);
+      const clipPath = path.join(tmpDir, `c${i}.mp4`);
+      await fs.writeFile(jpgPath, processed);
 
-      await ff.exec([
-        "-loop", "1", "-i", `p${i}.jpg`,
+      await exec("ffmpeg", [
+        "-y",
+        "-loop", "1", "-i", jpgPath,
         "-t", String(durationPerPhoto),
-        "-vf", vf,
         "-r", "25",
         "-c:v", "libx264", "-preset", "ultrafast", "-tune", "stillimage",
         "-pix_fmt", "yuv420p",
-        `c${i}.mp4`,
+        clipPath,
       ]);
     }
 
-    // ── 2. Concatenate with xfade + school watermark ─────────────────────────
-    const safeName    = schoolName.replace(/[':]/g, " ");
-    const safeCaption = caption.replace(/[':]/g, " ");
-
-    const drawSchool  = `drawtext=text='${safeName}':fontsize=38:fontcolor=white@0.9:x=(w-text_w)/2:y=h-58:box=1:boxcolor=black@0.45:boxborderw=10`;
-    const drawCaption = safeCaption
-      ? `drawtext=text='${safeCaption}':fontsize=28:fontcolor=white:x=(w-text_w)/2:y=h-112:box=1:boxcolor=black@0.4:boxborderw=6`
-      : "";
-    const textVf = [drawSchool, drawCaption].filter(Boolean).join(",");
+    // ── 2. Concatenate with xfade ─────────────────────────────────────────────
+    const midPath = path.join(tmpDir, "mid.mp4");
 
     if (photoUrls.length === 1) {
-      await ff.exec([
-        "-i", "c0.mp4",
-        "-vf", textVf,
-        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
-        "mid.mp4",
-      ]);
+      await fs.rename(path.join(tmpDir, "c0.mp4"), midPath);
     } else {
-      // Build xfade chain: [0][1]xfade...[xf0];[xf0][2]xfade...[xf1];...
-      const inputArgs: string[] = [];
-      for (let i = 0; i < photoUrls.length; i++) inputArgs.push("-i", `c${i}.mp4`);
+      const inputs: string[] = [];
+      for (let i = 0; i < photoUrls.length; i++)
+        inputs.push("-i", path.join(tmpDir, `c${i}.mp4`));
 
       let fc = "";
       for (let i = 0; i < photoUrls.length - 1; i++) {
         const inA   = i === 0 ? "[0:v]" : `[xf${i - 1}]`;
         const inB   = `[${i + 1}:v]`;
-        const offset = i * (durationPerPhoto - td);
-        const out   = i === photoUrls.length - 2 ? "[xout]" : `[xf${i}]`;
-        fc += `${inA}${inB}xfade=transition=${transName}:duration=${td}:offset=${offset.toFixed(2)}${out};`;
+        const offset = (i * (durationPerPhoto - td)).toFixed(2);
+        const out   = i === photoUrls.length - 2 ? "[out]" : `[xf${i}]`;
+        fc += `${inA}${inB}xfade=transition=${transName}:duration=${td}:offset=${offset}${out};`;
       }
-      fc += `[xout]${textVf}[out]`;
 
-      await ff.exec([
-        ...inputArgs,
-        "-filter_complex", fc,
+      await exec("ffmpeg", [
+        "-y",
+        ...inputs,
+        "-filter_complex", fc.replace(/;$/, ""),
         "-map", "[out]",
-        "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
-        "mid.mp4",
+        "-c:v", "libx264", "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p",
+        midPath,
       ]);
     }
 
-    // ── 3. Mix in music ──────────────────────────────────────────────────────
+    // ── 3. Mix in music ───────────────────────────────────────────────────────
+    const outPath = path.join(tmpDir, "out.mp4");
+
     if (musicExpr) {
-      await ff.exec([
-        "-i", "mid.mp4",
+      await exec("ffmpeg", [
+        "-y",
+        "-i", midPath,
         "-f", "lavfi", "-i", musicExpr,
         "-c:v", "copy",
         "-c:a", "aac", "-b:a", "96k",
         "-t", String(Math.ceil(totalDuration)),
         "-shortest",
-        "out.mp4",
+        outPath,
       ]);
     } else {
-      await ff.exec(["-i", "mid.mp4", "-c", "copy", "out.mp4"]);
+      await fs.rename(midPath, outPath);
     }
 
-    // ── 4. Upload to Supabase Storage ────────────────────────────────────────
-    const videoBytes = await ff.readFile("out.mp4");
-    const buf        = Buffer.from(videoBytes as Uint8Array);
-    const key        = `reels/${Date.now()}_${Math.random().toString(36).slice(2)}.mp4`;
+    // ── 4. Upload to Supabase Storage ─────────────────────────────────────────
+    const videoBytes = await fs.readFile(outPath);
+    const key = `reels/${Date.now()}_${randomUUID().slice(0, 8)}.mp4`;
 
     const { error: uploadErr } = await sb()
-      .storage
-      .from("media")
-      .upload(key, buf, { contentType: "video/mp4", upsert: true });
-
-    // Cleanup WASM virtual FS
-    const cleanup = async () => {
-      for (let i = 0; i < photoUrls.length; i++) {
-        for (const f of [`p${i}.jpg`, `c${i}.mp4`]) { try { await ff.deleteFile(f); } catch {} }
-      }
-      for (const f of ["mid.mp4", "out.mp4"]) { try { await ff.deleteFile(f); } catch {} }
-    };
-    await cleanup();
+      .storage.from("media")
+      .upload(key, videoBytes, { contentType: "video/mp4", upsert: true });
 
     if (uploadErr) {
-      console.error("Supabase upload error:", uploadErr.message);
       return NextResponse.json(
-        { error: `Upload failed: ${uploadErr.message}. Create a public 'media' bucket in Supabase Storage.` },
+        { error: `Upload failed: ${uploadErr.message}` },
         { status: 500 }
       );
     }
@@ -195,5 +218,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     console.error("Reel generation error:", err);
     return NextResponse.json({ error: err?.message || "Failed to generate reel" }, { status: 500 });
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
   }
 }
