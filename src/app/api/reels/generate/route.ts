@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import ffmpegPath from "ffmpeg-static";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import * as os from "os";
@@ -8,7 +9,8 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { randomUUID } from "crypto";
 
-const exec = promisify(execFile);
+const ffBin = ffmpegPath!;
+const ff = (args: string[]) => promisify(execFile)(ffBin, args);
 
 export const maxDuration = 300;
 export const dynamic    = "force-dynamic";
@@ -138,7 +140,7 @@ export async function POST(req: Request) {
       const clipPath = path.join(tmpDir, `c${i}.mp4`);
       await fs.writeFile(jpgPath, processed);
 
-      await exec("ffmpeg", [
+      await ff([
         "-y",
         "-loop", "1", "-i", jpgPath,
         "-t", String(durationPerPhoto),
@@ -168,7 +170,7 @@ export async function POST(req: Request) {
         fc += `${inA}${inB}xfade=transition=${transName}:duration=${td}:offset=${offset}${out};`;
       }
 
-      await exec("ffmpeg", [
+      await ff([
         "-y",
         ...inputs,
         "-filter_complex", fc.replace(/;$/, ""),
@@ -183,7 +185,7 @@ export async function POST(req: Request) {
     const outPath = path.join(tmpDir, "out.mp4");
 
     if (musicExpr) {
-      await exec("ffmpeg", [
+      await ff([
         "-y",
         "-i", midPath,
         "-f", "lavfi", "-i", musicExpr,

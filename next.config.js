@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["twilio", "web-push", "sharp"],
+    serverComponentsExternalPackages: ["twilio", "web-push", "sharp", "ffmpeg-static"],
   },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
