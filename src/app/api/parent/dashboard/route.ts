@@ -18,11 +18,17 @@ export async function GET(req: Request) {
   const now = new Date();
   const m = month || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
 
-  // Children linked to this phone
+  // Normalize phone — match 10-digit, 91+10, +91+10 stored in any format
+  const digits = phone.trim().replace(/\D/g, "");
+  const phone10  = digits.slice(-10);
+  const phone12  = `91${phone10}`;
+  const phoneP12 = `+91${phone10}`;
+
+  // Children linked to this phone (try all common formats)
   const { data: enquiries } = await client
     .from("enquiries")
     .select("id,child_name,child_dob,child_age_months,program_label,program_id,status,section_id,section_name,created_at,photo_url")
-    .eq("phone", phone.trim())
+    .or(`phone.eq.${phone10},phone.eq.${phone12},phone.eq.${phoneP12}`)
     .order("created_at", { ascending: false });
 
   // Calendar events for this month (dynamic from DB)
