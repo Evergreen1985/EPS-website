@@ -50,15 +50,19 @@ export async function GET(req: Request) {
     .limit(5);
 
   // Homework — only for sections that are assigned
+  // Filter by created_at (last 60 days) so homework without a due_date also shows
   const sectionIds = (enquiries || []).map(e => e.section_id).filter(Boolean);
   let homework: any[] = [];
   if (sectionIds.length > 0) {
+    const since = new Date();
+    since.setDate(since.getDate() - 60);
     const { data: hw } = await client
       .from("homework")
       .select("*")
       .in("section_id", sectionIds)
-      .gte("due_date", `${m}-01`)
-      .order("due_date");
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(50);
     homework = hw || [];
   }
 
