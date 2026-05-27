@@ -40,9 +40,20 @@ export async function POST(req: Request) {
     // ── CREATE account after enquiry ──────────────────
     if (action === "create") {
       const { data: existing } = await client
-        .from("parent_accounts").select("id").eq("phone", phoneClean).maybeSingle();
+        .from("parent_accounts").select("id,child_dob,child_name,enquiry_id").eq("phone", phoneClean).maybeSingle();
 
-      if (existing) return NextResponse.json({ success: true, message: "Account already exists" });
+      if (existing) {
+        // Patch null DOB / null child_name if the caller now provides them
+        // (handles accounts created before mobile app was updated to pass these fields)
+        const patch: Record<string, string> = {};
+        if (!existing.child_dob  && childDob)   patch.child_dob  = childDob;
+        if (!existing.child_name && childName)   patch.child_name = childName;
+        if (!existing.enquiry_id && enquiryId)   patch.enquiry_id = enquiryId;
+        if (Object.keys(patch).length > 0) {
+          await client.from("parent_accounts").update(patch).eq("phone", phoneClean);
+        }
+        return NextResponse.json({ success: true, message: "Account already exists" });
+      }
 
       const { error: ie } = await client.from("parent_accounts").insert({
         phone:          phoneClean,
