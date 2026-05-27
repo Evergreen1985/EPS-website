@@ -37,11 +37,19 @@ function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childNam
   const [paidIds, setPaidIds]   = useState<string[]>([]);
   const [payError, setPayError] = useState("");
 
+  // Remaining balance = amount − discount − already paid
+  const feeRemaining = (f: any) =>
+    Math.max(0, (f.amount || 0) - (f.discount_amount || 0) - (f.paid_amount || 0));
+
   const loadFees = () => {
     if (!enquiryId) return;
-    fetch(`/api/fees/assignments?enquiryId=${enquiryId}&status=pending,overdue`)
+    // Fetch ALL statuses — filter client-side so partial payments / discounts are handled correctly
+    fetch(`/api/fees/assignments?enquiryId=${enquiryId}`)
       .then(r => r.json())
-      .then(data => setFees(Array.isArray(data) ? data : []));
+      .then(data => {
+        const all = Array.isArray(data) ? data : [];
+        setFees(all.filter(f => feeRemaining(f) > 0));
+      });
   };
 
   useEffect(() => { loadFees(); }, [enquiryId]);
@@ -62,7 +70,7 @@ function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childNam
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         feeId:     fee.id,
-        amount:    fee.amount,
+        amount:    feeRemaining(fee),   // charge remaining balance, not full amount
         childName: childName || fee.child_name,
         phone:     phone || "",
       }),
@@ -156,7 +164,9 @@ function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childNam
           <div key={f.id} style={{ borderTop:"1px solid rgba(0,0,0,0.06)", paddingTop:"12px", marginTop:"10px" }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:"13px", fontWeight:700, color:"#1A2F4A" }}>{f.period_label || f.fee_type}</div>
+                <div style={{ fontSize:"13px", fontWeight:700, color:"#1A2F4A" }}>
+                  {(f.fee_structures as any)?.name || f.period_label || f.fee_type}
+                </div>
                 <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>
                   Due:{" "}
                   <span style={{ fontWeight:600, color: isOverdue ? "#DC2626" : "#B08000" }}>
@@ -166,11 +176,24 @@ function FeeDues({ enquiryId, childName, phone }: { enquiryId?: string; childNam
                     <span style={{ marginLeft:"6px", background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>OVERDUE</span>
                   )}
                 </div>
+                {/* Show breakdown if discount or partial payment applied */}
+                {((f.discount_amount || 0) > 0 || (f.paid_amount || 0) > 0) && (
+                  <div style={{ marginTop:"6px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", padding:"6px 8px", fontSize:"10px", color:"#6B7A99" }}>
+                    <div>Total: ₹{(f.amount || 0).toLocaleString("en-IN")}</div>
+                    {(f.discount_amount || 0) > 0 && (
+                      <div style={{ color:"#178F78" }}>Discount: −₹{(f.discount_amount).toLocaleString("en-IN")}</div>
+                    )}
+                    {(f.paid_amount || 0) > 0 && (
+                      <div style={{ color:"#6366F1" }}>Paid: −₹{(f.paid_amount).toLocaleString("en-IN")}</div>
+                    )}
+                  </div>
+                )}
               </div>
               <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"8px" }}>
                 <div style={{ fontSize:"20px", fontWeight:700, color: isOverdue ? "#DC2626" : "#1A2F4A" }}>
-                  ₹{f.amount?.toLocaleString("en-IN")}
+                  ₹{feeRemaining(f).toLocaleString("en-IN")}
                 </div>
+                <div style={{ fontSize:"10px", color:"#6B7A99" }}>balance due</div>
                 <button
                   onClick={() => handlePay(f)}
                   disabled={!!paying}
@@ -247,7 +270,7 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup"|"referrals"|"incidents">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup"|"referrals"|"incidents"|"askschool"|"audio">("home");
   const [paidFees, setPaidFees]         = useState<any[]>([]);
   const [paidLoading, setPaidLoading]   = useState(false);
   const [pendingFees, setPendingFees]   = useState<any[]>([]);
@@ -370,9 +393,16 @@ export default function ParentDashboardPage() {
       .then(d => setPaidFees(Array.isArray(d) ? d : []))
       .catch(() => setPaidFees([]))
       .finally(() => setPaidLoading(false));
-    fetch(`/api/fees/assignments?enquiryId=${selectedChild.id}&status=pending,overdue`)
+    // Fetch ALL statuses, then filter client-side to remaining > 0
+    // This captures partial payments and discounts correctly
+    fetch(`/api/fees/assignments?enquiryId=${selectedChild.id}`)
       .then(r => r.json())
-      .then(d => setPendingFees(Array.isArray(d) ? d : []))
+      .then(d => {
+        const all = Array.isArray(d) ? d : [];
+        setPendingFees(all.filter(f =>
+          Math.max(0, (f.amount || 0) - (f.discount_amount || 0) - (f.paid_amount || 0)) > 0
+        ));
+      })
       .catch(() => setPendingFees([]))
       .finally(() => setPendingLoad(false));
   }, [tab, selectedChild?.id]);
@@ -396,9 +426,10 @@ export default function ParentDashboardPage() {
     setTabPayError(""); setTabPaying(fee.id);
     const loaded = await loadRazorpayScript();
     if (!loaded) { setTabPayError("Failed to load payment gateway. Check your connection."); setTabPaying(null); return; }
+    const tabFeeRemaining = Math.max(0, (fee.amount || 0) - (fee.discount_amount || 0) - (fee.paid_amount || 0));
     const res = await fetch("/api/fees/pay", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feeId: fee.id, amount: fee.amount, childName: selectedChild?.child_name || fee.child_name, phone: session?.phone || "" }),
+      body: JSON.stringify({ feeId: fee.id, amount: tabFeeRemaining, childName: selectedChild?.child_name || fee.child_name, phone: session?.phone || "" }),
     });
     const data = await res.json();
     if (!res.ok || data.error) { setTabPayError(data.error || "Could not create payment order."); setTabPaying(null); return; }
@@ -839,7 +870,9 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
                             <div key={f.id} style={{ border:`1px solid ${isOverdue ? "rgba(220,38,38,0.25)" : "rgba(245,184,41,0.35)"}`, borderRadius:"14px", padding:"14px 16px", background: isOverdue ? "rgba(220,38,38,0.03)" : "rgba(245,184,41,0.04)" }}>
                               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:"10px", flexWrap:"wrap" }}>
                                 <div style={{ flex:1 }}>
-                                  <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>{f.period_label || f.fee_type || "Fee"}</div>
+                                  <div style={{ fontWeight:700, fontSize:"13px", color:"#1A2F4A" }}>
+                                    {(f.fee_structures as any)?.name || f.period_label || f.fee_type || "Fee"}
+                                  </div>
                                   <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"3px" }}>
                                     Due:{" "}
                                     <span style={{ fontWeight:600, color: isOverdue ? "#DC2626" : "#B08000" }}>
@@ -849,11 +882,24 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
                                       <span style={{ marginLeft:"6px", background:"rgba(220,38,38,0.1)", color:"#DC2626", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>OVERDUE</span>
                                     )}
                                   </div>
+                                  {/* Breakdown when discount or partial payment exists */}
+                                  {((f.discount_amount || 0) > 0 || (f.paid_amount || 0) > 0) && (
+                                    <div style={{ marginTop:"6px", background:"rgba(0,0,0,0.03)", borderRadius:"8px", padding:"6px 8px", fontSize:"10px", color:"#6B7A99" }}>
+                                      <div>Total: ₹{(f.amount || 0).toLocaleString("en-IN")}</div>
+                                      {(f.discount_amount || 0) > 0 && (
+                                        <div style={{ color:"#178F78" }}>Discount: −₹{(f.discount_amount).toLocaleString("en-IN")}</div>
+                                      )}
+                                      {(f.paid_amount || 0) > 0 && (
+                                        <div style={{ color:"#6366F1" }}>Paid: −₹{(f.paid_amount).toLocaleString("en-IN")}</div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                                 <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"8px" }}>
                                   <div style={{ fontSize:"20px", fontWeight:700, color: isOverdue ? "#DC2626" : "#1A2F4A" }}>
-                                    ₹{Number(f.amount).toLocaleString("en-IN")}
+                                    ₹{Math.max(0, (f.amount||0) - (f.discount_amount||0) - (f.paid_amount||0)).toLocaleString("en-IN")}
                                   </div>
+                                  <div style={{ fontSize:"10px", color:"#6B7A99" }}>balance due</div>
                                   <button
                                     onClick={() => handleTabPay(f)}
                                     disabled={!!tabPaying}
