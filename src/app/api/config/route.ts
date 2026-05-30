@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSchoolConfig } from "@/lib/getSchoolConfig";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Middleware injects x-school-slug; getSchoolConfig reads it via next/headers
   const school = await getSchoolConfig();
 
   // Return public config only — no secrets

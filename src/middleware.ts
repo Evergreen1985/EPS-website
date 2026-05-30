@@ -47,20 +47,40 @@ function isParentRoute(p: string) {
   return PARENT_PREFIXES.some((x) => p === x || p.startsWith(x + "/") || p.startsWith(x + "?"));
 }
 
+// Map hostnames → school slugs (add new schools here)
+const HOSTNAME_SLUG: Record<string, string> = {
+  "evergreenprepschools.com":     "evergreen",
+  "www.evergreenprepschools.com": "evergreen",
+  "evergreenprepschools.in":      "evergreen",
+  "www.evergreenprepschools.in":  "evergreen",
+  "edu.intelliverify.in":         "intelliverify",
+};
+
+function slugFromHost(host: string): string {
+  return HOSTNAME_SLUG[host] || process.env.NEXT_PUBLIC_SCHOOL_SLUG || "evergreen";
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (PUBLIC_EXACT.has(pathname)) return NextResponse.next();
+
+  // Inject school slug header for all requests
+  const host = req.headers.get("host") || "";
+  const slug = slugFromHost(host);
+  const res = NextResponse.next();
+  res.headers.set("x-school-slug", slug);
+
+  if (PUBLIC_EXACT.has(pathname)) return res;
 
   if (isAdminRoute(pathname)) {
     const token = req.cookies.get(COOKIE_NAME)?.value ?? "";
     const session = token ? await verifySession(token) : null;
     if (!session) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-      const res = NextResponse.redirect(new URL("/admin-login", req.url));
-      if (token) res.cookies.delete(COOKIE_NAME);
-      return res;
+      const r = NextResponse.redirect(new URL("/admin-login", req.url));
+      if (token) r.cookies.delete(COOKIE_NAME);
+      return r;
     }
-    return NextResponse.next();
+    return res;
   }
 
   if (isOwnerRoute(pathname)) {
@@ -68,11 +88,11 @@ export async function middleware(req: NextRequest) {
     const session = token ? await verifyOwnerSession(token) : null;
     if (!session) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-      const res = NextResponse.redirect(new URL("/owner-login", req.url));
-      if (token) res.cookies.delete(OWNER_COOKIE_NAME);
-      return res;
+      const r = NextResponse.redirect(new URL("/owner-login", req.url));
+      if (token) r.cookies.delete(OWNER_COOKIE_NAME);
+      return r;
     }
-    return NextResponse.next();
+    return res;
   }
 
   if (isTeacherRoute(pathname)) {
@@ -80,11 +100,11 @@ export async function middleware(req: NextRequest) {
     const session = token ? await verifyTeacherSession(token) : null;
     if (!session) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-      const res = NextResponse.redirect(new URL("/teacher-login", req.url));
-      if (token) res.cookies.delete(TEACHER_COOKIE_NAME);
-      return res;
+      const r = NextResponse.redirect(new URL("/teacher-login", req.url));
+      if (token) r.cookies.delete(TEACHER_COOKIE_NAME);
+      return r;
     }
-    return NextResponse.next();
+    return res;
   }
 
   if (isParentRoute(pathname)) {
@@ -92,18 +112,19 @@ export async function middleware(req: NextRequest) {
     const session = token ? await verifyParentSession(token) : null;
     if (!session) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-      const res = NextResponse.redirect(new URL("/parent-login", req.url));
-      if (token) res.cookies.delete(PARENT_COOKIE_NAME);
-      return res;
+      const r = NextResponse.redirect(new URL("/parent-login", req.url));
+      if (token) r.cookies.delete(PARENT_COOKIE_NAME);
+      return r;
     }
-    return NextResponse.next();
+    return res;
   }
 
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
   matcher: [
+    "/api/config",
     "/admin/:path*",
     "/api/admin/:path*",
     "/api/import/:path*",

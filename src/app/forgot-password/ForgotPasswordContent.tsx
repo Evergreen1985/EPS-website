@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -11,6 +11,11 @@ export default function ForgotPasswordContent() {
   const role   = (params.get("role") || "parent") as "parent" | "teacher";
 
   const [step, setStep]           = useState<Step>("phone");
+  const [schoolName, setSchoolName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then(r => r.json()).then(d => { if (d.school?.name) setSchoolName(d.school.name); }).catch(() => {});
+  }, []);
   const [phone, setPhone]         = useState("");
   const [dob, setDob]             = useState("");
   const [last4, setLast4]         = useState("");
@@ -89,7 +94,7 @@ export default function ForgotPasswordContent() {
           <div style={{ fontSize:"36px", marginBottom:"10px" }}>🔑</div>
           <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.6rem", fontWeight:700, color:"white" }}>Reset Password</div>
           <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)", marginTop:"4px" }}>
-            {isTeacher ? "Teacher Portal" : "Parent Portal"} — Evergreen Preschool
+            {isTeacher ? "Teacher Portal" : "Parent Portal"}{schoolName ? ` — ${schoolName}` : ""}
           </div>
         </div>
 

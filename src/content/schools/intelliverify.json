@@ -1,0 +1,110 @@
+{
+  "slug": "intelliverify",
+  "name": "IntelliVerify Preschool",
+  "shortName": "IntelliVerify",
+  "tagline": "Smart Learning for Young Minds",
+  "description": "A demo preschool management platform by IntelliVerify. Showcasing AI-powered tools, parent engagement, and smart school management.",
+  "domain": "https://edu.intelliverify.in",
+
+  "contact": {
+    "phone": "9999999999",
+    "email": "demo@intelliverify.ai",
+    "whatsappPhone": "919999999999"
+  },
+
+  "address": {
+    "full": "IntelliVerify Technologies, Bengaluru, Karnataka, India",
+    "short": "Bengaluru, Karnataka",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560001",
+    "mapEmbedUrl": "",
+    "googleReviewsUrl": ""
+  },
+
+  "theme": {
+    "primaryColor": "#4F46E5",
+    "secondaryColor": "#7C3AED",
+    "accentColor": "#06B6D4",
+    "darkColor": "#1E1B4B",
+    "lightBg": "#F5F3FF",
+    "fontHeading": "Fredoka",
+    "fontBody": "Quicksand"
+  },
+
+  "branding": {
+    "logoUrl": "/intelliverify-logo.svg",
+    "logoWhiteUrl": "/intelliverify-logo.svg",
+    "faviconUrl": "/favicon.ico"
+  },
+
+  "social": {
+    "facebook": "",
+    "instagram": "",
+    "youtube": "",
+    "twitter": ""
+  },
+
+  "hours": {
+    "weekdays": "8:00 AM – 6:00 PM",
+    "saturday": "9:00 AM – 1:00 PM",
+    "sunday": "Closed"
+  },
+
+  "hero": {
+    "heading": "Smart School Management",
+    "subheading": "AI-powered preschool management platform. Parent dashboards, smart attendance, fee management and more — all in one place.",
+    "ctaPrimary": "Get Started",
+    "ctaSecondary": "See Features",
+    "stats": [
+      { "value": "AI",    "label": "Powered Tools" },
+      { "value": "PWA",   "label": "Mobile App" },
+      { "value": "1-Min", "label": "Attendance" },
+      { "value": "Live",  "label": "Parent Updates" }
+    ]
+  },
+
+  "about": {
+    "heading": "About IntelliVerify",
+    "story": "IntelliVerify builds smart management tools for preschools and daycares across India. This platform demonstrates our full feature set — from AI-powered parent Q&A to real-time attendance and fee management.",
+    "mission": "To empower preschools with technology that saves time, improves parent engagement, and helps every child get the best start in life.",
+    "vision": "To be the leading preschool management platform in India, trusted by schools for reliability, simplicity, and powerful AI features.",
+    "values": [],
+    "team": [],
+    "facilities": []
+  },
+
+  "rating": {
+    "score": "5.0",
+    "count": "0"
+  },
+
+  "ai": {
+    "schoolContext": "IntelliVerify Preschool Demo, Bengaluru, India",
+    "city": "Bengaluru",
+    "country": "India",
+    "curriculumFocus": "Indian early childhood education"
+  },
+
+  "auth": {
+    "passwordPrefix": "IntelliVerify"
+  },
+
+  "faq": [
+    { "q": "Is this a real school?", "a": "This is a demo deployment of the IntelliVerify preschool management platform. Contact demo@intelliverify.ai for a personalised demo for your school." },
+    { "q": "How do I get this for my school?", "a": "Contact IntelliVerify at demo@intelliverify.ai. We offer white-label deployment on your own domain within days." }
+  ],
+
+  "features": {
+    "transport":      true,
+    "aiTools":        true,
+    "feePayment":     true,
+    "medicalRecords": true,
+    "payroll":        true,
+    "ptmScheduler":   true,
+    "blog":           false,
+    "referral":       true,
+    "gallery":        true,
+    "community":      true
+  }
+}

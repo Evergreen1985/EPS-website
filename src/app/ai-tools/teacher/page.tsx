@@ -149,6 +149,16 @@ export default function TeacherAITools() {
 
       </div>
 
+      {/* ── RAG Activity Planner banner ── */}
+      <div style={{ flexShrink:0, background:"linear-gradient(90deg,rgba(23,143,120,0.15),rgba(23,143,120,0.05))", borderBottom:"1px solid rgba(23,143,120,0.2)", padding:"8px 16px", display:"flex", alignItems:"center", gap:"10px" }}>
+        <span style={{ fontSize:"16px" }}>🎯</span>
+        <div style={{ flex:1 }}>
+          <span style={{ fontSize:"11px", fontWeight:700, color:"#178F78" }}>NEW: RAG Activity Planner</span>
+          <span style={{ fontSize:"10px", color:"#6B7A99", marginLeft:"8px" }}>Grounded in NCF-FS & your school curriculum</span>
+        </div>
+        <a href="/ai-tools/teacher/planner" style={{ background:"#178F78", color:"white", borderRadius:"20px", padding:"5px 14px", fontSize:"11px", fontWeight:700, textDecoration:"none", flexShrink:0 }}>Open →</a>
+      </div>
+
       {/* ── Tool tab strip ── */}
       <div style={{ flexShrink:0, background:"white", borderBottom:"1px solid #EDE8DF", display:"flex", overflowX:"auto" }}>
         {TOOLS.map(t => (

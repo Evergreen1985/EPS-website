@@ -8,21 +8,50 @@
   "orientation": "portrait",
   "background_color": "#FEFCF8",
   "theme_color": "#178F78",
+  "lang": "en-IN",
+  "categories": ["education", "kids"],
   "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
     {
-      "src": "/logo.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "name": "My Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your child's updates",
+      "url": "/parent-dashboard",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
     },
+    {
+      "name": "Pay Fees",
+      "short_name": "Fees",
+      "description": "View and pay school fees",
+      "url": "/parent-dashboard?tab=fees",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Homework",
+      "short_name": "Homework",
+      "description": "View homework assignments",
+      "url": "/parent-dashboard?tab=homework",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Ask School AI",
+      "short_name": "Ask AI",
+      "description": "Ask questions about the school",
+      "url": "/parent-dashboard?tab=askschool",
+      "icons": [{ "src": "/logo.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [
     {
       "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "form_factor": "narrow",
+      "label": "Evergreen Preschool Parent Portal"
     }
-  ],
-  "screenshots": [],
-  "categories": ["education", "kids"],
-  "lang": "en-IN"
+  ]
 }

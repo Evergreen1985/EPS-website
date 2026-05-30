@@ -23,6 +23,8 @@ import LeadFollowUpTab from "@/components/LeadFollowUpTab";
 import BirthdayPanel from "@/components/BirthdayPanel";
 import TestimonialsManager from "@/components/TestimonialsManager";
 import IncidentLog from "@/components/IncidentLog";
+import KnowledgeBaseAdmin from "@/components/KnowledgeBaseAdmin";
+import AudioOverviewAdmin from "@/components/AudioOverviewAdmin";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -37,7 +39,7 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup" | "payroll" | "ptm" | "blog" | "referrals" | "followups" | "birthdays" | "testimonials" | "incidents";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup" | "payroll" | "ptm" | "blog" | "referrals" | "followups" | "birthdays" | "testimonials" | "incidents" | "knowledgebase" | "audiooverviews";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
@@ -742,7 +744,9 @@ export default function AdminPage() {
           { key:"followups",     label:"📋 Follow-Ups",    count: 0 },
           { key:"birthdays",     label:"🎂 Birthdays",     count: 0 },
           { key:"testimonials",  label:"💬 Testimonials",  count: 0 },
-          { key:"incidents",     label:"🚨 Incidents",     count: 0 },
+          { key:"incidents",       label:"🚨 Incidents",       count: 0 },
+          { key:"knowledgebase",   label:"📚 Knowledge Base",  count: 0 },
+          { key:"audiooverviews",  label:"🎙️ Audio Overviews", count: 0 },
         ] as const).filter(t => !allowedTabs || allowedTabs.includes(t.key)).map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding:"14px 18px", border:"none", borderBottom:`3px solid ${tab===t.key ? "#178F78" : "transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key ? "#178F78" : "#6B7A99", cursor:"pointer", display:"flex", alignItems:"center", gap:"6px", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -1845,6 +1849,12 @@ export default function AdminPage() {
 
       {/* ══ INCIDENTS TAB ══ */}
       {tab === "incidents" && <IncidentLog />}
+
+      {/* ══ KNOWLEDGE BASE TAB ══ */}
+      {tab === "knowledgebase" && <KnowledgeBaseAdmin />}
+
+      {/* ══ AUDIO OVERVIEWS TAB ══ */}
+      {tab === "audiooverviews" && <AudioOverviewAdmin />}
 
     </div>
   );

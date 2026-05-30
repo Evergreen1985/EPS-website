@@ -1,10 +1,8 @@
 "use client";
 import { usePathname } from "next/navigation";
-import Footer from "@/components/Footer";
 
-// Hide footer only on full-screen snap-scroll and portal/dashboard pages
 const FULLSCREEN_PAGES = [
-  "/",                  // full-screen snap-scroll design — footer breaks layout
+  "/",
   "/ai-tools",
   "/admin",
   "/owner",
@@ -13,9 +11,9 @@ const FULLSCREEN_PAGES = [
   "/teacher-dashboard",
 ];
 
-export default function FooterWrapper() {
+export default function FooterWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const hide = FULLSCREEN_PAGES.some(p => pathname === p || pathname.startsWith(p + "/"));
   if (hide) return null;
-  return <Footer />;
+  return <>{children}</>;
 }

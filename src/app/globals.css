@@ -41,3 +41,17 @@ h1, h2, h3, h4, h5, h6 {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Mobile dashboard safe area */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* Tap highlight off globally for buttons */
+button { -webkit-tap-highlight-color: transparent; }
+
+/* Prevent text size inflation on mobile */
+html { -webkit-text-size-adjust: 100%; }
+
+/* Smooth momentum scrolling on iOS */
+.scroll-touch { -webkit-overflow-scrolling: touch; }

@@ -188,6 +188,18 @@ export default function ParentAITools() {
 
       </div>
 
+      {/* ── Ask School AI RAG banner ── */}
+      {audience === "parent" && (
+        <div style={{ flexShrink:0, background:"linear-gradient(90deg,rgba(137,87,229,0.12),rgba(99,102,241,0.05))", borderBottom:"1px solid rgba(137,87,229,0.2)", padding:"7px 16px", display:"flex", alignItems:"center", gap:"10px" }}>
+          <span style={{ fontSize:"15px" }}>💬</span>
+          <div style={{ flex:1 }}>
+            <span style={{ fontSize:"11px", fontWeight:700, color:"#8957E5" }}>Ask School AI</span>
+            <span style={{ fontSize:"10px", color:"#6B7A99", marginLeft:"8px" }}>Fees, policies & school info — from official documents</span>
+          </div>
+          <a href="/parent-dashboard" style={{ background:"#8957E5", color:"white", borderRadius:"20px", padding:"5px 14px", fontSize:"11px", fontWeight:700, textDecoration:"none", flexShrink:0 }}>Open in Portal →</a>
+        </div>
+      )}
+
       {/* ── Tool strip ── */}
       <div style={{ flexShrink:0, background:"white", borderBottom:"1px solid #EDE8DF", display:"flex", overflowX:"auto" }}>
         {allTools.map(t => (

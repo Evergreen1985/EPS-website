@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded square -->
+  <rect width="120" height="120" rx="26" fill="url(#g1)"/>
+
+  <!-- Inner glow ring -->
+  <rect x="6" y="6" width="108" height="108" rx="21" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+
+  <!-- Brain / neural icon — simplified abstract shape -->
+  <!-- Left lobe -->
+  <ellipse cx="47" cy="52" rx="18" ry="22" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Right lobe -->
+  <ellipse cx="73" cy="52" rx="18" ry="22" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Center divider line -->
+  <line x1="60" y1="30" x2="60" y2="74" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Bottom stem -->
+  <path d="M52 74 Q60 84 68 74" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Checkmark / verify spark — top right -->
+  <circle cx="87" cy="33" r="13" fill="url(#g2)" stroke="white" stroke-width="2"/>
+  <polyline points="81,33 85.5,38 93,28" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- "edu" wordmark below icon -->
+  <text x="60" y="102" font-family="'Arial Rounded MT Bold', 'Arial', sans-serif" font-weight="900" font-size="16" fill="rgba(255,255,255,0.9)" text-anchor="middle" letter-spacing="3">EDU</text>
+</svg>

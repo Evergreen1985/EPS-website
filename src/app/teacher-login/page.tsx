@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -10,6 +10,11 @@ export default function TeacherLoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [schoolName, setSchoolName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then(r => r.json()).then(d => { if (d.school?.name) setSchoolName(d.school.name); }).catch(() => {});
+  }, []);
 
   const handleLogin = async () => {
     setLoading(true); setError("");
@@ -34,7 +39,7 @@ export default function TeacherLoginPage() {
         <div style={{ textAlign:"center", marginBottom:"28px" }}>
           <div style={{ width:"68px", height:"68px", borderRadius:"20px", background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"32px", margin:"0 auto 14px" }}>👥</div>
           <div style={{ fontFamily:"'Fredoka',sans-serif", fontSize:"1.7rem", fontWeight:700, color:"white" }}>School Staff Login</div>
-          <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)", marginTop:"4px" }}>Evergreen Preschool & Daycare</div>
+          {schoolName && <div style={{ fontSize:"12px", color:"rgba(255,255,255,0.5)", marginTop:"4px" }}>{schoolName}</div>}
         </div>
 
         <div style={{ background:"rgba(255,255,255,0.07)", border:"1px solid rgba(255,255,255,0.12)", borderRadius:"24px", padding:"28px" }}>

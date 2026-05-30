@@ -103,6 +103,11 @@ export default function OwnerDashboard() {
   const router = useRouter();
   const [tab, setTab] = useState<OwnerTab>("overview");
   const [ownerName, setOwnerName] = useState("Owner");
+  const [schoolName, setSchoolName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then(r => r.json()).then(d => { if (d.school?.name) setSchoolName(d.school.name); }).catch(() => {});
+  }, []);
 
   // Data states
   const [overview, setOverview] = useState<any>(null);
@@ -378,7 +383,7 @@ export default function OwnerDashboard() {
             </div>
             <div>
               <div style={{ fontFamily: "'Fredoka', sans-serif", fontWeight: 700, fontSize: "1.1rem" }}>Owner Portal</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>Evergreen Preschool & Daycare</div>
+              {schoolName && <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>{schoolName}</div>}
             </div>
           </div>
           <button onClick={logout} style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "10px", color: "rgba(255,255,255,0.6)", padding: "8px 14px", cursor: "pointer", fontSize: "12px" }}>

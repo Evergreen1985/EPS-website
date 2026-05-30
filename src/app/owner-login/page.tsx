@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Building2 } from "lucide-react";
 
@@ -10,6 +10,11 @@ export default function OwnerLoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+
+  useEffect(() => {
+    fetch("/api/config").then(r => r.json()).then(d => { if (d.school?.name) setSchoolName(d.school.name); }).catch(() => {});
+  }, []);
 
   const handleLogin = async () => {
     if (!username || !password) return;
@@ -64,9 +69,9 @@ export default function OwnerLoginPage() {
           <div style={{ fontFamily: "'Fredoka', sans-serif", fontSize: "1.7rem", fontWeight: 700, color: "white" }}>
             Owner Portal
           </div>
-          <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "4px" }}>
-            Evergreen Preschool & Daycare — School Management
-          </div>
+          {schoolName && <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", marginTop: "4px" }}>
+            {schoolName} — School Management
+          </div>}
         </div>
 
         {/* Card */}

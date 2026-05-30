@@ -1,7 +1,5 @@
-// Evergreen Preschool — Service Worker
-const CACHE = "eps-parent-v1";
-
-// Pages to pre-cache so parent dashboard loads offline
+// Evergreen Preschool — Service Worker v2
+const CACHE = "eps-v2";
 const PRECACHE = ["/parent-login", "/parent-dashboard", "/offline.html"];
 
 self.addEventListener("install", (event) => {
@@ -24,14 +22,11 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET, API calls, and external requests
   if (
     request.method !== "GET" ||
     url.pathname.startsWith("/api/") ||
     url.origin !== self.location.origin
-  ) {
-    return;
-  }
+  ) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
@@ -45,10 +40,39 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => cached || caches.match("/offline.html"));
 
-      // Cache-first for static assets, network-first for pages
       return url.pathname.match(/\.(js|css|png|jpg|svg|ico|woff2?)$/)
         ? cached || networkFetch
         : networkFetch;
+    })
+  );
+});
+
+// ── Push Notifications ──────────────────────────────────────────────────────
+self.addEventListener("push", (event) => {
+  let data = { title: "Evergreen Preschool", body: "You have a new update.", url: "/parent-dashboard" };
+  try { data = { ...data, ...event.data.json() }; } catch {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body:    data.body,
+      icon:    "/logo.png",
+      badge:   "/logo.png",
+      tag:     data.tag || "evergreen-notification",
+      data:    { url: data.url || "/parent-dashboard" },
+      actions: [{ action: "open", title: "Open App" }],
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/parent-dashboard";
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const existing = list.find((c) => c.url.includes(self.location.origin) && "focus" in c);
+      if (existing) return existing.focus().then((c) => c.navigate(url));
+      return clients.openWindow(url);
     })
   );
 });
