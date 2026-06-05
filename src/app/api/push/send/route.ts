@@ -3,11 +3,18 @@ import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
 import { sendExpoPush } from "@/lib/expo-push";
 
-webpush.setVapidDetails(
-  process.env.VAPID_MAILTO || "mailto:admin@evergreenpreschool.in",
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
-  process.env.VAPID_PRIVATE_KEY || ""
-);
+// Configure VAPID lazily (only when keys exist) so importing this route at build
+// time doesn't throw "No key set vapidDetails.publicKey" when keys aren't set.
+let vapidReady = false;
+function ensureVapid(): boolean {
+  if (vapidReady) return true;
+  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+  const priv = process.env.VAPID_PRIVATE_KEY || "";
+  if (!pub || !priv) return false;
+  webpush.setVapidDetails(process.env.VAPID_MAILTO || "mailto:admin@evergreenpreschool.in", pub, priv);
+  vapidReady = true;
+  return true;
+}
 
 function sb() {
   return createClient(
@@ -32,7 +39,7 @@ export async function POST(req: NextRequest) {
     let webSent = 0;
     const deadEndpoints: string[] = [];
 
-    if (subs?.length) {
+    if (subs?.length && ensureVapid()) {
       await Promise.allSettled(
         subs.map(async (sub) => {
           try {
