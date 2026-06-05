@@ -51,7 +51,12 @@ export default function TeacherDashboardPage() {
 
   // New homework form
   const [showHWForm, setShowHWForm] = useState(false);
-  const [hwForm, setHWForm] = useState({ title:"", subject:"", description:"", dueDate:"" });
+  const [hwForm, setHWForm] = useState({ title:"", subject:"", description:"", dueDate:"", keywords:"" });
+  const [hwFiles, setHWFiles] = useState<any[]>([]);          // teacher attachments for the new homework
+  const [hwUploading, setHWUploading] = useState(false);
+  const [hwStatuses, setHWStatuses] = useState<Record<string, any[]>>({}); // homework_id → parent responses
+  const [hwReply, setHWReply] = useState<Record<string, string>>({});      // status row id → reply draft
+  const [hwExpanded, setHWExpanded] = useState<string | null>(null);
   const [hwSaving, setHWSaving]   = useState(false);
 
   // Attendance history state
@@ -291,7 +296,7 @@ export default function TeacherDashboardPage() {
 
   // ── Assign homework ───────────────────────────────────
   const assignHW = async () => {
-    if (!hwForm.title || !hwForm.dueDate) return;
+    if (!hwForm.title) return;
     setHWSaving(true);
     await fetch("/api/teacher/homework", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -301,15 +306,57 @@ export default function TeacherDashboardPage() {
         title:       hwForm.title,
         subject:     hwForm.subject,
         description: hwForm.description,
-        dueDate:     hwForm.dueDate,
+        dueDate:     hwForm.dueDate || null,
         assignedBy:  session.name,
+        attachments: hwFiles,
+        audioKeywords: hwForm.keywords || null,
       }),
     });
-    setHWForm({ title:"", subject:"", description:"", dueDate:"" });
+    setHWForm({ title:"", subject:"", description:"", dueDate:"", keywords:"" });
+    setHWFiles([]);
     setShowHWForm(false);
     setHWSaving(false);
     loadData(currentSectionId);
   };
+
+  // Upload a teacher attachment (image / pdf / video) for the new homework
+  const uploadHWFile = async (file: File) => {
+    setHWUploading(true);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/teacher/homework/upload", { method: "POST", body: fd });
+      const j = await res.json();
+      if (j.url) setHWFiles(f => [...f, { url: j.url, name: j.name, type: j.type }]);
+      else alert(j.error || "Upload failed");
+    } catch { alert("Upload failed"); }
+    setHWUploading(false);
+  };
+
+  // Parent responses (status / doubts) for the loaded homework
+  const loadHWStatuses = async (hwList: any[]) => {
+    const ids = (hwList || []).map(h => h.id).filter(Boolean);
+    if (!ids.length) { setHWStatuses({}); return; }
+    try {
+      const res = await fetch(`/api/teacher/homework/status?homeworkIds=${ids.join(",")}`);
+      const rows = await res.json();
+      const map: Record<string, any[]> = {};
+      (Array.isArray(rows) ? rows : []).forEach((r: any) => { (map[r.homework_id] ??= []).push(r); });
+      setHWStatuses(map);
+    } catch {}
+  };
+
+  const replyToDoubt = async (rowId: string) => {
+    const reply = (hwReply[rowId] || "").trim();
+    if (!reply) return;
+    await fetch("/api/teacher/homework/status", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: rowId, reply }),
+    });
+    setHWReply(d => ({ ...d, [rowId]: "" }));
+    loadHWStatuses(homework);
+  };
+
+  useEffect(() => { loadHWStatuses(homework); /* refresh responses when homework list changes */ }, [homework]);
 
   const deleteHW = async (id: string) => {
     if (!confirm("Delete this homework?")) return;
@@ -654,7 +701,7 @@ export default function TeacherDashboardPage() {
                     <input value={hwForm.subject} onChange={e => setHWForm(p=>({...p,subject:e.target.value}))} style={inp} placeholder="Art, Math, English…" />
                   </div>
                   <div>
-                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>DUE DATE *</label>
+                    <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>DUE DATE (optional)</label>
                     <input type="date" value={hwForm.dueDate} onChange={e => setHWForm(p=>({...p,dueDate:e.target.value}))} style={inp} min={today} />
                   </div>
                 </div>
@@ -662,8 +709,29 @@ export default function TeacherDashboardPage() {
                   <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>DESCRIPTION (optional)</label>
                   <input value={hwForm.description} onChange={e => setHWForm(p=>({...p,description:e.target.value}))} style={inp} placeholder="Add details or instructions…" />
                 </div>
+                <div style={{ marginBottom:"12px" }}>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>KEEP IN ENGLISH — e.g. 1 to 10, A B C (optional)</label>
+                  <input value={hwForm.keywords} onChange={e => setHWForm(p=>({...p,keywords:e.target.value}))} style={inp} placeholder="Words/phrases that must NOT be translated in the audio" />
+                </div>
+                <div style={{ marginBottom:"12px" }}>
+                  <label style={{ fontSize:"10px", fontWeight:700, color:"#6B7A99", display:"block", marginBottom:"4px" }}>ATTACHMENTS — image / pdf / video (optional)</label>
+                  <input type="file" accept="image/*,application/pdf,video/*"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadHWFile(f); e.currentTarget.value=""; }}
+                    style={{ fontSize:"12px" }} />
+                  {hwUploading && <span style={{ fontSize:"11px", color:"#6B7A99", marginLeft:"8px" }}>Uploading…</span>}
+                  {hwFiles.length > 0 && (
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:"6px", marginTop:"8px" }}>
+                      {hwFiles.map((f,i) => (
+                        <span key={i} style={{ fontSize:"11px", background:"#EEF8F6", color:"#178F78", borderRadius:"8px", padding:"3px 8px" }}>
+                          📎 {f.name || `file ${i+1}`}
+                          <span onClick={() => setHWFiles(arr => arr.filter((_,j)=>j!==i))} style={{ cursor:"pointer", color:"#DC2626", marginLeft:"6px", fontWeight:700 }}>✕</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display:"flex", gap:"8px" }}>
-                  <button onClick={assignHW} disabled={hwSaving||!hwForm.title||!hwForm.dueDate}
+                  <button onClick={assignHW} disabled={hwSaving||!hwForm.title}
                     style={{ background:"#178F78", color:"white", border:"none", borderRadius:"10px", padding:"8px 18px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>
                     {hwSaving ? "Saving…" : "Assign to Class"}
                   </button>
@@ -680,22 +748,77 @@ export default function TeacherDashboardPage() {
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
                 {homework.map(hw => {
-                  const isPast = new Date(hw.due_date) < new Date();
+                  const isPast = hw.due_date ? new Date(hw.due_date) < new Date() : false;
+                  const sts: any[] = hwStatuses[hw.id] || [];
+                  const doneCount = sts.filter(r => r.status === "done").length;
+                  const doubts = sts.filter(r => r.parent_doubt);
+                  const tFiles: string[] = [
+                    ...(Array.isArray(hw.attachments) ? hw.attachments.map((a: any) => a?.url).filter(Boolean) : []),
+                    ...(hw.file_url ? [hw.file_url] : []),
+                  ];
+                  const open = hwExpanded === hw.id;
                   return (
-                    <div key={hw.id} style={{ background:"white", borderRadius:"14px", border:`1px solid ${isPast?"rgba(232,105,74,0.25)":"#EDE8DF"}`, padding:"14px 16px", display:"flex", alignItems:"center", gap:"12px" }}>
-                      <div style={{ width:"42px", height:"42px", borderRadius:"12px", background:isPast?"rgba(232,105,74,0.1)":"rgba(99,102,241,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0 }}>📝</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{hw.title}</div>
-                        <div style={{ fontSize:"11px", color:"#6B7A99" }}>
-                          {hw.subject && <span style={{ marginRight:"8px" }}>📖 {hw.subject}</span>}
-                          Due: <span style={{ color:isPast?"#E8694A":"#178F78", fontWeight:600 }}>{new Date(hw.due_date).toLocaleDateString("en-IN")}</span>
-                          {isPast && <span style={{ marginLeft:"6px", background:"rgba(232,105,74,0.1)", color:"#E8694A", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>PAST DUE</span>}
+                    <div key={hw.id} style={{ background:"white", borderRadius:"14px", border:`1px solid ${isPast?"rgba(232,105,74,0.25)":"#EDE8DF"}`, padding:"14px 16px", display:"flex", flexDirection:"column", gap:"10px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+                        <div style={{ width:"42px", height:"42px", borderRadius:"12px", background:isPast?"rgba(232,105,74,0.1)":"rgba(99,102,241,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"20px", flexShrink:0 }}>📝</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontWeight:700, fontSize:"14px", color:"#1A2F4A" }}>{hw.title}</div>
+                          <div style={{ fontSize:"11px", color:"#6B7A99" }}>
+                            {hw.subject && <span style={{ marginRight:"8px" }}>📖 {hw.subject}</span>}
+                            {hw.due_date
+                              ? <>Due: <span style={{ color:isPast?"#E8694A":"#178F78", fontWeight:600 }}>{new Date(hw.due_date).toLocaleDateString("en-IN")}</span></>
+                              : <span>No due date</span>}
+                            {isPast && <span style={{ marginLeft:"6px", background:"rgba(232,105,74,0.1)", color:"#E8694A", borderRadius:"20px", padding:"1px 7px", fontSize:"9px", fontWeight:700 }}>PAST DUE</span>}
+                          </div>
+                          {hw.description && <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>{hw.description}</div>}
                         </div>
-                        {hw.description && <div style={{ fontSize:"11px", color:"#6B7A99", marginTop:"2px" }}>{hw.description}</div>}
+                        <button onClick={() => deleteHW(hw.id)} style={{ background:"rgba(220,38,38,0.08)", border:"none", borderRadius:"8px", padding:"7px", cursor:"pointer", color:"#DC2626" }}>
+                          <Trash2 style={{ width:"14px", height:"14px" }} />
+                        </button>
                       </div>
-                      <button onClick={() => deleteHW(hw.id)} style={{ background:"rgba(220,38,38,0.08)", border:"none", borderRadius:"8px", padding:"7px", cursor:"pointer", color:"#DC2626" }}>
-                        <Trash2 style={{ width:"14px", height:"14px" }} />
-                      </button>
+
+                      {tFiles.length > 0 && (
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+                          {tFiles.map((u, i) => (
+                            <a key={i} href={u} target="_blank" rel="noreferrer" style={{ fontSize:"11px", background:"#EEF8F6", color:"#178F78", borderRadius:"8px", padding:"3px 8px", textDecoration:"none" }}>📎 Attachment {i + 1}</a>
+                          ))}
+                        </div>
+                      )}
+
+                      <div onClick={() => setHWExpanded(open ? null : hw.id)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer", borderTop:"1px solid #EDE8DF", paddingTop:"8px" }}>
+                        <span style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>✓ {doneCount} done · {doubts.length} doubt{doubts.length === 1 ? "" : "s"}</span>
+                        <span style={{ fontSize:"11px", color:"#6B7A99" }}>{open ? "▲ hide" : "▼ responses"}</span>
+                      </div>
+
+                      {open && (
+                        <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+                          {sts.length === 0 ? (
+                            <div style={{ fontSize:"11px", color:"#6B7A99", fontStyle:"italic" }}>No parent responses yet.</div>
+                          ) : sts.map((r: any) => (
+                            <div key={r.id} style={{ background:"#FAFAFA", borderRadius:"10px", padding:"10px" }}>
+                              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                                <span style={{ fontSize:"12px", fontWeight:700, color:"#1A2F4A" }}>{r.child_name || "Child"}</span>
+                                <span style={{ fontSize:"10px", fontWeight:700, borderRadius:"12px", padding:"1px 8px", background:r.status === "done" ? "#16A34A" : "#FEF3C7", color:r.status === "done" ? "white" : "#92400E" }}>{r.status === "done" ? "Done" : "Pending"}</span>
+                              </div>
+                              {r.proof_file_url && <a href={r.proof_file_url} target="_blank" rel="noreferrer" style={{ fontSize:"11px", color:"#178F78", display:"inline-block", marginTop:"4px" }}>🖼 View proof</a>}
+                              {r.parent_doubt && (
+                                <div style={{ marginTop:"6px" }}>
+                                  <div style={{ fontSize:"12px", color:"#1A2F4A" }}>❓ {r.parent_doubt}</div>
+                                  {r.doubt_file_url && <a href={r.doubt_file_url} target="_blank" rel="noreferrer" style={{ fontSize:"11px", color:"#178F78" }}>📎 Attachment</a>}
+                                  {r.teacher_reply ? (
+                                    <div style={{ fontSize:"11px", color:"#178F78", marginTop:"4px", fontWeight:600 }}>↳ You: {r.teacher_reply}</div>
+                                  ) : (
+                                    <div style={{ display:"flex", gap:"6px", marginTop:"6px" }}>
+                                      <input value={hwReply[r.id] || ""} onChange={e => setHWReply(d => ({ ...d, [r.id]: e.target.value }))} placeholder="Reply…" style={{ flex:1, fontSize:"12px", border:"1px solid #EDE8DF", borderRadius:"8px", padding:"6px 8px" }} />
+                                      <button onClick={() => replyToDoubt(r.id)} style={{ background:"#178F78", color:"white", border:"none", borderRadius:"8px", padding:"6px 12px", fontSize:"12px", fontWeight:700, cursor:"pointer" }}>Send</button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

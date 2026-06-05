@@ -11,15 +11,23 @@ function sb() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { sectionId, sectionName, title, description, dueDate, subject, assignedBy } = body;
-    if (!sectionId || !title || !dueDate) return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const { sectionId, sectionName, title, description, dueDate, subject, assignedBy, attachments, audioKeywords } = body;
+    if (!sectionId || !title) return NextResponse.json({ error: "Missing required fields" }, { status: 400 }); // dueDate optional
 
-    const { data, error } = await sb()
-      .from("homework")
-      .insert({ section_id: sectionId, section_name: sectionName, title, description, due_date: dueDate, subject, assigned_by: assignedBy })
-      .select()
-      .single();
+    const row: any = {
+      section_id: sectionId, section_name: sectionName, title,
+      description: description || null, due_date: dueDate || null, subject,
+      assigned_by: assignedBy || null,
+      attachments: Array.isArray(attachments) ? attachments : [],
+    };
+    if (audioKeywords) row.audio_keywords = audioKeywords;
 
+    // resilient insert: if a newer column is missing on this DB, retry without it
+    let { data, error } = await sb().from("homework").insert(row).select().single();
+    if (error && /audio_keywords|attachments/i.test(error.message)) {
+      delete row.audio_keywords; delete row.attachments;
+      ({ data, error } = await sb().from("homework").insert(row).select().single());
+    }
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, data });
   } catch (e: any) {
