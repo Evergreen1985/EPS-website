@@ -14,6 +14,8 @@ import LeadFollowUpTab from "@/components/LeadFollowUpTab";
 import IncidentLog from "@/components/IncidentLog";
 import ParentKBChat from "@/components/ParentKBChat";
 import AudioPlayer from "@/components/AudioPlayer";
+import CommunityTab from "@/components/CommunityTab";
+import ReelsTab from "@/components/ReelsTab";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -270,7 +272,7 @@ export default function ParentDashboardPage() {
   const [matchStatus, setMatchStatus]= useState("");
   const [matchLoading, setMatchLoad] = useState(false);
   const [loading, setLoading]        = useState(true);
-  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup"|"referrals"|"incidents"|"askschool"|"audio">("home");
+  const [tab, setTab]                = useState<"home"|"homework"|"calendar"|"profile"|"photos"|"documents"|"kit"|"payments"|"transport"|"medical"|"pickup"|"referrals"|"incidents"|"askschool"|"audio"|"community"|"reels">("home");
   const [paidFees, setPaidFees]         = useState<any[]>([]);
   const [paidLoading, setPaidLoading]   = useState(false);
   const [pendingFees, setPendingFees]   = useState<any[]>([]);
@@ -568,7 +570,7 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
         {selectedChild && (
           <>
             <div className="no-scrollbar" style={{ display:"flex", gap:"4px", marginBottom:"16px", background:"white", borderRadius:"16px", padding:"4px", border:"1px solid #EDE8DF", overflowX:"auto", WebkitOverflowScrolling:"touch" } as any}>
-              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"referrals",icon:"🎁",label:"Refer"},{key:"incidents",icon:"🚨",label:"Incidents"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"askschool",icon:"💬",label:"Ask AI"},{key:"audio",icon:"🎧",label:"Audio"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
+              {[{key:"home",icon:"🏠",label:"Home"},{key:"homework",icon:"📚",label:"Homework"},{key:"calendar",icon:"📅",label:"Calendar"},{key:"photos",icon:"📸",label:"Photos"},{key:"payments",icon:"💳",label:"Payments"},{key:"medical",icon:"🩺",label:"Medical"},{key:"pickup",icon:"🚗",label:"Pickup"},{key:"referrals",icon:"🎁",label:"Refer"},{key:"incidents",icon:"🚨",label:"Incidents"},{key:"documents",icon:"📁",label:"Docs"},{key:"kit",icon:"🎒",label:"Kit"},{key:"transport",icon:"🚌",label:"Bus"},{key:"askschool",icon:"💬",label:"Ask AI"},{key:"audio",icon:"🎧",label:"Audio"},{key:"community",icon:"👪",label:"Community"},{key:"reels",icon:"🎬",label:"Reels"},{key:"profile",icon:"👶",label:"Profile"}].map(t => (
                 <button key={t.key} onClick={() => setTab(t.key as any)}
                   style={{ flexShrink:0, minWidth:"62px", padding:"8px 4px", borderRadius:"12px", border:"none", cursor:"pointer", fontSize:"11px", fontWeight:700, display:"flex", flexDirection:"column", alignItems:"center", gap:"2px", transition:"all 0.2s", background:tab===t.key?"#178F78":"transparent", color:tab===t.key?"white":"#6B7A99", touchAction:"manipulation" }}>
                   <span style={{ fontSize:"16px" }}>{t.icon}</span>{t.label}
@@ -1080,6 +1082,14 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
               <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", overflow:"hidden" }}>
                 <AudioPlayer />
               </div>
+            )}
+
+            {tab === "community" && (
+              <CommunityTab userType="parent" userRef={session?.phone || ""} displayName={session?.parent_name || session?.childName || session?.name || "Parent"} />
+            )}
+
+            {tab === "reels" && (
+              <ReelsTab phone={session?.phone || ""} />
             )}
 
             {/* ══ PROFILE TAB ══ */}
