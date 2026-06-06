@@ -503,10 +503,10 @@ export default function TeacherDashboardPage() {
       {/* Tabs — only render when there are visible tabs */}
       {visibleTabs.length > 0 && (
         <div style={{ background:"white", borderBottom:"1px solid #EDE8DF" }}>
-          <div className="no-scrollbar" style={{ maxWidth:"900px", margin:"0 auto", display:"flex", overflowX:"auto", WebkitOverflowScrolling:"touch" } as any}>
+          <div style={{ maxWidth:"900px", margin:"0 auto", display:"flex", flexWrap:"wrap", justifyContent:"center" }}>
             {visibleTabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                style={{ flexShrink:0, minWidth:"80px", padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"3px", touchAction:"manipulation" }}>
+                style={{ flex:"1 0 auto", minWidth:"76px", maxWidth:"110px", padding:"13px 8px", border:"none", borderBottom:`3px solid ${tab===t.key?"#178F78":"transparent"}`, background:"transparent", fontWeight:700, fontSize:"12px", color:tab===t.key?"#178F78":"#6B7A99", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:"3px", touchAction:"manipulation" }}>
                 <span style={{ fontSize:"18px" }}>{t.icon}</span>
                 <span style={{ fontSize:"10px" }}>{t.label}</span>
               </button>
