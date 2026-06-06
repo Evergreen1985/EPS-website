@@ -50,13 +50,13 @@ Convert the following school content into a short spoken audio message for paren
 Write the ENTIRE message in ${cfg.name}. Do not mix languages — EXCEPT for the items noted below, which must stay in English.
 
 Guidelines:
-- Start with: "${cfg.greeting}"
+- Start with a brief: "${cfg.greeting}"
 - Write in ${cfg.style}
-- Keep it concise and natural — read out the key information clearly
+- Read out ONLY the information in the content, faithfully and clearly. This is a notice/homework being read aloud — NOT a podcast.
+- Keep it SHORT and proportional to the content. Do NOT expand, pad, repeat, or invent any details that are not in the content. A one or two line notice should become just a short spoken message (greeting + the information + closing).
 - Preserve numbers, ranges (e.g. "1 to 10"), English letters (A, B, C), and any words/proper nouns the author wrote in English EXACTLY as written — do NOT translate or transliterate them.${keepLine}
-- End with: "${cfg.closing}"
+- End with a brief: "${cfg.closing}"
 - Write exactly as it will be spoken — no stage directions, no [brackets], no asterisks
-- Target 120-250 words
 
 Title: ${title || "School Update"}
 
