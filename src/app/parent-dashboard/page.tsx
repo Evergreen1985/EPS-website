@@ -16,6 +16,7 @@ import ParentKBChat from "@/components/ParentKBChat";
 import AudioPlayer from "@/components/AudioPlayer";
 import CommunityTab from "@/components/CommunityTab";
 import ReelsTab from "@/components/ReelsTab";
+import ParentHomeworkWeb from "@/components/ParentHomeworkWeb";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ── Razorpay global type ─────────────────────────────────
@@ -696,32 +697,9 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
                     <div style={{ fontWeight:700, fontSize:"14px", color:"#B08000", marginBottom:"4px" }}>Section not assigned yet</div>
                     <div style={{ fontSize:"12px", color:"#6B7A99" }}>Homework will appear here once admin assigns your child to a class section.</div>
                   </div>
-                ) : homework.length === 0 ? (
-                  <div style={{ background:"rgba(23,143,120,0.06)", border:"1px solid rgba(23,143,120,0.2)", borderRadius:"14px", padding:"20px", textAlign:"center" }}>
-                    <div style={{ fontSize:"28px", marginBottom:"8px" }}>🎉</div>
-                    <div style={{ fontWeight:700, fontSize:"14px", color:"#178F78" }}>No pending homework!</div>
-                  </div>
-                ) : homework.map((hw:any) => {
-                  const isDone = doneHW.has(hw.id);
-                  return (
-                    <div key={hw.id} style={{ border:`1px solid ${isDone?"rgba(23,143,120,0.3)":"#EDE8DF"}`, borderRadius:"14px", padding:"14px", marginBottom:"10px", background:isDone?"rgba(23,143,120,0.04)":"white", transition:"all 0.2s" }}>
-                      <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:"10px" }}>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:700, fontSize:"14px", color: isDone ? "#6B7A99" : "#1A2F4A", marginBottom:"4px", textDecoration: isDone ? "line-through" : "none" }}>{hw.title}</div>
-                          {hw.description && <div style={{ fontSize:"11px", color:"#6B7A99", marginBottom:"6px" }}>{hw.description}</div>}
-                          {hw.subject && <div style={{ fontSize:"10px", color:"#6366F1", fontWeight:700, marginBottom:"4px" }}>📖 {hw.subject}</div>}
-                          <div style={{ fontSize:"11px", color:isDone?"#178F78":(new Date(hw.due_date)<new Date()?"#E8694A":"#6B7A99"), fontWeight:700 }}>
-                            {isDone ? "✅ Completed" : `Due: ${new Date(hw.due_date).toLocaleDateString("en-IN")}`}
-                          </div>
-                        </div>
-                        <button onClick={() => markHomeworkDone(hw.id)}
-                          style={{ flexShrink:0, background: isDone ? "rgba(23,143,120,0.1)" : "#178F78", color: isDone ? "#178F78" : "white", border: isDone ? "1px solid rgba(23,143,120,0.3)" : "none", borderRadius:"10px", padding:"6px 12px", fontSize:"11px", fontWeight:700, cursor:"pointer", whiteSpace:"nowrap" as const }}>
-                          {isDone ? "↩ Undo" : "✅ Mark Done"}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                ) : (
+                  <ParentHomeworkWeb homework={homework} enquiryId={selectedChild?.id || ""} childName={selectedChild?.child_name || ""} />
+                )}
               </div>
             )}
 
