@@ -23,6 +23,11 @@ export async function POST(req: NextRequest) {
     const { data: yearData } = await sb.from("academic_years").select("id").eq("is_current", true).single();
     const currentYearId = yearData?.id || null;
 
+    // Section lookup — match the sheet's "Section" value (case-insensitive) to a real section row
+    const { data: sectionRows } = await sb.from("sections").select("id, name, program_id, program_label");
+    const sectionByName: Record<string, any> = {};
+    (sectionRows || []).forEach((s: any) => { sectionByName[String(s.name).trim().toLowerCase()] = s; });
+
     const results = { success: 0, failed: 0, errors: [] as string[] };
     const validStatuses = ["new","called","visited","enrolled","not-interested"];
 
@@ -38,10 +43,30 @@ export async function POST(req: NextRequest) {
       }
 
       const status = clean(row.status) || "new";
+
+      // Resolve section (optional). If it doesn't match a known section, fail the row clearly.
+      const sectionInput = clean(row.section);
+      let section_id: string | null = null;
+      let section_name: string | null = null;
+      let sectionProgramLabel: string | null = null;
+      if (sectionInput) {
+        const sec = sectionByName[sectionInput.toLowerCase()];
+        if (!sec) {
+          results.failed++;
+          results.errors.push(`Row ${rowNum} (${child_name}): Unknown section "${sectionInput}". Valid: ${(sectionRows || []).map((s: any) => s.name).join(", ")}`);
+          continue;
+        }
+        section_id = sec.id;
+        section_name = sec.name;
+        sectionProgramLabel = sec.program_label || null;
+      }
+
       const record: any = {
         child_name,
         child_dob:        clean(row.child_dob),
-        program_label:    clean(row.program_label) || "Not specified",
+        program_label:    clean(row.program_label) || sectionProgramLabel || "Not specified",
+        section_id,
+        section_name,
         status:           validStatuses.includes(status) ? status : "new",
         father_name:      clean(row.father_name),
         mother_name:      clean(row.mother_name),

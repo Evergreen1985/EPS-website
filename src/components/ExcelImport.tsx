@@ -18,6 +18,8 @@ const STUDENT_COLS = [
   { key: "child_dob",     label: "Date of Birth",  required: false, type: "date",   example: "15/08/2020"        },
   { key: "program_label", label: "Programme",      required: false, type: "select", example: "Nursery",
     options: ["Infant Care","Playgroup","Nursery","Junior KG","Senior KG","Full-Day Daycare","After-School"] },
+  { key: "section",       label: "Section",        required: false, type: "select", example: "UKG A",
+    options: ["","Infantcare","Playgroup A","Playgroup B","Nursery A","Nursery B","LKG A","LKG B","UKG A","UKG B","Daycare"] },
   { key: "status",        label: "Status",         required: false, type: "select", example: "enrolled",
     options: ["new","called","visited","enrolled","not-interested"] },
   { key: "father_name",   label: "Father Name",    required: false, type: "text",   example: "Ramesh Kumar"      },
