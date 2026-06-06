@@ -12,14 +12,16 @@ import BirthdayPanel from "@/components/BirthdayPanel";
 import PTMScheduler from "@/components/PTMScheduler";
 import StaffTrainingChat from "@/components/StaffTrainingChat";
 import CommunityTab from "@/components/CommunityTab";
+import ReelComposer from "@/components/ReelComposer";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm" | "training" | "community";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "reels" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm" | "training" | "community";
 
 const TD_TABS = [
   { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
   { key: "homework"   as TeacherTab, icon: "📚", label: "Homework"   },
   { key: "students"   as TeacherTab, icon: "👶", label: "Students"   },
   { key: "photos"     as TeacherTab, icon: "📸", label: "Photos"     },
+  { key: "reels"      as TeacherTab, icon: "🎬", label: "Reels"      },
   { key: "kit"        as TeacherTab, icon: "🎒", label: "Kit"        },
   { key: "messages"   as TeacherTab, icon: "💬", label: "Messages"   },
   { key: "transport"  as TeacherTab, icon: "🚌", label: "Transport"  },
@@ -1022,6 +1024,12 @@ export default function TeacherDashboardPage() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === "reels" && (
+          <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px" }}>
+            <ReelComposer role="teacher" sectionId={currentSectionId} schoolName="Evergreen Preschool" />
           </div>
         )}
 

@@ -15,7 +15,7 @@ import IncidentLog from "@/components/IncidentLog";
 import ParentKBChat from "@/components/ParentKBChat";
 import AudioPlayer from "@/components/AudioPlayer";
 import CommunityTab from "@/components/CommunityTab";
-import ReelsTab from "@/components/ReelsTab";
+import ReelComposer from "@/components/ReelComposer";
 import ParentHomeworkWeb from "@/components/ParentHomeworkWeb";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
@@ -1067,7 +1067,7 @@ ${f.reference_number ? `<p class="label">Reference</p><p style="font-family:mono
             )}
 
             {tab === "reels" && (
-              <ReelsTab phone={session?.phone || ""} />
+              <ReelComposer role="parent" phone={session?.phone || ""} />
             )}
 
             {/* ══ PROFILE TAB ══ */}

@@ -8,8 +8,9 @@ import {
 } from "lucide-react";
 import AttendanceReport from "@/components/AttendanceReport";
 import OwnerTestRunner from "@/components/OwnerTestRunner";
+import ReelComposer from "@/components/ReelComposer";
 
-type OwnerTab = "overview" | "admissions" | "fees" | "expenses" | "attendance" | "staff" | "messages" | "insights" | "roles" | "cleanup" | "tests";
+type OwnerTab = "overview" | "admissions" | "fees" | "expenses" | "attendance" | "staff" | "messages" | "insights" | "reels" | "roles" | "cleanup" | "tests";
 
 const TABS: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
   { id: "overview",    label: "Overview",    icon: <LayoutDashboard size={16} /> },
@@ -20,6 +21,7 @@ const TABS: { id: OwnerTab; label: string; icon: React.ReactNode }[] = [
   { id: "staff",       label: "Staff",       icon: <UserCheck size={16} /> },
   { id: "messages",    label: "Messages",    icon: <MessageSquare size={16} /> },
   { id: "insights",    label: "AI Insights", icon: <Lightbulb size={16} /> },
+  { id: "reels",       label: "🎬 Reels",     icon: null },
   { id: "roles",       label: "Staff Roles",  icon: <UserCheck size={16} /> },
   { id: "cleanup",     label: "Data Cleanup", icon: <ShieldAlert size={16} /> },
   { id: "tests",       label: "🔬 Tests",      icon: null },
@@ -67,6 +69,7 @@ const ALL_TD_TABS = [
   { key: "td:homework",   label: "📚 Homework"   },
   { key: "td:students",   label: "👶 Students"   },
   { key: "td:photos",     label: "📸 Photos"     },
+  { key: "td:reels",      label: "🎬 Reels"      },
   { key: "td:kit",        label: "🎒 Kit"        },
   { key: "td:messages",   label: "💬 Messages"   },
 ];
@@ -1016,6 +1019,12 @@ export default function OwnerDashboard() {
                 <div>Click Generate Insights to get AI-powered suggestions for your school</div>
               </div>
             )}
+          </div>
+        )}
+
+        {tab === "reels" && (
+          <div style={{ background: "white", borderRadius: "16px", padding: "20px", maxWidth: "560px" }}>
+            <ReelComposer role="owner" schoolName="Evergreen Preschool" />
           </div>
         )}
 

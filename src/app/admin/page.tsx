@@ -25,6 +25,7 @@ import TestimonialsManager from "@/components/TestimonialsManager";
 import IncidentLog from "@/components/IncidentLog";
 import KnowledgeBaseAdmin from "@/components/KnowledgeBaseAdmin";
 import AudioOverviewAdmin from "@/components/AudioOverviewAdmin";
+import ReelComposer from "@/components/ReelComposer";
 
 let _sb: SupabaseClient | null = null;
 async function getSb() {
@@ -39,7 +40,7 @@ async function getSb() {
   return _sb;
 }
 
-type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup" | "payroll" | "ptm" | "blog" | "referrals" | "followups" | "birthdays" | "testimonials" | "incidents" | "knowledgebase" | "audiooverviews";
+type AdminTab = "enquiries" | "sections" | "calendar" | "photos" | "reels" | "fees" | "staff" | "settings" | "import" | "kit" | "announcements" | "expenses" | "reports" | "transport" | "medical" | "pickup" | "payroll" | "ptm" | "blog" | "referrals" | "followups" | "birthdays" | "testimonials" | "incidents" | "knowledgebase" | "audiooverviews";
 
 const STATUS_OPTIONS   = ["new","called","visited","enrolled","not-interested"];
 const EVENT_TYPES = ["holiday","festival","activity","exam","ptm","sports"];
@@ -726,6 +727,7 @@ export default function AdminPage() {
           { key:"sections",  label:"🏫 Sections",  count: sections.length  },
           { key:"calendar",  label:"📅 Calendar",  count: events.length    },
           { key:"photos",    label:"📸 Photos",    count: 0                },
+          { key:"reels",     label:"🎬 Reels",     count: 0                },
           { key:"fees",      label:"💳 Fees",      count: 0                },
           { key:"staff",     label:"👩‍🏫 Staff",    count: 0                },
           { key:"settings",  label:"⚙️ Settings",  count: 0                },
@@ -1439,6 +1441,12 @@ export default function AdminPage() {
         {tab === "settings" && <SchoolSettingsTab />}
 
         {/* ══ PHOTOS TAB ══ */}
+        {tab === "reels" && (
+          <div style={{ background:"white", borderRadius:"20px", border:"1px solid #EDE8DF", padding:"20px", maxWidth:"560px" }}>
+            <ReelComposer role="admin" schoolName="Evergreen Preschool" />
+          </div>
+        )}
+
         {tab === "photos" && (
           <div style={{ display:"flex", flexDirection:"column", gap:"28px" }}>
             {/* ── Website display photos ── */}
