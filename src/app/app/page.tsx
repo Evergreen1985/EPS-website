@@ -5,10 +5,11 @@ export const metadata: Metadata = {
   description: "Download and install the iVa Android app for Evergreen Prep teachers and parents.",
 };
 
+// Hosted on GitHub Releases (free, no file-size cap; stable "latest" URL).
 const APK_URL =
-  "https://mmznugcbwbjeqnmmwmxn.supabase.co/storage/v1/object/public/downloads/iva/iVa-v1.0.1-test.apk";
+  "https://github.com/Evergreen1985/iVaApp/releases/latest/download/iVa-v1.0.1-test.apk";
 const VERSION = "v1.0.1";
-const SIZE = "≈ 50 MB";
+const SIZE = "≈ 51 MB";
 
 const steps = [
   "Tap the Download button above. The file iVa-v1.0.1-test.apk will save to your phone.",
