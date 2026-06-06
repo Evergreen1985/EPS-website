@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
   let query = sb()
     .from("section_photos")
-    .select("id, photo_url, title, section_name, uploaded_at")
+    .select("id, photo_url, title, section_name, uploaded_at, ai_tags, ai_caption")
     .order("uploaded_at", { ascending: false })
     .limit(60);
 
