@@ -17,8 +17,8 @@ export async function GET(req: Request) {
 
   const { data, error } = await sb()
     .from("enquiries")
-    .select("id, child_name, dob, section_name, program_label, parent_name, phone")
-    .not("dob", "is", null)
+    .select("id, child_name, child_dob, section_name, program_label, parent_name, phone")
+    .not("child_dob", "is", null)
     .neq("status", "not-interested");
 
   if (error) return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
@@ -28,8 +28,8 @@ export async function GET(req: Request) {
 
   const result = (data || [])
     .map(child => {
-      if (!child.dob) return null;
-      const dob = new Date(child.dob);
+      if (!child.child_dob) return null;
+      const dob = new Date(child.child_dob);
       const thisYear = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
       let nextBirthday = thisYear;
       if (thisYear < today) {
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 
       return {
         ...child,
-        dob:          child.dob,
+        dob:          child.child_dob,
         daysUntil,
         isToday,
         age,
