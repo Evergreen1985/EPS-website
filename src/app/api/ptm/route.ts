@@ -75,10 +75,39 @@ export async function POST(req: Request) {
   if (!slotDate || !startTime || !endTime || !teacherName) {
     return NextResponse.json({ error: "slotDate, startTime, endTime, teacherName required" }, { status: 400 });
   }
+
+  // Resolve the section — callers may send a section name OR a section id.
+  // Store the real section NAME so scoping stays consistent.
+  let resolvedName = (sectionName || "").trim();
+  if (resolvedName) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedName);
+    const { data: sec } = await sb()
+      .from("sections")
+      .select("name")
+      .eq(isUuid ? "id" : "name", resolvedName)
+      .maybeSingle()
+      .then((r) => r, () => ({ data: null }));
+    if (sec?.name) resolvedName = sec.name;
+  }
+
   const { data, error } = await sb().from("ptm_slots")
-    .insert({ slot_date: slotDate, start_time: startTime, end_time: endTime, teacher_name: teacherName, section_name: sectionName || "", max_bookings: maxBookings || 1, notes: notes || "" })
+    .insert({ slot_date: slotDate, start_time: startTime, end_time: endTime, teacher_name: teacherName, section_name: resolvedName, max_bookings: maxBookings || 1, notes: notes || "" })
     .select().single();
   if (error) return NextResponse.json({ error: "Failed to create slot" }, { status: 500 });
+
+  // Surface the PTM to parents as a calendar event (tagged with the section via
+  // `affects` so the parent app can scope it; school-wide if no section).
+  await sb().from("calendar_events").insert({
+    title:       resolvedName ? `PTM — ${resolvedName}` : "Parent-Teacher Meeting",
+    event_date:  slotDate,
+    event_type:  "ptm",
+    description: `Parent-Teacher Meeting ${startTime}–${endTime}${teacherName ? ` with ${teacherName}` : ""}.${notes ? ` ${notes}` : ""}`,
+    affects:     resolvedName || "all",
+    icon:        "👨‍👩‍👧",
+    color:       "#8B5CF6",
+    created_by:  teacherName || "teacher",
+  }).then((r) => r, () => null); // non-fatal: slot is created even if the event insert fails
+
   return NextResponse.json({ success: true, data });
 }
 
