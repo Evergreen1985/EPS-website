@@ -37,7 +37,9 @@ export async function GET(req: Request) {
     return NextResponse.json(data || []);
   }
 
-  // Default: available slots
+  // Default: available slots — scoped to the requested section so a parent only
+  // sees their child's section's PTM (plus any school-wide slots with no section).
+  const section = searchParams.get("sectionName") || searchParams.get("sectionId") || searchParams.get("section");
   let query = sb().from("ptm_slots")
     .select("*, ptm_bookings(id)")
     .eq("is_active", true)
@@ -46,7 +48,9 @@ export async function GET(req: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "Failed to fetch slots" }, { status: 500 });
-  return NextResponse.json(data || []);
+  let slots = data || [];
+  if (section) slots = slots.filter((s: any) => !s.section_name || s.section_name === section);
+  return NextResponse.json(slots);
 }
 
 // POST /api/ptm — create slot or booking
