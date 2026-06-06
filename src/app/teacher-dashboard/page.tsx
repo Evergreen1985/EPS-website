@@ -11,8 +11,9 @@ import IncidentLog from "@/components/IncidentLog";
 import BirthdayPanel from "@/components/BirthdayPanel";
 import PTMScheduler from "@/components/PTMScheduler";
 import StaffTrainingChat from "@/components/StaffTrainingChat";
+import CommunityTab from "@/components/CommunityTab";
 
-type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm" | "training";
+type TeacherTab = "attendance" | "homework" | "students" | "photos" | "kit" | "messages" | "transport" | "incidents" | "birthdays" | "ptm" | "training" | "community";
 
 const TD_TABS = [
   { key: "attendance" as TeacherTab, icon: "📅", label: "Attendance" },
@@ -26,6 +27,7 @@ const TD_TABS = [
   { key: "birthdays"  as TeacherTab, icon: "🎂", label: "Birthdays"  },
   { key: "ptm"        as TeacherTab, icon: "📅", label: "PTM"        },
   { key: "training"   as TeacherTab, icon: "🎓", label: "Training"   },
+  { key: "community"  as TeacherTab, icon: "👪", label: "Community"  },
 ];
 
 const ATT_STATUS = [
@@ -1143,6 +1145,10 @@ export default function TeacherDashboardPage() {
           <div style={{ maxWidth:"900px", margin:"0 auto", padding:"16px" }}>
             <StaffTrainingChat />
           </div>
+        )}
+
+        {tab === "community" && (
+          <CommunityTab userType="teacher" userRef={session?.username || session?.name || "teacher"} displayName={session?.name || "Teacher"} />
         )}
 
       </div>
