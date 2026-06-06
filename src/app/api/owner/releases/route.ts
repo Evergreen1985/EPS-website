@@ -17,24 +17,29 @@ async function owner() {
   return token ? await verifyOwnerSession(token) : null;
 }
 
-// Promote a verified web build to production (evergreenprepschools.com) by
-// fast-forwarding the `production` branch to the approved commit. Only runs when
-// a promote token is configured; otherwise the approval is just recorded.
-async function promoteWeb(commitSha: string): Promise<{ ok: boolean; detail: string }> {
-  const token = process.env.GITHUB_PROMOTE_TOKEN;
-  const repo  = process.env.PROMOTE_REPO || "Evergreen1985/EPS-website";
-  const branch = process.env.PROMOTE_BRANCH || "production";
-  if (!token) return { ok: false, detail: "no GITHUB_PROMOTE_TOKEN configured — approval recorded, promotion pending setup" };
-  if (!commitSha) return { ok: false, detail: "no commit on this release to promote" };
+// Promote the latest verified build (currently on edu.intelliverify.in staging)
+// LIVE to evergreenprepschools.com by aliasing that exact Vercel deployment onto
+// the production domains. evergreen is pinned (gitBranch=production) so normal
+// pushes don't touch it — only this approval re-aliases it.
+async function promoteWeb(): Promise<{ ok: boolean; detail: string }> {
+  const token = process.env.VERCEL_TOKEN;
+  const team  = process.env.VERCEL_TEAM_ID || "";
+  const proj  = process.env.VERCEL_PROJECT_ID || "prj_q532S7EaZj7XNSBk6jTnDnpH2DlW";
+  if (!token) return { ok: false, detail: "no VERCEL_TOKEN configured — approval recorded, promotion pending env setup" };
+  const q = team ? `&teamId=${team}` : "";
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/git/refs/heads/${branch}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
-      body: JSON.stringify({ sha: commitSha, force: false }),
-    });
-    if (res.ok) return { ok: true, detail: `production branch -> ${commitSha.slice(0, 7)} (Vercel will deploy evergreenprepschools.com)` };
-    const t = await res.text();
-    return { ok: false, detail: `GitHub promote failed (${res.status}): ${t.slice(0, 160)}` };
+    const dres = await fetch(`https://api.vercel.com/v6/deployments?projectId=${proj}&target=production&state=READY&limit=1${q}`,
+      { headers: { Authorization: `Bearer ${token}` } });
+    const dj = await dres.json();
+    const dep = (dj.deployments || [])[0];
+    if (!dep?.uid) return { ok: false, detail: "no ready production deployment found to promote" };
+    for (const alias of ["evergreenprepschools.com", "www.evergreenprepschools.com"]) {
+      const r = await fetch(`https://api.vercel.com/v2/deployments/${dep.uid}/aliases?teamId=${team}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ alias }) });
+      if (!r.ok) return { ok: false, detail: `alias ${alias} failed (${r.status}): ${(await r.text()).slice(0, 120)}` };
+    }
+    const sha = (dep.meta?.gitlabCommitSha || dep.meta?.githubCommitSha || "").slice(0, 7);
+    return { ok: true, detail: `promoted ${dep.url}${sha ? ` (${sha})` : ""} → evergreenprepschools.com` };
   } catch (e: any) {
     return { ok: false, detail: "promote error: " + (e?.message || "unknown") };
   }
@@ -78,7 +83,7 @@ export async function POST(req: NextRequest) {
     let promo = { ok: true, detail: "approved" };
     let prodUrl = rel.prod_url;
     if (rel.kind === "web") {
-      promo = await promoteWeb(rel.commit_sha);
+      promo = await promoteWeb();
       prodUrl = "https://evergreenprepschools.com";
     } else {
       prodUrl = rel.staging_url; // app: the approved APK is the live one
