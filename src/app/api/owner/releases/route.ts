@@ -21,25 +21,29 @@ async function owner() {
 // LIVE to evergreenprepschools.com by aliasing that exact Vercel deployment onto
 // the production domains. evergreen is pinned (gitBranch=production) so normal
 // pushes don't touch it — only this approval re-aliases it.
-async function promoteWeb(): Promise<{ ok: boolean; detail: string }> {
+async function promoteWeb(deploymentId?: string | null): Promise<{ ok: boolean; detail: string }> {
   const token = process.env.VERCEL_TOKEN;
   const team  = process.env.VERCEL_TEAM_ID || "";
   const proj  = process.env.VERCEL_PROJECT_ID || "prj_q532S7EaZj7XNSBk6jTnDnpH2DlW";
   if (!token) return { ok: false, detail: "no VERCEL_TOKEN configured — approval recorded, promotion pending env setup" };
   const q = team ? `&teamId=${team}` : "";
   try {
-    const dres = await fetch(`https://api.vercel.com/v6/deployments?projectId=${proj}&target=production&state=READY&limit=1${q}`,
-      { headers: { Authorization: `Bearer ${token}` } });
-    const dj = await dres.json();
-    const dep = (dj.deployments || [])[0];
-    if (!dep?.uid) return { ok: false, detail: "no ready production deployment found to promote" };
+    let uid = deploymentId || "";
+    let url = "", sha = "";
+    if (!uid) {
+      // fallback: the latest ready production deployment
+      const dres = await fetch(`https://api.vercel.com/v6/deployments?projectId=${proj}&target=production&state=READY&limit=1${q}`,
+        { headers: { Authorization: `Bearer ${token}` } });
+      const dep = ((await dres.json()).deployments || [])[0];
+      if (!dep?.uid) return { ok: false, detail: "no ready production deployment found to promote" };
+      uid = dep.uid; url = dep.url; sha = (dep.meta?.gitlabCommitSha || "").slice(0, 7);
+    }
     for (const alias of ["evergreenprepschools.com", "www.evergreenprepschools.com"]) {
-      const r = await fetch(`https://api.vercel.com/v2/deployments/${dep.uid}/aliases?teamId=${team}`,
+      const r = await fetch(`https://api.vercel.com/v2/deployments/${uid}/aliases?teamId=${team}`,
         { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ alias }) });
       if (!r.ok) return { ok: false, detail: `alias ${alias} failed (${r.status}): ${(await r.text()).slice(0, 120)}` };
     }
-    const sha = (dep.meta?.gitlabCommitSha || dep.meta?.githubCommitSha || "").slice(0, 7);
-    return { ok: true, detail: `promoted ${dep.url}${sha ? ` (${sha})` : ""} → evergreenprepschools.com` };
+    return { ok: true, detail: `promoted ${url || uid}${sha ? ` (${sha})` : ""} → evergreenprepschools.com` };
   } catch (e: any) {
     return { ok: false, detail: "promote error: " + (e?.message || "unknown") };
   }
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
     let promo = { ok: true, detail: "approved" };
     let prodUrl = rel.prod_url;
     if (rel.kind === "web") {
-      promo = await promoteWeb();
+      promo = await promoteWeb(rel.deployment_id);
       prodUrl = "https://evergreenprepschools.com";
     } else {
       prodUrl = rel.staging_url; // app: the approved APK is the live one
