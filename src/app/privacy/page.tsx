@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 const UPDATED = "23 August 2026";
-const CONTACT_EMAIL = "info@evergreenpreschool.com";
+const CONTACT_EMAIL = "developer@intelliverify.ai";
 const CONTACT_PHONE = "7411574504";
 
 export default function PrivacyPolicyPage() {
