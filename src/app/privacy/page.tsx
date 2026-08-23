@@ -6,7 +6,7 @@ export const metadata: Metadata = {
     "How the iVa app and Evergreen Preschool & Daycare collect, use, and protect personal information.",
 };
 
-const UPDATED = "30 June 2026";
+const UPDATED = "23 August 2026";
 const CONTACT_EMAIL = "info@evergreenpreschool.com";
 const CONTACT_PHONE = "7411574504";
 
@@ -23,6 +23,8 @@ export default function PrivacyPolicyPage() {
         app and our school web portal (together, the &ldquo;Service&rdquo;). The
         Service is provided to enrolled families and school staff to support
         communication, learning updates, fee payments, and school transport.
+        The mobile app is distributed as <strong>iVa</strong> and{" "}
+        <strong>IVA Edu</strong>.
       </p>
 
       <Section title="1. Who the Service is for">
@@ -41,13 +43,41 @@ export default function PrivacyPolicyPage() {
             secure your account.
           </li>
           <li>
-            <strong>Child information</strong> — child name, class/section,
-            attendance, homework status, and teacher progress notes, entered by
-            school staff.
+            <strong>Child information</strong> — child name, date of birth,
+            class/section, attendance, homework status, fee/payment status, and
+            teacher progress notes, entered by school staff or parents.
           </li>
           <li>
-            <strong>Photos &amp; media</strong> — classroom and activity photos
-            uploaded by teachers, and any images you choose to upload.
+            <strong>Medical information</strong> — blood group, allergies,
+            medical conditions, and emergency contacts, provided by the
+            parent/guardian so the school can care for the child safely.
+          </li>
+          <li>
+            <strong>Pickup authorization</strong> — the names, relationship, and
+            phone numbers of persons a parent authorizes to collect the child.
+          </li>
+          <li>
+            <strong>Documents</strong> — enrolment and verification documents
+            uploaded by the parent/guardian or school.
+          </li>
+          <li>
+            <strong>Photos &amp; videos</strong> — classroom and activity photos
+            and short videos (&ldquo;reels&rdquo;) uploaded by teachers, and any
+            images you choose to upload.
+          </li>
+          <li>
+            <strong>Face recognition data (biometric information)</strong> — to
+            help staff tag children in school photos, the app uses on-device
+            face-detection technology. A numerical representation
+            (&ldquo;face template&rdquo;) of a face is generated{" "}
+            <strong>on the device</strong> only to match faces during tagging; it
+            is processed in memory and is <strong>not stored on our servers,
+            sold, or shared</strong>. Only the resulting tag — the child&rsquo;s
+            name and the position of the face box in the photo — is saved, so a
+            parent sees photos relevant to their own child. This feature is used
+            only within the school&rsquo;s account and never for advertising, and,
+            where required by law, relies on the consent obtained from the
+            parent/guardian by the school.
           </li>
           <li>
             <strong>Location</strong> — when a driver or helper shares the school
@@ -60,10 +90,14 @@ export default function PrivacyPolicyPage() {
             to deliver announcements and alerts.
           </li>
           <li>
-            <strong>Payment information</strong> — fee payments are processed by
-            our third-party payment provider (Razorpay). We receive a record of
-            the transaction (amount, status, receipt) but do not store full card
-            or bank details on our servers.
+            <strong>Payment information</strong> — the mobile app{" "}
+            <strong>displays</strong> fee amounts, due dates, payment status, and
+            the payment mode recorded by the school (cash, UPI, or bank); it does
+            not itself take card or bank details. Where online fee payment is
+            offered through our web portal, it is handled by our third-party
+            payment provider (Razorpay); we receive a record of the transaction
+            (amount, status, receipt) but do not store full card or bank details
+            on our servers.
           </li>
         </ul>
       </Section>
@@ -71,6 +105,10 @@ export default function PrivacyPolicyPage() {
       <Section title="3. How we use information">
         <ul className="mt-2 list-disc space-y-2 pl-6">
           <li>To provide school updates, homework, photos, and announcements.</li>
+          <li>
+            To detect and tag faces in school photos so parents see photos
+            relevant to their own child.
+          </li>
           <li>To process and record fee payments and issue receipts.</li>
           <li>To show live school-bus location to authorised parents.</li>
           <li>To send notifications you have opted into.</li>
