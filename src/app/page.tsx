@@ -77,7 +77,7 @@ const SlideDots = ({ total, cur, onDot }: { total: number; cur: number; onDot: (
 // ─── main component ───────────────────────────────────────
 const DEFAULT_SITE = {
   name: "Evergreen Preschool & Daycare",
-  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  contact: { phone: "7411574504", email: "developer@intelliverify.ai" },
   hours: { weekdays: "7:00 AM – 7:00 PM", saturday: "8:00 AM – 1:00 PM", sunday: "Closed" },
   about: { mission: "To provide a safe, caring, and stimulating environment that promotes each child's social, emotional, physical, and cognitive development.", vision: "To be recognised as a leading preschool and daycare centre that prepares children to become confident, creative, and compassionate individuals." },
 };

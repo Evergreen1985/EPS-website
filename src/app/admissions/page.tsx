@@ -43,7 +43,7 @@ export default function AdmissionsPage() {
   const [form, setForm] = useState({ parentName:"",phone:"",email:"",childName:"",childDob:"",program:"",message:"",heardFrom:"" });
   const [status, setStatus] = useState<Status>("idle");
   const [openFaq, setOpenFaq] = useState<number|null>(null);
-  const [school, setSchool] = useState({ name:"Evergreen Preschool & Daycare", shortName:"Evergreen", contact:{phone:"7411574504",email:"info@evergreenpreschool.com"}, hours:{weekdays:"7:00 AM – 7:00 PM"} });
+  const [school, setSchool] = useState({ name:"Evergreen Preschool & Daycare", shortName:"Evergreen", contact:{phone:"7411574504",email:"developer@intelliverify.ai"}, hours:{weekdays:"7:00 AM – 7:00 PM"} });
   useEffect(() => { fetch("/api/config").then(r=>r.json()).then(d=>{if(d.school)setSchool(d.school);}).catch(()=>{}); }, []);
 
   const set = (k:string,v:string) => setForm(p=>({...p,[k]:v}));

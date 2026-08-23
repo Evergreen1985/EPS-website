@@ -14,7 +14,7 @@ interface SchoolPublic {
 const DEFAULT: SchoolPublic = {
   name: "Evergreen Preschool & Daycare", shortName: "Evergreen",
   branding: { logoUrl: "/logo.png" },
-  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  contact: { phone: "7411574504", email: "developer@intelliverify.ai" },
   address: { short: "Electronic City, Bengaluru – 560100" },
   theme: { primaryColor: "#178F78", secondaryColor: "#E8694A" },
 };

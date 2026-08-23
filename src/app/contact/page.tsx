@@ -6,7 +6,7 @@ type Status = "idle" | "sending" | "success";
 
 const DEFAULT_SCHOOL = {
   name: "Evergreen Preschool & Daycare",
-  contact: { phone: "7411574504", email: "info@evergreenpreschool.com" },
+  contact: { phone: "7411574504", email: "developer@intelliverify.ai" },
   address: { short: "1427, 13th Cross, Ananthnagar Phase 2, Electronic City, Bengaluru – 560100", mapEmbedUrl: "https://maps.google.com/maps?q=1427+13th+Cross+Rd+Ananth+Nagar+Phase+2+Electronic+City+Bengaluru+Karnataka+560100&output=embed" },
   hours: { weekdays: "7:00 AM – 7:00 PM", saturday: "8:00 AM – 1:00 PM", sunday: "Closed" },
   faq: [] as Array<{q:string;a:string}>,
